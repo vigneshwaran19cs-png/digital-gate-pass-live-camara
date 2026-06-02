@@ -3,20 +3,31 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Smart Hostel Leave & Digital Outpass Management System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: leaves
+    description: Leave requests
+  - name: outpasses
+    description: Digital outpasses
+  - name: notifications
+    description: Notifications
+  - name: dashboard
+    description: Analytics and dashboards
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +35,1079 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── AUTH ──────────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+  # ─── USERS ─────────────────────────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users
+      parameters:
+        - in: query
+          name: role
+          schema:
+            type: string
+        - in: query
+          name: department
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete user
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── LEAVE REQUESTS ────────────────────────────────────────────────────────
+  /leaves:
+    get:
+      operationId: listLeaves
+      tags: [leaves]
+      summary: List leave requests
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: studentId
+          schema:
+            type: integer
+        - in: query
+          name: department
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of leave requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaveRequest"
+    post:
+      operationId: createLeave
+      tags: [leaves]
+      summary: Apply for leave
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeaveInput"
+      responses:
+        "201":
+          description: Leave request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /leaves/{id}:
+    get:
+      operationId: getLeave
+      tags: [leaves]
+      summary: Get leave request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Leave request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateLeave
+      tags: [leaves]
+      summary: Update leave request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeaveUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+    delete:
+      operationId: deleteLeave
+      tags: [leaves]
+      summary: Cancel leave request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Cancelled
+
+  /leaves/{id}/approve:
+    post:
+      operationId: approveLeave
+      tags: [leaves]
+      summary: Approve a leave request (for current role's step)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalAction"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /leaves/{id}/reject:
+    post:
+      operationId: rejectLeave
+      tags: [leaves]
+      summary: Reject a leave request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectionAction"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /leaves/{id}/parent-call:
+    post:
+      operationId: recordParentCall
+      tags: [leaves]
+      summary: Tutor records parent call outcome
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParentCallRecord"
+      responses:
+        "200":
+          description: Parent call recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /leaves/bulk-approve:
+    post:
+      operationId: bulkApproveLeaves
+      tags: [leaves]
+      summary: Bulk approve/reject multiple leave requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkApprovalInput"
+      responses:
+        "200":
+          description: Bulk action result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkApprovalResult"
+
+  /leaves/similar-groups:
+    get:
+      operationId: getSimilarLeaveGroups
+      tags: [leaves]
+      summary: Get groups of similar leave requests (same destination, dates, reason)
+      responses:
+        "200":
+          description: Similar leave groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SimilarLeaveGroup"
+
+  # ─── OUTPASSES ─────────────────────────────────────────────────────────────
+  /outpasses:
+    get:
+      operationId: listOutpasses
+      tags: [outpasses]
+      summary: List outpasses
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: studentId
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of outpasses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Outpass"
+
+  /outpasses/{id}:
+    get:
+      operationId: getOutpass
+      tags: [outpasses]
+      summary: Get outpass by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Outpass
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Outpass"
+        "404":
+          description: Not found
+
+  /outpasses/lookup:
+    get:
+      operationId: lookupOutpass
+      tags: [outpasses]
+      summary: Security lookup outpass by outpassCode, registerNumber, or studentName
+      parameters:
+        - in: query
+          name: outpassCode
+          schema:
+            type: string
+        - in: query
+          name: registerNumber
+          schema:
+            type: string
+        - in: query
+          name: studentName
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching outpasses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Outpass"
+
+  /outpasses/{id}/verify:
+    post:
+      operationId: verifyOutpass
+      tags: [outpasses]
+      summary: Security verifies outpass (records exit time, gate location)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OutpassVerifyInput"
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Outpass"
+
+  /outpasses/{id}/return:
+    post:
+      operationId: recordReturn
+      tags: [outpasses]
+      summary: Record student return to hostel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Return recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Outpass"
+
+  # ─── NOTIFICATIONS ─────────────────────────────────────────────────────────
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: Get notifications for current user
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark notification as read
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: All marked read
+
+  # ─── DASHBOARD / ANALYTICS ─────────────────────────────────────────────────
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/activity:
+    get:
+      operationId: getActivityFeed
+      tags: [dashboard]
+      summary: Get recent activity feed
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /dashboard/occupancy:
+    get:
+      operationId: getHostelOccupancy
+      tags: [dashboard]
+      summary: Get hostel occupancy breakdown
+      responses:
+        "200":
+          description: Occupancy data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostelOccupancy"
+
+  /dashboard/monthly-report:
+    get:
+      operationId: getMonthlyReport
+      tags: [dashboard]
+      summary: Get monthly leave statistics
+      parameters:
+        - in: query
+          name: month
+          schema:
+            type: integer
+        - in: query
+          name: year
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Monthly report
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonthlyReportItem"
+
+  /dashboard/students-outside:
+    get:
+      operationId: getStudentsOutside
+      tags: [dashboard]
+      summary: Get list of students currently outside
+      responses:
+        "200":
+          description: Students currently outside
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudentOutsideItem"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    # ── Auth ──────────────────────────────────────────────────────────────────
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    # ── User ─────────────────────────────────────────────────────────────────
+    User:
+      type: object
+      required: [id, name, email, role]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [student, tutor, hod, principal, warden, security, super_admin]
+        registerNumber:
+          type: ["string", "null"]
+        department:
+          type: ["string", "null"]
+        hostelRoom:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        parentPhone:
+          type: ["string", "null"]
+        photoUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    UserInput:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        role:
+          type: string
+          enum: [student, tutor, hod, principal, warden, security, super_admin]
+        registerNumber:
+          type: string
+        department:
+          type: string
+        hostelRoom:
+          type: string
+        phone:
+          type: string
+        parentPhone:
+          type: string
+        photoUrl:
+          type: string
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        parentPhone:
+          type: string
+        hostelRoom:
+          type: string
+        department:
+          type: string
+        photoUrl:
+          type: string
+
+    # ── Leave Request ─────────────────────────────────────────────────────────
+    LeaveRequest:
+      type: object
+      required: [id, studentId, leaveType, reason, fromDate, toDate, destination, status, currentStep, createdAt]
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        student:
+          $ref: "#/components/schemas/User"
+        leaveType:
+          type: string
+          enum: [home, medical, emergency, personal, educational]
+        reason:
+          type: string
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        destination:
+          type: string
+        status:
+          type: string
+          enum: [pending, warden_approved, tutor_approved, hod_approved, principal_approved, fully_approved, rejected, cancelled]
+        currentStep:
+          type: string
+          enum: [warden, tutor, hod, principal, completed, rejected]
+        wardenRemarks:
+          type: ["string", "null"]
+        tutorRemarks:
+          type: ["string", "null"]
+        hodRemarks:
+          type: ["string", "null"]
+        principalRemarks:
+          type: ["string", "null"]
+        parentCallStatus:
+          type: ["string", "null"]
+          enum: [pending, confirmed, rejected, not_reachable, completed, null]
+        parentCallNotes:
+          type: ["string", "null"]
+        outpassId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LeaveInput:
+      type: object
+      required: [leaveType, reason, fromDate, toDate, destination]
+      properties:
+        leaveType:
+          type: string
+          enum: [home, medical, emergency, personal, educational]
+        reason:
+          type: string
+          minLength: 1
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        destination:
+          type: string
+          minLength: 1
+
+    LeaveUpdate:
+      type: object
+      properties:
+        reason:
+          type: string
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        destination:
+          type: string
+
+    ApprovalAction:
+      type: object
+      properties:
+        remarks:
+          type: string
+
+    RejectionAction:
+      type: object
+      required: [remarks]
+      properties:
+        remarks:
+          type: string
+          minLength: 1
+
+    ParentCallRecord:
+      type: object
+      required: [callStatus]
+      properties:
+        callStatus:
+          type: string
+          enum: [confirmed, rejected, not_reachable, completed]
+        notes:
+          type: string
+
+    BulkApprovalInput:
+      type: object
+      required: [leaveIds, action]
+      properties:
+        leaveIds:
+          type: array
+          items:
+            type: integer
+        action:
+          type: string
+          enum: [approve, reject]
+        remarks:
+          type: string
+
+    BulkApprovalResult:
+      type: object
+      required: [processed, succeeded, failed]
+      properties:
+        processed:
+          type: integer
+        succeeded:
+          type: integer
+        failed:
+          type: integer
+
+    SimilarLeaveGroup:
+      type: object
+      required: [destination, fromDate, toDate, count, leaveIds]
+      properties:
+        destination:
+          type: string
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        reason:
+          type: ["string", "null"]
+        department:
+          type: ["string", "null"]
+        count:
+          type: integer
+        leaveIds:
+          type: array
+          items:
+            type: integer
+        leaves:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaveRequest"
+
+    # ── Outpass ──────────────────────────────────────────────────────────────
+    Outpass:
+      type: object
+      required: [id, leaveId, studentId, outpassCode, qrData, status, createdAt]
+      properties:
+        id:
+          type: integer
+        leaveId:
+          type: integer
+        studentId:
+          type: integer
+        student:
+          $ref: "#/components/schemas/User"
+        leave:
+          $ref: "#/components/schemas/LeaveRequest"
+        outpassCode:
+          type: string
+        qrData:
+          type: string
+        status:
+          type: string
+          enum: [generated, verified, returned, expired]
+        exitTime:
+          type: ["string", "null"]
+          format: date-time
+        returnTime:
+          type: ["string", "null"]
+          format: date-time
+        gateLocation:
+          type: ["string", "null"]
+        verifiedBy:
+          type: ["integer", "null"]
+        approvedByWarden:
+          type: ["string", "null"]
+        approvedByTutor:
+          type: ["string", "null"]
+        approvedByHod:
+          type: ["string", "null"]
+        approvedByPrincipal:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    OutpassVerifyInput:
+      type: object
+      required: [gateLocation]
+      properties:
+        gateLocation:
+          type: string
+          minLength: 1
+
+    # ── Notifications ─────────────────────────────────────────────────────────
+    Notification:
+      type: object
+      required: [id, userId, type, title, message, isRead, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        type:
+          type: string
+          enum: [leave_submitted, leave_approved, leave_rejected, outpass_generated, exit_recorded, return_reminder, parent_notified, bulk_action]
+        title:
+          type: string
+        message:
+          type: string
+        isRead:
+          type: boolean
+        leaveId:
+          type: ["integer", "null"]
+        outpassId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Dashboard Analytics ───────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [studentsOnLeave, studentsReturned, pendingApprovals, totalStudents, occupancyPercent, pendingWarden, pendingTutor, pendingHod, pendingPrincipal]
+      properties:
+        studentsOnLeave:
+          type: integer
+        studentsReturned:
+          type: integer
+        pendingApprovals:
+          type: integer
+        totalStudents:
+          type: integer
+        occupancyPercent:
+          type: number
+        pendingWarden:
+          type: integer
+        pendingTutor:
+          type: integer
+        pendingHod:
+          type: integer
+        pendingPrincipal:
+          type: integer
+        pendingReturns:
+          type: integer
+        todayApproved:
+          type: integer
+        todayRejected:
+          type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, type, description, timestamp]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        description:
+          type: string
+        studentName:
+          type: ["string", "null"]
+        registerNumber:
+          type: ["string", "null"]
+        timestamp:
+          type: string
+          format: date-time
+
+    HostelOccupancy:
+      type: object
+      required: [totalCapacity, currentlyPresent, currentlyAbsent, onLeave, occupancyPercent]
+      properties:
+        totalCapacity:
+          type: integer
+        currentlyPresent:
+          type: integer
+        currentlyAbsent:
+          type: integer
+        onLeave:
+          type: integer
+        occupancyPercent:
+          type: number
+        departmentBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeptOccupancy"
+
+    DeptOccupancy:
+      type: object
+      required: [department, total, present, onLeave]
+      properties:
+        department:
+          type: string
+        total:
+          type: integer
+        present:
+          type: integer
+        onLeave:
+          type: integer
+
+    MonthlyReportItem:
+      type: object
+      required: [date, approved, rejected, pending, total]
+      properties:
+        date:
+          type: string
+        approved:
+          type: integer
+        rejected:
+          type: integer
+        pending:
+          type: integer
+        total:
+          type: integer
+
+    StudentOutsideItem:
+      type: object
+      required: [outpassId, studentName, registerNumber, destination, exitTime, fromDate, toDate]
+      properties:
+        outpassId:
+          type: integer
+        studentName:
+          type: string
+        registerNumber:
+          type: string
+        department:
+          type: ["string", "null"]
+        hostelRoom:
+          type: ["string", "null"]
+        destination:
+          type: string
+        exitTime:
+          type: string
+          format: date-time
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        isOverdue:
+          type: boolean
