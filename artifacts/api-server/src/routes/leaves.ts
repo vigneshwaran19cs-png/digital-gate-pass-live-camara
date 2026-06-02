@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, SQL, inArray } from "drizzle-orm";
+import { eq, and, SQL, inArray, count, gte } from "drizzle-orm";
 import { db, leavesTable, usersTable, outpassesTable, notificationsTable } from "@workspace/db";
 import {
   ListLeavesQueryParams,
@@ -243,12 +243,30 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
 
   // Generate outpass when fully approved
   if (newStatus === "fully_approved") {
-    const { code, qrData } = generateOutpassCode(updated.id, updated.studentId);
+    const year = new Date().getFullYear();
+    const [{ value: existingCount }] = await db.select({ value: count() }).from(outpassesTable)
+      .where(gte(outpassesTable.createdAt, new Date(`${year}-01-01`)));
+    const { code, qrData, gatePassNumber } = generateOutpassCode(updated.id, updated.studentId, (existingCount ?? 0) + 1);
+
+    const [tutorUser] = await db.select().from(usersTable).where(eq(usersTable.role, "tutor")).limit(1);
+    const [hodUser] = await db.select().from(usersTable).where(eq(usersTable.role, "hod")).limit(1);
+    const [principalUser] = await db.select().from(usersTable).where(eq(usersTable.role, "principal")).limit(1);
+    const [wardenUser] = await db.select().from(usersTable).where(eq(usersTable.role, "warden")).limit(1);
+    const now = new Date().toISOString();
+    const staffDetails = JSON.stringify({
+      tutor: { name: tutorUser?.name ?? "Tutor", designation: "Class Tutor", approvedAt: now },
+      hod: { name: hodUser?.name ?? "HOD", designation: "Head of Department", approvedAt: now },
+      principal: { name: principalUser?.name ?? "Principal", designation: "Principal", approvedAt: now },
+      warden: { name: wardenUser?.name ?? "Warden", designation: "Hostel Warden", approvedAt: now },
+    });
+
     const [outpass] = await db.insert(outpassesTable).values({
       leaveId: updated.id,
       studentId: updated.studentId,
       outpassCode: code,
+      gatePassNumber,
       qrData,
+      staffDetails,
       status: "generated",
     }).returning();
 
@@ -349,8 +367,22 @@ router.post("/leaves/bulk-approve", async (req, res): Promise<void> => {
         await db.update(leavesTable).set(updateFields).where(eq(leavesTable.id, id));
 
         if (newStatus === "fully_approved") {
-          const { code, qrData } = generateOutpassCode(id, leave.studentId);
-          const [outpass] = await db.insert(outpassesTable).values({ leaveId: id, studentId: leave.studentId, outpassCode: code, qrData, status: "generated" }).returning();
+          const yr = new Date().getFullYear();
+          const [{ value: cnt }] = await db.select({ value: count() }).from(outpassesTable)
+            .where(gte(outpassesTable.createdAt, new Date(`${yr}-01-01`)));
+          const { code, qrData, gatePassNumber } = generateOutpassCode(id, leave.studentId, (cnt ?? 0) + 1);
+          const [tutorU] = await db.select().from(usersTable).where(eq(usersTable.role, "tutor")).limit(1);
+          const [hodU] = await db.select().from(usersTable).where(eq(usersTable.role, "hod")).limit(1);
+          const [principalU] = await db.select().from(usersTable).where(eq(usersTable.role, "principal")).limit(1);
+          const [wardenU] = await db.select().from(usersTable).where(eq(usersTable.role, "warden")).limit(1);
+          const nowIso = new Date().toISOString();
+          const sd = JSON.stringify({
+            tutor: { name: tutorU?.name ?? "Tutor", designation: "Class Tutor", approvedAt: nowIso },
+            hod: { name: hodU?.name ?? "HOD", designation: "Head of Department", approvedAt: nowIso },
+            principal: { name: principalU?.name ?? "Principal", designation: "Principal", approvedAt: nowIso },
+            warden: { name: wardenU?.name ?? "Warden", designation: "Hostel Warden", approvedAt: nowIso },
+          });
+          const [outpass] = await db.insert(outpassesTable).values({ leaveId: id, studentId: leave.studentId, outpassCode: code, gatePassNumber, qrData, staffDetails: sd, status: "generated" }).returning();
           await db.update(leavesTable).set({ outpassId: outpass.id }).where(eq(leavesTable.id, id));
         }
       } else {

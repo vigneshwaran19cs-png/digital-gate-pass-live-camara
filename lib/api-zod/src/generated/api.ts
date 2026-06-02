@@ -597,7 +597,9 @@ export const ListOutpassesResponseItem = zod.object({
   "updatedAt": zod.coerce.date().optional()
 }).optional(),
   "outpassCode": zod.string(),
+  "gatePassNumber": zod.string().nullish(),
   "qrData": zod.string(),
+  "staffDetails": zod.string().nullish(),
   "status": zod.enum(['generated', 'verified', 'returned', 'expired']),
   "exitTime": zod.coerce.date().nullish(),
   "returnTime": zod.coerce.date().nullish(),
@@ -670,7 +672,9 @@ export const GetOutpassResponse = zod.object({
   "updatedAt": zod.coerce.date().optional()
 }).optional(),
   "outpassCode": zod.string(),
+  "gatePassNumber": zod.string().nullish(),
   "qrData": zod.string(),
+  "staffDetails": zod.string().nullish(),
   "status": zod.enum(['generated', 'verified', 'returned', 'expired']),
   "exitTime": zod.coerce.date().nullish(),
   "returnTime": zod.coerce.date().nullish(),
@@ -744,7 +748,9 @@ export const LookupOutpassResponseItem = zod.object({
   "updatedAt": zod.coerce.date().optional()
 }).optional(),
   "outpassCode": zod.string(),
+  "gatePassNumber": zod.string().nullish(),
   "qrData": zod.string(),
+  "staffDetails": zod.string().nullish(),
   "status": zod.enum(['generated', 'verified', 'returned', 'expired']),
   "exitTime": zod.coerce.date().nullish(),
   "returnTime": zod.coerce.date().nullish(),
@@ -824,7 +830,9 @@ export const VerifyOutpassResponse = zod.object({
   "updatedAt": zod.coerce.date().optional()
 }).optional(),
   "outpassCode": zod.string(),
+  "gatePassNumber": zod.string().nullish(),
   "qrData": zod.string(),
+  "staffDetails": zod.string().nullish(),
   "status": zod.enum(['generated', 'verified', 'returned', 'expired']),
   "exitTime": zod.coerce.date().nullish(),
   "returnTime": zod.coerce.date().nullish(),
@@ -896,7 +904,9 @@ export const RecordReturnResponse = zod.object({
   "updatedAt": zod.coerce.date().optional()
 }).optional(),
   "outpassCode": zod.string(),
+  "gatePassNumber": zod.string().nullish(),
   "qrData": zod.string(),
+  "staffDetails": zod.string().nullish(),
   "status": zod.enum(['generated', 'verified', 'returned', 'expired']),
   "exitTime": zod.coerce.date().nullish(),
   "returnTime": zod.coerce.date().nullish(),

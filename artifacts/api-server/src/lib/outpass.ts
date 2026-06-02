@@ -1,12 +1,20 @@
-export function generateOutpassCode(leaveId: number, studentId: number): { code: string; qrData: string } {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const code = `OP-${studentId.toString().padStart(4, "0")}-${leaveId.toString().padStart(4, "0")}-${timestamp}`;
+export function generateOutpassCode(
+  leaveId: number,
+  studentId: number,
+  yearSeq?: number
+): { code: string; qrData: string; gatePassNumber: string } {
+  const year = new Date().getFullYear();
+  const seq = yearSeq ?? 1;
+  const gatePassNumber = `GP-${year}-${seq.toString().padStart(4, "0")}`;
+
   const qrData = JSON.stringify({
-    outpassCode: code,
+    outpassCode: gatePassNumber,
+    gatePassNumber,
     leaveId,
     studentId,
     generatedAt: new Date().toISOString(),
     type: "HOSTEL_OUTPASS",
   });
-  return { code, qrData };
+
+  return { code: gatePassNumber, qrData, gatePassNumber };
 }

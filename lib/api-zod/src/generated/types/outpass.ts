@@ -16,7 +16,11 @@ export interface Outpass {
   student?: User;
   leave?: LeaveRequest;
   outpassCode: string;
+  /** @nullable */
+  gatePassNumber?: string | null;
   qrData: string;
+  /** @nullable */
+  staffDetails?: string | null;
   status: OutpassStatus;
   /** @nullable */
   exitTime?: Date | null;

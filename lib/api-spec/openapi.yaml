@@ -928,8 +928,12 @@ components:
           $ref: "#/components/schemas/LeaveRequest"
         outpassCode:
           type: string
+        gatePassNumber:
+          type: ["string", "null"]
         qrData:
           type: string
+        staffDetails:
+          type: ["string", "null"]
         status:
           type: string
           enum: [generated, verified, returned, expired]
