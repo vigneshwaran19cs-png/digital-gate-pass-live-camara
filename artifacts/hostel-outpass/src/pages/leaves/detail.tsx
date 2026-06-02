@@ -162,7 +162,7 @@ export default function LeaveDetailPage() {
                         {/* Remarks logic can be added here based on role */}
                         {leave[`${step}Remarks` as keyof typeof leave] && (
                           <p className="text-sm text-muted-foreground mt-1">
-                            "{leave[`${step}Remarks` as keyof typeof leave]}"
+                            "{String(leave[`${step}Remarks` as keyof typeof leave])}"
                           </p>
                         )}
                       </div>

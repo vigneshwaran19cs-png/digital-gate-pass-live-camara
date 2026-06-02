@@ -1,0 +1,367 @@
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  useListLeaves, useApproveLeave, useRejectLeave, useBulkApproveLeaves,
+  useGetSimilarLeaveGroups, getListLeavesQueryKey, getGetSimilarLeaveGroupsQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+} from "recharts";
+import {
+  Building2, Clock, CheckCircle2, XCircle, Layers, Search, Filter,
+  Calendar, MapPin, ChevronRight, Zap, Users, RefreshCw, TrendingUp,
+  AlertTriangle, ArrowLeft,
+} from "lucide-react";
+import { format } from "date-fns";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, type: "spring" as const, stiffness: 400, damping: 32 } }),
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    pending: "bg-amber-500/15 text-amber-400 border-amber-500/25",
+    warden_approved: "bg-cyan-500/15 text-cyan-400 border-cyan-500/25",
+    tutor_approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
+    hod_approved: "bg-violet-500/15 text-violet-400 border-violet-500/25",
+    fully_approved: "bg-blue-500/15 text-blue-400 border-blue-500/25",
+    rejected: "bg-rose-500/15 text-rose-400 border-rose-500/25",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border ${map[status] ?? "bg-muted text-muted-foreground border-border"}`}>
+      {status.replace(/_/g, " ")}
+    </span>
+  );
+}
+
+const DEPT_CHART_DATA = [
+  { name: "CSE", leaves: 14, color: "#8b5cf6" },
+  { name: "ECE", leaves: 9, color: "#6d5ef0" },
+  { name: "MECH", leaves: 7, color: "#a78bfa" },
+  { name: "CIVIL", leaves: 5, color: "#7c3aed" },
+  { name: "EEE", leaves: 11, color: "#c4b5fd" },
+];
+
+const MONTHLY_DATA = [
+  { month: "Jan", leaves: 22 }, { month: "Feb", leaves: 18 }, { month: "Mar", leaves: 31 },
+  { month: "Apr", leaves: 27 }, { month: "May", leaves: 15 }, { month: "Jun", leaves: 9 },
+];
+
+export default function HodDashboard() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [selectedLeave, setSelectedLeave] = useState<any>(null);
+  const [remarks, setRemarks] = useState("");
+  const [bulkGroupId, setBulkGroupId] = useState<string | null>(null);
+
+  const { data: leavesData, isLoading } = useListLeaves(
+    { status: "tutor_approved" },
+    { query: { queryKey: getListLeavesQueryKey({ status: "tutor_approved" }) } }
+  );
+  const { data: allData } = useListLeaves(
+    { department: user?.department ?? undefined },
+    { query: { queryKey: getListLeavesQueryKey({ department: user?.department ?? undefined }) } }
+  );
+  const { data: similarGroups } = useGetSimilarLeaveGroups(
+    { query: { queryKey: getGetSimilarLeaveGroupsQueryKey() } }
+  );
+
+  const approveLeave = useApproveLeave();
+  const rejectLeave = useRejectLeave();
+  const bulkApprove = useBulkApproveLeaves();
+
+  const leaves = (leavesData as any)?.leaves ?? (leavesData as any) ?? [];
+  const allLeaves = (allData as any)?.leaves ?? (allData as any) ?? [];
+  const groups: any[] = (similarGroups as any)?.groups ?? [];
+
+  const pending = (leaves as any[]).length;
+  const total = (allLeaves as any[]).length;
+  const approved = (allLeaves as any[]).filter((l: any) => ["hod_approved","fully_approved"].includes(l.status)).length;
+  const rejected = (allLeaves as any[]).filter((l: any) => l.status === "rejected").length;
+
+  const filtered = (leaves as any[]).filter((l: any) => {
+    const q = search.toLowerCase();
+    return !q || (l.student?.name ?? "").toLowerCase().includes(q) || (l.reason ?? "").toLowerCase().includes(q);
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ status: "tutor_approved" }) });
+    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ department: user?.department ?? undefined }) });
+    queryClient.invalidateQueries({ queryKey: getGetSimilarLeaveGroupsQueryKey() });
+  };
+
+  const handleApprove = () => {
+    if (!selectedLeave) return;
+    approveLeave.mutate({ id: selectedLeave.id, data: { remarks } }, {
+      onSuccess: () => { toast({ title: "Approved — forwarded to Principal ✓" }); invalidate(); setSelectedLeave(null); setRemarks(""); },
+    });
+  };
+
+  const handleReject = () => {
+    if (!selectedLeave || !remarks) { toast({ title: "Please add remarks", variant: "destructive" }); return; }
+    rejectLeave.mutate({ id: selectedLeave.id, data: { remarks } }, {
+      onSuccess: () => { toast({ title: "Leave rejected" }); invalidate(); setSelectedLeave(null); setRemarks(""); },
+    });
+  };
+
+  const handleReturnToTutor = () => {
+    if (!selectedLeave || !remarks) { toast({ title: "Please add remarks", variant: "destructive" }); return; }
+    toast({ title: "Returned to Tutor for re-verification" });
+    setSelectedLeave(null);
+  };
+
+  const handleBulkApprove = (leaveIds: number[]) => {
+    bulkApprove.mutate({ data: { leaveIds, action: "approve", remarks: "Bulk approved by HOD — same destination/dates" } }, {
+      onSuccess: () => { toast({ title: `${leaveIds.length} leaves approved in bulk ✓` }); invalidate(); setBulkGroupId(null); },
+    });
+  };
+
+  const handleBulkReject = (leaveIds: number[]) => {
+    bulkApprove.mutate({ data: { leaveIds, action: "reject", remarks: "Bulk rejected by HOD" } }, {
+      onSuccess: () => { toast({ title: `${leaveIds.length} leaves rejected` }); invalidate(); setBulkGroupId(null); },
+    });
+  };
+
+  const stats = [
+    { label: "Total Requests", value: total, icon: Users, color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20" },
+    { label: "Pending Approvals", value: pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+    { label: "Approved (All Time)", value: approved, icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+    { label: "Rejected", value: rejected, icon: XCircle, color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/30 flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-violet-400" />
+            </div>
+            <span className="text-xs font-semibold uppercase tracking-widest text-violet-400">HOD Portal</span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold">HOD Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-1">Department-level approval & analytics</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={invalidate} className="gap-2 hidden md:flex">
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </Button>
+      </motion.div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((s, i) => {
+          const Icon = s.icon;
+          return (
+            <motion.div key={s.label} custom={i} variants={fadeUp} initial="hidden" animate="show">
+              <div className={`glass-card rounded-2xl p-5 border ${s.border}`}>
+                <div className={`w-10 h-10 rounded-xl ${s.bg} border ${s.border} flex items-center justify-center mb-3`}>
+                  <Icon className={`w-5 h-5 ${s.color}`} />
+                </div>
+                <div className={`text-3xl font-heading font-bold ${s.color} mb-1`}>{s.value}</div>
+                <div className="text-xs text-muted-foreground">{s.label}</div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Bulk Approval Alert */}
+      {groups.length > 0 && (
+        <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show">
+          {groups.map((group: any, gi: number) => (
+            <div key={gi} className="glass-card rounded-2xl p-5 border border-amber-500/30 bg-amber-500/5 mb-3">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                  <Zap className="w-5 h-5 text-amber-400" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-heading font-semibold text-amber-400">
+                      {group.count ?? group.leaveIds?.length ?? 0} Similar Requests Found
+                    </h3>
+                    <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-xs">Bulk Action Available</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Same destination: <strong className="text-foreground">{group.destination}</strong> · 
+                    Dates: <strong className="text-foreground">{format(new Date(group.fromDate || Date.now()), "MMM d")} – {format(new Date(group.toDate || Date.now()), "MMM d")}</strong>
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={() => handleBulkApprove(group.leaveIds ?? [])}>
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Approve All
+                    </Button>
+                    <Button size="sm" variant="outline" className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-2" onClick={() => handleBulkReject(group.leaveIds ?? [])}>
+                      <XCircle className="w-3.5 h-3.5" /> Reject All
+                    </Button>
+                    <Button size="sm" variant="ghost" className="gap-2">
+                      <Layers className="w-3.5 h-3.5" /> Review Individually
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </motion.div>
+      )}
+
+      <Tabs defaultValue="queue" className="space-y-4">
+        <TabsList className="glass-card border-border/50">
+          <TabsTrigger value="queue">Approval Queue</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="queue" className="space-y-4">
+          {/* Search */}
+          <div className="glass-card rounded-2xl p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="Search students, reason, destination…" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Leaves */}
+          <div className="glass-card rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
+              <h2 className="font-heading font-semibold">Pending Approvals</h2>
+              <Badge variant="outline" className="text-violet-400 border-violet-500/30">{filtered.length} requests</Badge>
+            </div>
+
+            {isLoading ? (
+              <div className="p-12 text-center text-muted-foreground"><RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3" /> Loading…</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-12 text-center"><CheckCircle2 className="w-12 h-12 text-violet-400/40 mx-auto mb-3" /><p className="text-muted-foreground">No pending requests.</p></div>
+            ) : (
+              <div className="divide-y divide-border/30">
+                {filtered.map((leave: any, i: number) => (
+                  <motion.div
+                    key={leave.id}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
+                    className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors group cursor-pointer"
+                    onClick={() => { setSelectedLeave(leave); setRemarks(""); }}
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0 font-bold text-violet-400 text-sm">
+                      {(leave.student?.name ?? "?").charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-sm">{leave.student?.name ?? `Student #${leave.studentId}`}</span>
+                        <StatusBadge status={leave.status} />
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{leave.reason}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground"><Calendar className="w-3 h-3" />{format(new Date(leave.fromDate), "MMM d")} – {format(new Date(leave.toDate), "MMM d")}</span>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="w-3 h-3" />{leave.destination}</span>
+                      </div>
+                    </div>
+                    {leave.tutorRemarks && (
+                      <div className="hidden md:block max-w-40">
+                        <p className="text-xs text-muted-foreground mb-0.5">Tutor:</p>
+                        <p className="text-xs text-emerald-400 italic truncate">"{leave.tutorRemarks}"</p>
+                      </div>
+                    )}
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="glass-card rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="w-4 h-4 text-violet-400" />
+                <h3 className="font-heading font-semibold text-sm">Monthly Leave Trends</h3>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={MONTHLY_DATA}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                  <Bar dataKey="leaves" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="glass-card rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Building2 className="w-4 h-4 text-violet-400" />
+                <h3 className="font-heading font-semibold text-sm">Leaves by Department</h3>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={DEPT_CHART_DATA} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={40} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                  <Bar dataKey="leaves" radius={[0, 4, 4, 0]}>
+                    {DEPT_CHART_DATA.map((entry, index) => <Cell key={index} fill={entry.color} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Leave Detail Dialog */}
+      <Dialog open={!!selectedLeave} onOpenChange={v => !v && setSelectedLeave(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          {selectedLeave && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-heading">Review — {selectedLeave.student?.name ?? `#${selectedLeave.studentId}`}</DialogTitle>
+              </DialogHeader>
+
+              <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-muted/30 border border-border/50">
+                <div><p className="text-xs text-muted-foreground mb-0.5">Department</p><p className="text-sm font-semibold">{selectedLeave.student?.department ?? "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground mb-0.5">Leave Type</p><p className="text-sm font-semibold capitalize">{selectedLeave.leaveType}</p></div>
+                <div className="col-span-2"><p className="text-xs text-muted-foreground mb-0.5">Period</p><p className="text-sm font-semibold">{format(new Date(selectedLeave.fromDate), "MMM d")} – {format(new Date(selectedLeave.toDate), "MMM d, yyyy")} → {selectedLeave.destination}</p></div>
+                <div className="col-span-2"><p className="text-xs text-muted-foreground mb-0.5">Reason</p><p className="text-sm">{selectedLeave.reason}</p></div>
+              </div>
+
+              {selectedLeave.tutorRemarks && (
+                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-emerald-400 font-medium mb-1">Tutor Remarks</p>
+                  <p className="text-sm italic">"{selectedLeave.tutorRemarks}"</p>
+                </div>
+              )}
+
+              <Separator />
+              <div className="space-y-3">
+                <Textarea placeholder="Your remarks…" rows={3} value={remarks} onChange={e => setRemarks(e.target.value)} />
+                <div className="grid grid-cols-3 gap-2">
+                  <Button className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5" onClick={handleApprove} disabled={approveLeave.isPending}>
+                    <CheckCircle2 className="w-4 h-4" /> Approve
+                  </Button>
+                  <Button variant="outline" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-1.5" onClick={handleReturnToTutor}>
+                    <ArrowLeft className="w-4 h-4" /> Return
+                  </Button>
+                  <Button variant="outline" className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-1.5" onClick={handleReject} disabled={rejectLeave.isPending}>
+                    <XCircle className="w-4 h-4" /> Reject
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
