@@ -1,34 +1,32 @@
-import { pgTable, text, serial, timestamp, integer, pgEnum } from "drizzle-orm/pg-core";
+import { mysqlTable, text, int, timestamp, mysqlEnum, varchar, datetime } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 import { leavesTable } from "./leaves";
 
-export const outpassStatusEnum = pgEnum("outpass_status", [
-  "generated",
-  "verified",
-  "returned",
-  "expired",
-]);
-
-export const outpassesTable = pgTable("outpasses", {
-  id: serial("id").primaryKey(),
-  leaveId: integer("leave_id").notNull().references(() => leavesTable.id),
-  studentId: integer("student_id").notNull().references(() => usersTable.id),
-  outpassCode: text("outpass_code").notNull().unique(),
-  gatePassNumber: text("gate_pass_number").unique(),
+export const outpassesTable = mysqlTable("outpasses", {
+  id: int("id").autoincrement().primaryKey(),
+  leaveId: int("leave_id").notNull().references(() => leavesTable.id),
+  studentId: int("student_id").notNull().references(() => usersTable.id),
+  outpassCode: varchar("outpass_code", { length: 255 }).notNull().unique(),
+  gatePassNumber: varchar("gate_pass_number", { length: 255 }).unique(),
   qrData: text("qr_data").notNull(),
   staffDetails: text("staff_details"),
-  status: outpassStatusEnum("status").notNull().default("generated"),
-  exitTime: timestamp("exit_time", { withTimezone: true }),
-  returnTime: timestamp("return_time", { withTimezone: true }),
-  gateLocation: text("gate_location"),
-  verifiedBy: integer("verified_by"),
-  approvedByWarden: text("approved_by_warden"),
-  approvedByTutor: text("approved_by_tutor"),
-  approvedByHod: text("approved_by_hod"),
-  approvedByPrincipal: text("approved_by_principal"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  status: mysqlEnum("status", [
+    "generated",
+    "verified",
+    "returned",
+    "expired",
+  ]).notNull().default("generated"),
+  exitTime: datetime("exit_time", { mode: "date" }),
+  returnTime: datetime("return_time", { mode: "date" }),
+  gateLocation: varchar("gate_location", { length: 255 }),
+  verifiedBy: int("verified_by"),
+  approvedByWarden: varchar("approved_by_warden", { length: 255 }),
+  approvedByTutor: varchar("approved_by_tutor", { length: 255 }),
+  approvedByHod: varchar("approved_by_hod", { length: 255 }),
+  approvedByPrincipal: varchar("approved_by_principal", { length: 255 }),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 });
 
 export const insertOutpassSchema = createInsertSchema(outpassesTable).omit({

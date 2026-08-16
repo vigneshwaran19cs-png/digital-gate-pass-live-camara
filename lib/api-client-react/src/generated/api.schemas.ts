@@ -15,17 +15,16 @@ export interface LoginInput {
   password: string;
 }
 
-export type UserRole = typeof UserRole[keyof typeof UserRole];
-
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
 export const UserRole = {
-  student: 'student',
-  tutor: 'tutor',
-  hod: 'hod',
-  principal: 'principal',
-  warden: 'warden',
-  security: 'security',
-  super_admin: 'super_admin',
+  student: "student",
+  tutor: "tutor",
+  hod: "hod",
+  principal: "principal",
+  warden: "warden",
+  security: "security",
+  super_admin: "super_admin",
 } as const;
 
 export interface User {
@@ -36,7 +35,7 @@ export interface User {
   /** @nullable */
   registerNumber?: string | null;
   /** @nullable */
-  department?: string | null;
+  departmentId?: number | null;
   /** @nullable */
   hostelRoom?: string | null;
   /** @nullable */
@@ -45,6 +44,20 @@ export interface User {
   parentPhone?: string | null;
   /** @nullable */
   photoUrl?: string | null;
+  /** @nullable */
+  classId?: number | null;
+  /** @nullable */
+  hostelBlock?: string | null;
+  /** @nullable */
+  parentName?: string | null;
+  /** @nullable */
+  parentWhatsapp?: string | null;
+  /** @nullable */
+  parentEmail?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  designation?: string | null;
   createdAt?: string;
 }
 
@@ -53,17 +66,16 @@ export interface AuthResponse {
   user: User;
 }
 
-export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
-
+export type UserInputRole = (typeof UserInputRole)[keyof typeof UserInputRole];
 
 export const UserInputRole = {
-  student: 'student',
-  tutor: 'tutor',
-  hod: 'hod',
-  principal: 'principal',
-  warden: 'warden',
-  security: 'security',
-  super_admin: 'super_admin',
+  student: "student",
+  tutor: "tutor",
+  hod: "hod",
+  principal: "principal",
+  warden: "warden",
+  security: "security",
+  super_admin: "super_admin",
 } as const;
 
 export interface UserInput {
@@ -74,11 +86,18 @@ export interface UserInput {
   password: string;
   role: UserInputRole;
   registerNumber?: string;
-  department?: string;
+  departmentId?: number;
   hostelRoom?: string;
   phone?: string;
   parentPhone?: string;
   photoUrl?: string;
+  classId?: number;
+  hostelBlock?: string;
+  parentName?: string;
+  parentWhatsapp?: string;
+  parentEmail?: string;
+  address?: string;
+  designation?: string;
 }
 
 export interface UserUpdate {
@@ -86,65 +105,104 @@ export interface UserUpdate {
   phone?: string;
   parentPhone?: string;
   hostelRoom?: string;
-  department?: string;
+  departmentId?: number;
   photoUrl?: string;
+  classId?: number;
+  hostelBlock?: string;
+  parentName?: string;
+  parentWhatsapp?: string;
+  parentEmail?: string;
+  address?: string;
+  designation?: string;
 }
 
-export type LeaveRequestLeaveType = typeof LeaveRequestLeaveType[keyof typeof LeaveRequestLeaveType];
+export type LeaveRequestPassType =
+  (typeof LeaveRequestPassType)[keyof typeof LeaveRequestPassType];
 
+export const LeaveRequestPassType = {
+  leave: "leave",
+  outing: "outing",
+} as const;
+
+export type LeaveRequestLeaveType =
+  (typeof LeaveRequestLeaveType)[keyof typeof LeaveRequestLeaveType];
 
 export const LeaveRequestLeaveType = {
-  home: 'home',
-  medical: 'medical',
-  emergency: 'emergency',
-  personal: 'personal',
-  educational: 'educational',
+  semester_holiday: "semester_holiday",
+  study_holiday: "study_holiday",
+  diwali_holiday: "diwali_holiday",
+  pongal_holiday: "pongal_holiday",
+  christmas_holiday: "christmas_holiday",
+  ramzan_holiday: "ramzan_holiday",
+  internship: "internship",
+  project_work: "project_work",
+  family_function: "family_function",
+  family_emergency: "family_emergency",
+  marriage_function: "marriage_function",
+  medical_leave: "medical_leave",
+  hospital_visit: "hospital_visit",
+  hair_cut: "hair_cut",
+  shopping: "shopping",
+  atm_withdrawal: "atm_withdrawal",
+  bank_visit: "bank_visit",
+  medical_checkup: "medical_checkup",
+  personal_work: "personal_work",
+  other: "other",
+  home: "home",
+  medical: "medical",
+  emergency: "emergency",
+  personal: "personal",
+  educational: "educational",
+  outing: "outing",
 } as const;
 
-export type LeaveRequestStatus = typeof LeaveRequestStatus[keyof typeof LeaveRequestStatus];
-
+export type LeaveRequestStatus =
+  (typeof LeaveRequestStatus)[keyof typeof LeaveRequestStatus];
 
 export const LeaveRequestStatus = {
-  pending: 'pending',
-  warden_approved: 'warden_approved',
-  tutor_approved: 'tutor_approved',
-  hod_approved: 'hod_approved',
-  principal_approved: 'principal_approved',
-  fully_approved: 'fully_approved',
-  rejected: 'rejected',
-  cancelled: 'cancelled',
+  pending: "pending",
+  warden_approved: "warden_approved",
+  tutor_approved: "tutor_approved",
+  hod_approved: "hod_approved",
+  principal_approved: "principal_approved",
+  fully_approved: "fully_approved",
+  rejected: "rejected",
+  cancelled: "cancelled",
 } as const;
 
-export type LeaveRequestCurrentStep = typeof LeaveRequestCurrentStep[keyof typeof LeaveRequestCurrentStep];
-
+export type LeaveRequestCurrentStep =
+  (typeof LeaveRequestCurrentStep)[keyof typeof LeaveRequestCurrentStep];
 
 export const LeaveRequestCurrentStep = {
-  warden: 'warden',
-  tutor: 'tutor',
-  hod: 'hod',
-  principal: 'principal',
-  completed: 'completed',
-  rejected: 'rejected',
+  warden: "warden",
+  tutor: "tutor",
+  hod: "hod",
+  principal: "principal",
+  warden_final: "warden_final",
+  completed: "completed",
+  rejected: "rejected",
 } as const;
 
 /**
  * @nullable
  */
-export type LeaveRequestParentCallStatus = typeof LeaveRequestParentCallStatus[keyof typeof LeaveRequestParentCallStatus] | null;
-
+export type LeaveRequestParentCallStatus =
+  | (typeof LeaveRequestParentCallStatus)[keyof typeof LeaveRequestParentCallStatus]
+  | null;
 
 export const LeaveRequestParentCallStatus = {
-  pending: 'pending',
-  confirmed: 'confirmed',
-  rejected: 'rejected',
-  not_reachable: 'not_reachable',
-  completed: 'completed',
+  pending: "pending",
+  confirmed: "confirmed",
+  rejected: "rejected",
+  not_reachable: "not_reachable",
+  completed: "completed",
 } as const;
 
 export interface LeaveRequest {
   id: number;
   studentId: number;
   student?: User;
+  passType: LeaveRequestPassType;
   leaveType: LeaveRequestLeaveType;
   reason: string;
   fromDate: string;
@@ -166,22 +224,87 @@ export interface LeaveRequest {
   parentCallNotes?: string | null;
   /** @nullable */
   outpassId?: number | null;
+  /** @nullable */
+  aiGeneratedLetter?: string | null;
+  createdAt: string;
+}
+
+export type NotificationLogChannel =
+  (typeof NotificationLogChannel)[keyof typeof NotificationLogChannel];
+
+export const NotificationLogChannel = {
+  email: "email",
+  sms: "sms",
+  whatsapp: "whatsapp",
+} as const;
+
+export type NotificationLogStatus =
+  (typeof NotificationLogStatus)[keyof typeof NotificationLogStatus];
+
+export const NotificationLogStatus = {
+  pending: "pending",
+  sent: "sent",
+  failed: "failed",
+} as const;
+
+export interface NotificationLog {
+  id: number;
+  userId: number;
+  /** @nullable */
+  leaveId?: number | null;
+  channel: NotificationLogChannel;
+  recipient: string;
+  status: NotificationLogStatus;
+  /** @nullable */
+  errorMessage?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
 
-export type LeaveInputLeaveType = typeof LeaveInputLeaveType[keyof typeof LeaveInputLeaveType];
+export type LeaveInputPassType =
+  (typeof LeaveInputPassType)[keyof typeof LeaveInputPassType];
 
+export const LeaveInputPassType = {
+  leave: "leave",
+  outing: "outing",
+} as const;
+
+export type LeaveInputLeaveType =
+  (typeof LeaveInputLeaveType)[keyof typeof LeaveInputLeaveType];
 
 export const LeaveInputLeaveType = {
-  home: 'home',
-  medical: 'medical',
-  emergency: 'emergency',
-  personal: 'personal',
-  educational: 'educational',
+  semester_holiday: "semester_holiday",
+  study_holiday: "study_holiday",
+  diwali_holiday: "diwali_holiday",
+  pongal_holiday: "pongal_holiday",
+  christmas_holiday: "christmas_holiday",
+  ramzan_holiday: "ramzan_holiday",
+  internship: "internship",
+  project_work: "project_work",
+  family_function: "family_function",
+  family_emergency: "family_emergency",
+  marriage_function: "marriage_function",
+  medical_leave: "medical_leave",
+  hospital_visit: "hospital_visit",
+  hair_cut: "hair_cut",
+  shopping: "shopping",
+  atm_withdrawal: "atm_withdrawal",
+  bank_visit: "bank_visit",
+  medical_checkup: "medical_checkup",
+  personal_work: "personal_work",
+  other: "other",
+  home: "home",
+  medical: "medical",
+  emergency: "emergency",
+  personal: "personal",
+  educational: "educational",
+  outing: "outing",
 } as const;
 
 export interface LeaveInput {
+  passType: LeaveInputPassType;
   leaveType: LeaveInputLeaveType;
   /** @minLength 1 */
   reason: string;
@@ -207,14 +330,14 @@ export interface RejectionAction {
   remarks: string;
 }
 
-export type ParentCallRecordCallStatus = typeof ParentCallRecordCallStatus[keyof typeof ParentCallRecordCallStatus];
-
+export type ParentCallRecordCallStatus =
+  (typeof ParentCallRecordCallStatus)[keyof typeof ParentCallRecordCallStatus];
 
 export const ParentCallRecordCallStatus = {
-  confirmed: 'confirmed',
-  rejected: 'rejected',
-  not_reachable: 'not_reachable',
-  completed: 'completed',
+  confirmed: "confirmed",
+  rejected: "rejected",
+  not_reachable: "not_reachable",
+  completed: "completed",
 } as const;
 
 export interface ParentCallRecord {
@@ -222,12 +345,12 @@ export interface ParentCallRecord {
   notes?: string;
 }
 
-export type BulkApprovalInputAction = typeof BulkApprovalInputAction[keyof typeof BulkApprovalInputAction];
-
+export type BulkApprovalInputAction =
+  (typeof BulkApprovalInputAction)[keyof typeof BulkApprovalInputAction];
 
 export const BulkApprovalInputAction = {
-  approve: 'approve',
-  reject: 'reject',
+  approve: "approve",
+  reject: "reject",
 } as const;
 
 export interface BulkApprovalInput {
@@ -255,14 +378,13 @@ export interface SimilarLeaveGroup {
   leaves?: LeaveRequest[];
 }
 
-export type OutpassStatus = typeof OutpassStatus[keyof typeof OutpassStatus];
-
+export type OutpassStatus = (typeof OutpassStatus)[keyof typeof OutpassStatus];
 
 export const OutpassStatus = {
-  generated: 'generated',
-  verified: 'verified',
-  returned: 'returned',
-  expired: 'expired',
+  generated: "generated",
+  verified: "verified",
+  returned: "returned",
+  expired: "expired",
 } as const;
 
 export interface Outpass {
@@ -302,18 +424,18 @@ export interface OutpassVerifyInput {
   gateLocation: string;
 }
 
-export type NotificationType = typeof NotificationType[keyof typeof NotificationType];
-
+export type NotificationType =
+  (typeof NotificationType)[keyof typeof NotificationType];
 
 export const NotificationType = {
-  leave_submitted: 'leave_submitted',
-  leave_approved: 'leave_approved',
-  leave_rejected: 'leave_rejected',
-  outpass_generated: 'outpass_generated',
-  exit_recorded: 'exit_recorded',
-  return_reminder: 'return_reminder',
-  parent_notified: 'parent_notified',
-  bulk_action: 'bulk_action',
+  leave_submitted: "leave_submitted",
+  leave_approved: "leave_approved",
+  leave_rejected: "leave_rejected",
+  outpass_generated: "outpass_generated",
+  exit_recorded: "exit_recorded",
+  return_reminder: "return_reminder",
+  parent_notified: "parent_notified",
+  bulk_action: "bulk_action",
 } as const;
 
 export interface Notification {
@@ -395,32 +517,87 @@ export interface StudentOutsideItem {
   isOverdue?: boolean;
 }
 
+export interface Department {
+  id: number;
+  code: string;
+  name: string;
+  /** @nullable */
+  hodId?: number | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type ClassYear = (typeof ClassYear)[keyof typeof ClassYear];
+
+export const ClassYear = {
+  I: "I",
+  II: "II",
+  III: "III",
+  IV: "IV",
+} as const;
+
+export interface Class {
+  id: number;
+  departmentId: number;
+  year: ClassYear;
+  section: string;
+  /** @nullable */
+  tutorId?: number | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export type ListUsersParams = {
-role?: string;
-department?: string;
+  role?: string;
+  department?: string;
 };
 
 export type ListLeavesParams = {
-status?: string;
-studentId?: number;
-department?: string;
-page?: number;
-limit?: number;
+  status?: string;
+  studentId?: number;
+  departmentId?: number;
+  classId?: number;
+  page?: number;
+  limit?: number;
 };
 
 export type ListOutpassesParams = {
-status?: string;
-studentId?: number;
+  status?: string;
+  studentId?: number;
 };
 
 export type LookupOutpassParams = {
-outpassCode?: string;
-registerNumber?: string;
-studentName?: string;
+  outpassCode?: string;
+  registerNumber?: string;
+  studentName?: string;
+};
+
+export type CreateDepartmentBody = {
+  code: string;
+  name: string;
+  /** @nullable */
+  hodId?: number | null;
+};
+
+export type CreateClassBodyYear =
+  (typeof CreateClassBodyYear)[keyof typeof CreateClassBodyYear];
+
+export const CreateClassBodyYear = {
+  I: "I",
+  II: "II",
+  III: "III",
+  IV: "IV",
+} as const;
+
+export type CreateClassBody = {
+  departmentId: number;
+  year: CreateClassBodyYear;
+  section: string;
+  /** @nullable */
+  tutorId?: number | null;
 };
 
 export type GetMonthlyReportParams = {
-month?: number;
-year?: number;
+  month?: number;
+  year?: number;
 };
-

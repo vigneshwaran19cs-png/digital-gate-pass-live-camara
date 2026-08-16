@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useListLeaves, useApproveLeave, useRejectLeave, useRecordParentCall,
-  getListLeavesQueryKey,
+  getListLeavesQueryKey, useListClasses, useListDepartments,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
+import { getGroupedDepartments } from "@/lib/departments";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -28,21 +29,22 @@ const fadeUp = {
 };
 
 const CALL_STATUS_OPTIONS = [
-  { value: "confirmed", label: "Parent Confirmed", icon: CheckCircle2, color: "text-emerald-400" },
-  { value: "rejected", label: "Parent Rejected", icon: XCircle, color: "text-rose-400" },
-  { value: "not_reachable", label: "Not Reachable", icon: PhoneOff, color: "text-slate-400" },
-  { value: "call_scheduled", label: "Call Scheduled", icon: Clock, color: "text-amber-400" },
-  { value: "completed", label: "Call Completed", icon: PhoneCall, color: "text-blue-400" },
+  { value: "confirmed", label: "Parent Confirmed", icon: CheckCircle2, color: "text-emerald-600" },
+  { value: "rejected", label: "Parent Rejected", icon: XCircle, color: "text-rose-600" },
+  { value: "not_reachable", label: "Not Reachable", icon: PhoneOff, color: "text-slate-600" },
+  { value: "call_scheduled", label: "Call Scheduled", icon: Clock, color: "text-amber-600" },
+  { value: "completed", label: "Call Completed", icon: PhoneCall, color: "text-blue-600" },
 ];
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pending: "bg-amber-500/15 text-amber-400 border-amber-500/25",
-    warden_approved: "bg-cyan-500/15 text-cyan-400 border-cyan-500/25",
-    tutor_approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
-    hod_approved: "bg-violet-500/15 text-violet-400 border-violet-500/25",
-    fully_approved: "bg-blue-500/15 text-blue-400 border-blue-500/25",
-    rejected: "bg-rose-500/15 text-rose-400 border-rose-500/25",
+    pending: "bg-amber-50 text-amber-700 border-amber-100",
+    warden_approved: "bg-cyan-50 text-cyan-700 border-cyan-100",
+    tutor_approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    hod_approved: "bg-violet-50 text-violet-700 border-violet-100",
+    principal_approved: "bg-orange-50 text-orange-700 border-orange-100",
+    fully_approved: "bg-blue-50 text-blue-700 border-blue-100",
+    rejected: "bg-rose-50 text-rose-700 border-rose-100",
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border ${map[status] ?? "bg-muted text-muted-foreground border-border"}`}>
@@ -73,14 +75,23 @@ export default function TutorDashboard() {
   const [remarks, setRemarks] = useState("");
   const [callStatus, setCallStatus] = useState("");
   const [callNotes, setCallNotes] = useState("");
+  const [deptFilter, setDeptFilter] = useState("all");
+  const [yearFilter, setYearFilter] = useState("all");
+
+  const { data: apiDepartments = [] } = useListDepartments();
+  const groupedDepts = getGroupedDepartments(apiDepartments);
+
+  const { data: classes = [] } = useListClasses();
+  const myClass = (classes as any[]).find((c: any) => c.tutorId === user?.id);
+  const myClassId = myClass?.id;
 
   const { data: leavesData, isLoading } = useListLeaves(
-    { status: "warden_approved" },
-    { query: { queryKey: getListLeavesQueryKey({ status: "warden_approved" }) } }
+    { status: "warden_approved", classId: myClassId },
+    { query: { queryKey: getListLeavesQueryKey({ status: "warden_approved", classId: myClassId }) } }
   );
   const { data: allData } = useListLeaves(
-    { department: user?.department ?? undefined },
-    { query: { queryKey: getListLeavesQueryKey({ department: user?.department ?? undefined }) } }
+    { classId: myClassId },
+    { query: { queryKey: getListLeavesQueryKey({ classId: myClassId }) } }
   );
 
   const approveLeave = useApproveLeave();
@@ -99,12 +110,24 @@ export default function TutorDashboard() {
     const q = search.toLowerCase();
     const matchSearch = !q || (l.student?.name ?? "").toLowerCase().includes(q) || (l.reason ?? "").toLowerCase().includes(q);
     const matchStatus = statusFilter === "all" || l.parentCallStatus === statusFilter;
-    return matchSearch && matchStatus;
+    const matchDept = deptFilter === "all" ||
+      l.student?.departmentId === parseInt(deptFilter, 10) ||
+      (l.student?.departmentName ?? "").toLowerCase().includes(deptFilter.toLowerCase()) ||
+      (l.student?.departmentCode ?? "").toLowerCase().includes(deptFilter.toLowerCase());
+    
+    let year = "3rd Year";
+    if (l.student?.registerNumber?.includes("22") || l.student?.registerNumber === "STU002") year = "4th Year";
+    else if (l.student?.registerNumber?.includes("23")) year = "3rd Year";
+    else if (l.student?.registerNumber?.includes("24")) year = "2nd Year";
+    else if (l.student?.registerNumber?.includes("25")) year = "1st Year";
+    
+    const matchYear = yearFilter === "all" || year === yearFilter;
+    return matchSearch && matchStatus && matchDept && matchYear;
   });
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ status: "warden_approved" }) });
-    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ department: user?.department ?? undefined }) });
+    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ status: "warden_approved", classId: myClassId }) });
+    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ classId: myClassId }) });
   };
 
   const handleApprove = () => {
@@ -124,15 +147,21 @@ export default function TutorDashboard() {
   const handleRecordCall = () => {
     if (!selectedLeave || !callStatus) return;
     recordParentCall.mutate({ id: selectedLeave.id, data: { callStatus: callStatus as any, notes: callNotes } }, {
-      onSuccess: () => { toast({ title: "Call status recorded ✓" }); invalidate(); setCallStatus(""); setCallNotes(""); },
+      onSuccess: () => { 
+        toast({ title: "Call status recorded ✓" }); 
+        invalidate(); 
+        setSelectedLeave((prev: any) => ({ ...prev, parentCallStatus: callStatus, parentCallNotes: callNotes }));
+        setCallStatus(""); 
+        setCallNotes(""); 
+      },
     });
   };
 
   const stats = [
-    { label: "Pending Requests", value: pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", glow: "shadow-amber-500/10" },
-    { label: "Parent Verification Pending", value: parentPending, icon: PhoneMissed, color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20", glow: "shadow-rose-500/10" },
-    { label: "Approved by Me", value: approved, icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", glow: "shadow-emerald-500/10" },
-    { label: "Rejected", value: rejected, icon: XCircle, color: "text-slate-400", bg: "bg-slate-500/10", border: "border-slate-500/20", glow: "shadow-slate-500/10" },
+    { label: "Pending Requests", value: pending, icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", glow: "shadow-sm" },
+    { label: "Parent Verification Pending", value: parentPending, icon: PhoneMissed, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", glow: "shadow-sm" },
+    { label: "Approved by Me", value: approved, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", glow: "shadow-sm" },
+    { label: "Rejected", value: rejected, icon: XCircle, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100", glow: "shadow-sm" },
   ];
 
   return (
@@ -141,10 +170,10 @@ export default function TutorDashboard() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-emerald-400" />
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+              <BookOpen className="w-4 h-4 text-emerald-600" />
             </div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Tutor Portal</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Tutor Portal</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-heading font-bold">Welcome, {user?.name}</h1>
           <p className="text-muted-foreground text-sm mt-1">Parent verification & first-level approval dashboard</p>
@@ -175,18 +204,52 @@ export default function TutorDashboard() {
       </div>
 
       {/* Filters */}
-      <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show" className="glass-card rounded-2xl p-4 flex flex-col sm:flex-row gap-3">
+      <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show" className="glass-card rounded-2xl p-4 flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Search by student name or reason…" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-52">
+        <Select value={deptFilter} onValueChange={setDeptFilter}>
+          <SelectTrigger className="w-full md:w-56">
             <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Parent call status" />
+            <SelectValue placeholder="Department / Stream" />
+          </SelectTrigger>
+          <SelectContent className="max-h-80">
+            <SelectItem value="all">All Departments & Colleges</SelectItem>
+            {Object.entries(groupedDepts).map(([cat, depts]) => (
+              <SelectGroup key={cat}>
+                <SelectLabel className="font-bold text-xs text-primary bg-muted/60 px-2 py-1 my-1 rounded border-y border-border">
+                  {cat}
+                </SelectLabel>
+                {depts.map((d: any) => (
+                  <SelectItem key={d.id || d.name} value={String(d.id || d.name)}>
+                    {d.name} ({d.code})
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={yearFilter} onValueChange={setYearFilter}>
+          <SelectTrigger className="w-full md:w-36">
+            <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Year" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Requests</SelectItem>
+            <SelectItem value="all">All Years</SelectItem>
+            <SelectItem value="1st Year">1st Year</SelectItem>
+            <SelectItem value="2nd Year">2nd Year</SelectItem>
+            <SelectItem value="3rd Year">3rd Year</SelectItem>
+            <SelectItem value="4th Year">4th Year</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full md:w-48">
+            <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Parent Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Parent Statuses</SelectItem>
             {CALL_STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -350,16 +413,25 @@ export default function TutorDashboard() {
                   value={remarks}
                   onChange={e => setRemarks(e.target.value)}
                 />
-                <div className="flex gap-2">
-                  <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={handleApprove} disabled={approveLeave.isPending}>
-                    <CheckCircle2 className="w-4 h-4" /> Approve
-                  </Button>
-                  <Button variant="outline" className="flex-1 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-2">
-                    <AlertCircle className="w-4 h-4" /> Request Clarification
-                  </Button>
-                  <Button variant="outline" className="flex-1 border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-2" onClick={handleReject} disabled={rejectLeave.isPending}>
-                    <XCircle className="w-4 h-4" /> Reject
-                  </Button>
+                <div className="flex flex-col gap-2">
+                  {!["confirmed", "rejected", "not_reachable"].includes(selectedLeave.parentCallStatus) && (
+                    <p className="text-xs text-rose-400 flex items-center gap-1.5 mb-1"><AlertCircle className="w-3.5 h-3.5" /> Parent verification (Confirmed, Rejected, or Not Reachable) is required before approving.</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button 
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-2" 
+                      onClick={handleApprove} 
+                      disabled={approveLeave.isPending || !["confirmed", "rejected", "not_reachable"].includes(selectedLeave.parentCallStatus)}
+                    >
+                      <CheckCircle2 className="w-4 h-4" /> Approve
+                    </Button>
+                    <Button variant="outline" className="flex-1 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-2">
+                      <AlertCircle className="w-4 h-4" /> Request Clarification
+                    </Button>
+                    <Button variant="outline" className="flex-1 border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-2" onClick={handleReject} disabled={rejectLeave.isPending}>
+                      <XCircle className="w-4 h-4" /> Reject
+                    </Button>
+                  </div>
                 </div>
               </div>
 

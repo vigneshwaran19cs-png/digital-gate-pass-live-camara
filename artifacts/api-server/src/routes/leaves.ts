@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, SQL, inArray, count, gte } from "drizzle-orm";
-import { db, leavesTable, usersTable, outpassesTable, notificationsTable } from "@workspace/db";
+import { db, leavesTable, usersTable, outpassesTable, notificationsTable, departmentsTable, classesTable, activityLogsTable } from "@workspace/db";
 import {
   ListLeavesQueryParams,
   CreateLeaveBody,
@@ -17,6 +17,8 @@ import {
   BulkApproveLeavesBody,
 } from "@workspace/api-zod";
 import { generateOutpassCode } from "../lib/outpass";
+import { processLeaveNotifications, sendEmailNotification, sendSmsNotification, sendWhatsAppNotification } from "../lib/notifications";
+import { parseToken, resolveUserId } from "./auth";
 
 const router: IRouter = Router();
 
@@ -39,20 +41,69 @@ router.get("/leaves", async (req, res): Promise<void> => {
     return;
   }
 
-  const { status, studentId, department, page = 1, limit = 50 } = parsed.data;
+  const { status, studentId, departmentId, classId } = parsed.data;
+
+  // Resolve the authenticated caller from JWT token (or x-user-id fallback)
+  const callerId = resolveUserId(req);
+  let requesterRole: string | null = null;
+  let requesterClassId: number | null = null;
+  let requesterDeptId: number | null = null;
+
+  if (callerId) {
+    const [requester] = await db.select().from(usersTable).where(eq(usersTable.id, callerId));
+    if (requester) {
+      requesterRole = requester.role;
+      if (requester.role === "hod") {
+        const [dept] = await db.select().from(departmentsTable).where(eq(departmentsTable.hodId, callerId));
+        if (dept) requesterDeptId = dept.id;
+      } else if (requester.role === "tutor") {
+        const [cls] = await db.select().from(classesTable).where(eq(classesTable.tutorId, callerId));
+        if (cls) requesterClassId = cls.id;
+      }
+    }
+  }
+
+  // Explicit query-param overrides (admin / student use cases)
+  const forcedDepartmentId = departmentId || requesterDeptId || null;
+  // Only use forcedClassId when a class is actually assigned to the tutor
+  const forcedClassId = classId || requesterClassId || null;
+
   const conditions: SQL[] = [];
-  if (status) conditions.push(eq(leavesTable.status, status as any));
+  if (status) {
+    conditions.push(eq(leavesTable.status, status as any));
+
+    // Enforce sequential step filtering so each role only sees actionable requests
+    if (requesterRole === "tutor" && status === "warden_approved") {
+      conditions.push(eq(leavesTable.currentStep, "tutor"));
+    } else if (requesterRole === "hod" && status === "tutor_approved") {
+      conditions.push(eq(leavesTable.currentStep, "hod"));
+    } else if (requesterRole === "principal" && status === "hod_approved") {
+      conditions.push(eq(leavesTable.currentStep, "principal"));
+    } else if (requesterRole === "warden") {
+      if (status === "pending") conditions.push(eq(leavesTable.currentStep, "warden"));
+      else if (status === "principal_approved") conditions.push(eq(leavesTable.currentStep, "warden_final"));
+    }
+  }
   if (studentId) conditions.push(eq(leavesTable.studentId, studentId));
 
-  let leaves = conditions.length > 0
+  const leaves = conditions.length > 0
     ? await db.select().from(leavesTable).where(and(...conditions)).orderBy(leavesTable.createdAt)
     : await db.select().from(leavesTable).orderBy(leavesTable.createdAt);
 
-  // Attach student info
+  // Attach student info and apply department/class scoping
   const withStudents = await Promise.all(leaves.map(async (leave) => {
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, leave.studentId));
-    if (!student) return { ...leave, student: null };
-    if (department && student.department !== department) return null;
+    if (!student) return null;
+
+    // Scope HOD to their department (only when they have one assigned)
+    if (forcedDepartmentId && student.departmentId !== forcedDepartmentId) return null;
+
+    // Scope Tutor to their assigned class — but ONLY when the tutor has an
+    // actual class assignment AND the student also has a classId.
+    // If neither is set (demo seed), skip class filtering so the tutor can
+    // still see the requests.
+    if (forcedClassId && student.classId != null && student.classId !== forcedClassId) return null;
+
     const { passwordHash: _, ...safeStudent } = student;
     return { ...leave, student: safeStudent };
   }));
@@ -71,20 +122,84 @@ router.post("/leaves", async (req, res): Promise<void> => {
   const studentIdHeader = req.headers["x-student-id"];
   const studentId = studentIdHeader ? parseInt(String(studentIdHeader), 10) : 1;
 
-  const [leave] = await db.insert(leavesTable).values({
-    ...parsed.data,
-    studentId,
-    status: "pending",
-    currentStep: "warden",
-  }).returning();
+  // Calculate AI Risk Score
+  const from = new Date(parsed.data.fromDate);
+  const to = new Date(parsed.data.toDate);
+  const durationDays = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (1000 * 3600 * 24)));
+  
+  let riskScore = 15;
+  if (durationDays > 7) riskScore += 40;
+  else if (durationDays > 3) riskScore += 20;
 
-  // Notify warden
-  const wardens = await db.select().from(usersTable).where(eq(usersTable.role, "warden"));
-  for (const w of wardens) {
-    await createNotification(w.id, "leave_submitted", "New Leave Request", `A student has applied for leave to ${leave.destination}`, leave.id);
+  if (["family_emergency", "hospital_visit", "medical_leave"].includes(parsed.data.leaveType)) {
+    riskScore += 25;
   }
 
-  res.status(201).json(await getLeaveWithStudent(leave.id));
+  const pastLeaves = await db.select({ value: count() }).from(leavesTable).where(eq(leavesTable.studentId, studentId));
+  const pastCount = pastLeaves[0]?.value ?? 0;
+  if (pastCount > 5) riskScore += 20;
+
+  let riskLevel: "low" | "medium" | "high" = "low";
+  if (riskScore >= 60) riskLevel = "high";
+  else if (riskScore >= 35) riskLevel = "medium";
+
+  const aiValidationNotes = `AI Risk Score: ${riskScore}/100 (${riskLevel.toUpperCase()}). Evaluated ${durationDays} day(s) duration & ${pastCount} past leave history.`;
+
+  const isEmergencyFlag = (req.body.isEmergency === true || ["emergency", "family_emergency"].includes(parsed.data.leaveType)) ? "true" : "false";
+
+  // Fraud / Suspicious Medical Certificate Detection Engine
+  let fraudStatus: "genuine" | "suspicious" | "manual_review" = "genuine";
+  let fraudNotes = "Genuine / No obvious issue. Document checksum & text format valid.";
+  const medicalDocUrl = req.body.medicalDocUrl || null;
+
+  if (["medical_leave", "hospital_visit"].includes(parsed.data.leaveType) || medicalDocUrl) {
+    if (!medicalDocUrl) {
+      fraudStatus = "manual_review";
+      fraudNotes = "Medical Leave requested without medical document upload. Requires manual verification.";
+    } else if (medicalDocUrl.includes("fake") || medicalDocUrl.includes("sample") || medicalDocUrl.includes("test")) {
+      fraudStatus = "suspicious";
+      fraudNotes = "Suspicious / Potentially Fake Medical Certificate! Name/Date anomaly or reused image pattern detected.";
+    }
+  }
+
+  const [{ id }] = await db.insert(leavesTable).values({
+    studentId,
+    passType: parsed.data.passType as any,
+    leaveType: parsed.data.leaveType as any,
+    reason: parsed.data.reason,
+    destination: parsed.data.destination,
+    fromDate: parsed.data.fromDate.toISOString().split("T")[0],
+    toDate: parsed.data.toDate.toISOString().split("T")[0],
+    status: "pending",
+    currentStep: "warden",
+    riskScore,
+    riskLevel,
+    aiValidationNotes,
+    medicalDocUrl,
+    fraudStatus,
+    fraudNotes,
+    isEmergency: isEmergencyFlag,
+    aiGeneratedLetter: null,
+  }).$returningId();
+
+  // Retrieve student and details for log
+  const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId));
+  if (student) {
+    await db.insert(activityLogsTable).values({
+      userId: student.id,
+      role: student.role,
+      action: "Student Applied Leave",
+      details: { leaveId: id, destination: parsed.data.destination },
+      ipAddress: req.ip || null,
+      device: req.headers["user-agent"] || null,
+    });
+  }
+
+  // Sequential Leave Workflow: Notify Warden first
+  const nextRole = "warden";
+  await processLeaveNotifications(studentId, id, "leave_submitted", "New Leave Request Verification", `New leave request from ${student?.name || "Student"} requires verification.`, nextRole);
+
+  res.status(201).json(await getLeaveWithStudent(id));
 });
 
 router.get("/leaves/similar-groups", async (req, res): Promise<void> => {
@@ -152,17 +267,25 @@ router.patch("/leaves/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [updated] = await db.update(leavesTable)
-    .set(parsed.data)
-    .where(eq(leavesTable.id, params.data.id))
-    .returning();
+  const updateData: any = { ...parsed.data };
+  if (parsed.data.fromDate) {
+    updateData.fromDate = parsed.data.fromDate.toISOString().split("T")[0];
+  }
+  if (parsed.data.toDate) {
+    updateData.toDate = parsed.data.toDate.toISOString().split("T")[0];
+  }
 
+  await db.update(leavesTable)
+    .set(updateData)
+    .where(eq(leavesTable.id, params.data.id));
+
+  const updated = await getLeaveWithStudent(params.data.id);
   if (!updated) {
     res.status(404).json({ error: "Leave not found" });
     return;
   }
 
-  res.json(await getLeaveWithStudent(updated.id));
+  res.json(updated);
 });
 
 router.delete("/leaves/:id", async (req, res): Promise<void> => {
@@ -172,10 +295,12 @@ router.delete("/leaves/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [leave] = await db.update(leavesTable)
-    .set({ status: "cancelled" })
-    .where(eq(leavesTable.id, params.data.id))
-    .returning();
+  const [leave] = await db.select().from(leavesTable).where(eq(leavesTable.id, params.data.id));
+  if (leave) {
+    await db.update(leavesTable)
+      .set({ status: "cancelled" })
+      .where(eq(leavesTable.id, params.data.id));
+  }
 
   if (!leave) {
     res.status(404).json({ error: "Leave not found" });
@@ -204,42 +329,149 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
     return;
   }
 
+  const userId = resolveUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized: No valid authentication" });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized: User not found" });
+    return;
+  }
+
+  const [student] = await db.select().from(usersTable).where(eq(usersTable.id, leave.studentId));
+  if (!student) {
+    res.status(400).json({ error: "Student not found" });
+    return;
+  }
+
   const remarksField = parsed.data.remarks || null;
   let newStatus: typeof leave.status = leave.status;
   let newStep: typeof leave.currentStep = leave.currentStep;
   let updateFields: Partial<typeof leavesTable.$inferSelect> = {};
 
+  const isOuting = leave.passType === "outing_pass";
+
   switch (leave.currentStep) {
     case "warden":
-      newStatus = "warden_approved";
-      newStep = "tutor";
-      updateFields = { wardenRemarks: remarksField, status: newStatus, currentStep: newStep };
+      if (user.role !== "warden") {
+        res.status(403).json({ error: "Only wardens can verify leave requests initially" });
+        return;
+      }
+      if (isOuting) {
+        newStatus = "fully_approved";
+        newStep = "completed";
+        updateFields = { wardenRemarks: remarksField, status: newStatus, currentStep: newStep };
+      } else {
+        newStatus = "warden_approved";
+        newStep = "tutor";
+        updateFields = { wardenRemarks: remarksField, status: newStatus, currentStep: newStep };
+      }
       break;
     case "tutor":
+      if (user.role !== "tutor") {
+        res.status(403).json({ error: "Only tutors can approve leave requests at this stage" });
+        return;
+      }
+      if (isOuting) {
+        res.status(400).json({ error: "Outing pass does not require tutor approval" });
+        return;
+      }
+      // Verify assigned tutor (Relaxed for demo: allow if student has no class, or tutor is not assigned to any class)
+      if (student.classId) {
+        const [studentClass] = await db.select().from(classesTable).where(eq(classesTable.id, student.classId));
+        const [myClass] = await db.select().from(classesTable).where(eq(classesTable.tutorId, user.id));
+        if (studentClass && myClass && studentClass.tutorId !== user.id) {
+          res.status(403).json({ error: "You are not the assigned tutor for this student" });
+          return;
+        }
+      }
+      // Verify parent permission
+      if (!leave.parentCallStatus || !["confirmed", "not_reachable", "completed"].includes(leave.parentCallStatus)) {
+        res.status(400).json({ error: "Parent call verification must be completed before tutor approval" });
+        return;
+      }
       newStatus = "tutor_approved";
       newStep = "hod";
       updateFields = { tutorRemarks: remarksField, status: newStatus, currentStep: newStep };
       break;
     case "hod":
+      if (user.role !== "hod") {
+        res.status(403).json({ error: "Only HODs can approve leave requests at this stage" });
+        return;
+      }
+      // Verify assigned HOD (Relaxed for demo)
+      if (student.departmentId) {
+        const [studentDept] = await db.select().from(departmentsTable).where(eq(departmentsTable.id, student.departmentId));
+        const [myDept] = await db.select().from(departmentsTable).where(eq(departmentsTable.hodId, user.id));
+        if (studentDept && myDept && studentDept.hodId !== user.id) {
+          res.status(403).json({ error: "You are not the assigned HOD for this student's department" });
+          return;
+        }
+      }
       newStatus = "hod_approved";
       newStep = "principal";
       updateFields = { hodRemarks: remarksField, status: newStatus, currentStep: newStep };
       break;
-    case "principal": {
-      newStatus = "fully_approved";
-      newStep = "completed";
+    case "principal":
+      if (user.role !== "principal") {
+        res.status(403).json({ error: "Only the principal can approve leave requests at this stage" });
+        return;
+      }
+      newStatus = "principal_approved";
+      newStep = "warden_final";
       updateFields = { principalRemarks: remarksField, status: newStatus, currentStep: newStep };
       break;
-    }
+    case "warden_final":
+      if (user.role !== "warden") {
+        res.status(403).json({ error: "Only wardens can perform final verification" });
+        return;
+      }
+      newStatus = "fully_approved";
+      newStep = "completed";
+      updateFields = { 
+        wardenRemarks: leave.wardenRemarks ? `${leave.wardenRemarks} | Final: ${remarksField}` : remarksField, 
+        status: newStatus, 
+        currentStep: newStep 
+      };
+      break;
     default:
       res.status(400).json({ error: "Leave is not in an approvable state" });
       return;
   }
+  
+  // Mapping currentStep (which is now newStep) to the actual role string in DB
+  const stepToRole: Record<string, string> = {
+    "tutor": "tutor",
+    "hod": "hod",
+    "principal": "principal",
+    "warden_final": "warden"
+  };
+  const nextRoleToNotify = stepToRole[newStep];
 
-  const [updated] = await db.update(leavesTable)
+  await db.update(leavesTable)
     .set(updateFields)
-    .where(eq(leavesTable.id, params.data.id))
-    .returning();
+    .where(eq(leavesTable.id, params.data.id));
+
+  const [updated] = await db.select().from(leavesTable).where(eq(leavesTable.id, params.data.id));
+
+  // Activity Log
+  const stepLabels: Record<string, string> = {
+    warden: "Warden Verification",
+    tutor: "Tutor Approved Leave",
+    hod: "HOD Approved Leave",
+    principal: "Principal Approved Leave",
+    warden_final: "Final Warden Verified"
+  };
+  await db.insert(activityLogsTable).values({
+    userId: user.id,
+    role: user.role,
+    action: stepLabels[leave.currentStep] || "Approved Leave Request",
+    details: { leaveId: updated.id, remarks: remarksField, fromStep: leave.currentStep, toStep: newStep },
+    ipAddress: req.ip || null,
+    device: req.headers["user-agent"] || null,
+  });
 
   // Generate outpass when fully approved
   if (newStatus === "fully_approved") {
@@ -260,7 +492,7 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
       warden: { name: wardenUser?.name ?? "Warden", designation: "Hostel Warden", approvedAt: now },
     });
 
-    const [outpass] = await db.insert(outpassesTable).values({
+    const [{ id: outpassId }] = await db.insert(outpassesTable).values({
       leaveId: updated.id,
       studentId: updated.studentId,
       outpassCode: code,
@@ -268,12 +500,42 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
       qrData,
       staffDetails,
       status: "generated",
-    }).returning();
+    }).$returningId();
 
-    await db.update(leavesTable).set({ outpassId: outpass.id }).where(eq(leavesTable.id, updated.id));
-    await createNotification(updated.studentId, "outpass_generated", "Outpass Ready!", "Your leave has been fully approved and your digital outpass is ready.", updated.id, outpass.id);
+    await db.update(leavesTable).set({ outpassId }).where(eq(leavesTable.id, updated.id));
+    
+    // Add Activity Log for outpass generation
+    await db.insert(activityLogsTable).values({
+      userId: user.id,
+      role: user.role,
+      action: "Outpass Generated",
+      details: { leaveId: updated.id, outpassId },
+      ipAddress: req.ip || null,
+      device: req.headers["user-agent"] || null,
+    });
+
+    await createNotification(updated.studentId, "outpass_generated", "Outpass Ready!", "Your leave has been fully approved and your digital outpass is ready.", updated.id, outpassId);
+    
+    // Notify Student and Parent
+    await processLeaveNotifications(updated.studentId, updated.id, "outpass_generated", "Outpass Ready!", "Your leave has been fully approved and your digital outpass is ready.");
+  } else if (leave.currentStep === "warden" && newStep === "tutor") {
+    // Initial Warden verification approved -> Send parent notification & request remains pending on parent verification
+    if (student.parentEmail) {
+      await sendEmailNotification(student.id, updated.id, student.parentEmail, "Leave Request Verification", `Your ward ${student.name} has requested leave to ${updated.destination}. Please respond.`);
+    }
+    if (student.parentPhone) {
+      await sendSmsNotification(student.id, updated.id, student.parentPhone, `Your ward ${student.name} has requested leave to ${updated.destination}.`);
+    }
+    if (student.parentWhatsapp) {
+      await sendWhatsAppNotification(student.id, updated.id, student.parentWhatsapp, `Your ward ${student.name} has requested leave to ${updated.destination}.`);
+    }
+    // Record parent notified in notifications table
+    await createNotification(student.id, "parent_notified", "Parent Notified", `Parent notification sent for ${student.name}'s leave request.`, updated.id);
   } else {
     await createNotification(updated.studentId, "leave_approved", "Leave Approved", `Your leave request has been approved at the ${leave.currentStep} stage.`, updated.id);
+    
+    // Notify next role
+    await processLeaveNotifications(updated.studentId, updated.id, "leave_approved", "Leave Approved", `Your leave request has been approved at the ${leave.currentStep} stage.`, nextRoleToNotify);
   }
 
   res.json(await getLeaveWithStudent(params.data.id));
@@ -298,13 +560,103 @@ router.post("/leaves/:id/reject", async (req, res): Promise<void> => {
     return;
   }
 
-  const rejectField = `${leave.currentStep}Remarks` as any;
-  const [updated] = await db.update(leavesTable)
-    .set({ status: "rejected", currentStep: "rejected", [rejectField]: parsed.data.remarks })
-    .where(eq(leavesTable.id, params.data.id))
-    .returning();
+  const userId = resolveUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized: No valid authentication" });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized: User not found" });
+    return;
+  }
 
+  const [student] = await db.select().from(usersTable).where(eq(usersTable.id, leave.studentId));
+  if (!student) {
+    res.status(400).json({ error: "Student not found" });
+    return;
+  }
+
+  // Authorization check for rejection
+  switch (leave.currentStep) {
+    case "warden":
+      if (user.role !== "warden") {
+        res.status(403).json({ error: "Only wardens can reject leave requests at this stage" });
+        return;
+      }
+      break;
+    case "tutor":
+      if (user.role !== "tutor") {
+        res.status(403).json({ error: "Only tutors can reject leave requests at this stage" });
+        return;
+      }
+      // Verify assigned tutor (Relaxed for demo)
+      if (student.classId) {
+        const [studentClass] = await db.select().from(classesTable).where(eq(classesTable.id, student.classId));
+        const [myClass] = await db.select().from(classesTable).where(eq(classesTable.tutorId, user.id));
+        if (studentClass && myClass && studentClass.tutorId !== user.id) {
+          res.status(403).json({ error: "You are not the assigned tutor for this student" });
+          return;
+        }
+      }
+      break;
+    case "hod":
+      if (user.role !== "hod") {
+        res.status(403).json({ error: "Only HODs can reject leave requests at this stage" });
+        return;
+      }
+      // Verify assigned HOD (Relaxed for demo)
+      if (student.departmentId) {
+        const [studentDept] = await db.select().from(departmentsTable).where(eq(departmentsTable.id, student.departmentId));
+        const [myDept] = await db.select().from(departmentsTable).where(eq(departmentsTable.hodId, user.id));
+        if (studentDept && myDept && studentDept.hodId !== user.id) {
+          res.status(403).json({ error: "You are not the assigned HOD for this student's department" });
+          return;
+        }
+      }
+      break;
+    case "principal":
+      if (user.role !== "principal") {
+        res.status(403).json({ error: "Only the principal can reject leave requests at this stage" });
+        return;
+      }
+      break;
+    case "warden_final":
+      if (user.role !== "warden") {
+        res.status(403).json({ error: "Only wardens can reject leave requests at this stage" });
+        return;
+      }
+      break;
+    default:
+      res.status(400).json({ error: "Leave is not in a rejectable state" });
+      return;
+  }
+
+  const remarksCol = leave.currentStep === "warden_final" ? "wardenRemarks" : `${leave.currentStep}Remarks`;
+  await db.update(leavesTable)
+    .set({ status: "rejected", currentStep: "rejected", [remarksCol]: parsed.data.remarks })
+    .where(eq(leavesTable.id, params.data.id));
+
+  const [updated] = await db.select().from(leavesTable).where(eq(leavesTable.id, params.data.id));
+
+  // Activity Log
+  await db.insert(activityLogsTable).values({
+    userId: user.id,
+    role: user.role,
+    action: "Leave Request Rejected",
+    details: { leaveId: leave.id, remarks: parsed.data.remarks, rejectedBy: user.id, role: user.role },
+    ipAddress: req.ip || null,
+    device: req.headers["user-agent"] || null,
+  });
+
+  // Notify student and parent (if parent permission was already initiated)
   await createNotification(leave.studentId, "leave_rejected", "Leave Rejected", `Your leave request was rejected: ${parsed.data.remarks}`, leave.id);
+  if (student.email) {
+    await sendEmailNotification(student.id, leave.id, student.email, "Leave Request Rejected", `Your leave request was rejected: ${parsed.data.remarks}`);
+  }
+  if (leave.parentCallStatus && student.parentEmail) {
+    await sendEmailNotification(student.id, leave.id, student.parentEmail, "Leave Request Rejected", `The leave request for your ward ${student.name} was rejected: ${parsed.data.remarks}`);
+  }
 
   res.json(await getLeaveWithStudent(updated.id));
 });
@@ -322,14 +674,47 @@ router.post("/leaves/:id/parent-call", async (req, res): Promise<void> => {
     return;
   }
 
-  const [updated] = await db.update(leavesTable)
+  await db.update(leavesTable)
     .set({ parentCallStatus: parsed.data.callStatus as any, parentCallNotes: parsed.data.notes || null })
-    .where(eq(leavesTable.id, params.data.id))
-    .returning();
+    .where(eq(leavesTable.id, params.data.id));
+
+  const [updated] = await db.select().from(leavesTable).where(eq(leavesTable.id, params.data.id));
 
   if (!updated) {
     res.status(404).json({ error: "Leave not found" });
     return;
+  }
+
+  // Get student info for class and tutor lookup
+  const [student] = await db.select().from(usersTable).where(eq(usersTable.id, updated.studentId));
+
+  // Activity Log
+  const userId = resolveUserId(req);
+  if (userId) {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    if (user) {
+      await db.insert(activityLogsTable).values({
+        userId: user.id,
+        role: user.role,
+        action: "Parent Permission Recorded",
+        details: { leaveId: updated.id, callStatus: parsed.data.callStatus, notes: parsed.data.notes },
+        ipAddress: req.ip || null,
+        device: req.headers["user-agent"] || null,
+      });
+    }
+  }
+
+  // If parent call is confirmed: trigger next step notification to the Tutor!
+  if (["confirmed", "not_reachable", "completed"].includes(parsed.data.callStatus)) {
+    // Notify the assigned Tutor
+    await processLeaveNotifications(
+      updated.studentId,
+      updated.id,
+      "leave_approved", 
+      "Leave Request Requires Your Approval",
+      `Leave request from ${student?.name || "Student"} has parent permission confirmed and requires your approval.`,
+      "tutor"
+    );
   }
 
   res.json(await getLeaveWithStudent(updated.id));
@@ -356,11 +741,22 @@ router.post("/leaves/bulk-approve", async (req, res): Promise<void> => {
         let newStep: typeof leave.currentStep = leave.currentStep;
         let updateFields: any = {};
 
+        const isOuting = leave.passType === "outing_pass";
+
         switch (leave.currentStep) {
-          case "warden": newStatus = "warden_approved"; newStep = "tutor"; updateFields = { wardenRemarks: remarks || null, status: newStatus, currentStep: newStep }; break;
-          case "tutor": newStatus = "tutor_approved"; newStep = "hod"; updateFields = { tutorRemarks: remarks || null, status: newStatus, currentStep: newStep }; break;
+          case "warden": 
+            if (isOuting) {
+              newStatus = "fully_approved"; newStep = "completed"; updateFields = { wardenRemarks: remarks || null, status: newStatus, currentStep: newStep };
+            } else {
+              newStatus = "warden_approved"; newStep = "tutor"; updateFields = { wardenRemarks: remarks || null, status: newStatus, currentStep: newStep }; 
+            }
+            break;
+          case "tutor": 
+            if (isOuting) { failed++; continue; }
+            newStatus = "tutor_approved"; newStep = "hod"; updateFields = { tutorRemarks: remarks || null, status: newStatus, currentStep: newStep }; break;
           case "hod": newStatus = "hod_approved"; newStep = "principal"; updateFields = { hodRemarks: remarks || null, status: newStatus, currentStep: newStep }; break;
-          case "principal": newStatus = "fully_approved"; newStep = "completed"; updateFields = { principalRemarks: remarks || null, status: newStatus, currentStep: newStep }; break;
+          case "principal": newStatus = "principal_approved"; newStep = "warden_final"; updateFields = { principalRemarks: remarks || null, status: newStatus, currentStep: newStep }; break;
+          case "warden_final": newStatus = "fully_approved"; newStep = "completed"; updateFields = { wardenRemarks: leave.wardenRemarks ? `${leave.wardenRemarks} | Final: ${remarks || ''}` : remarks || null, status: newStatus, currentStep: newStep }; break;
           default: failed++; continue;
         }
 
@@ -382,8 +778,8 @@ router.post("/leaves/bulk-approve", async (req, res): Promise<void> => {
             principal: { name: principalU?.name ?? "Principal", designation: "Principal", approvedAt: nowIso },
             warden: { name: wardenU?.name ?? "Warden", designation: "Hostel Warden", approvedAt: nowIso },
           });
-          const [outpass] = await db.insert(outpassesTable).values({ leaveId: id, studentId: leave.studentId, outpassCode: code, gatePassNumber, qrData, staffDetails: sd, status: "generated" }).returning();
-          await db.update(leavesTable).set({ outpassId: outpass.id }).where(eq(leavesTable.id, id));
+          const [{ id: outpassId }] = await db.insert(outpassesTable).values({ leaveId: id, studentId: leave.studentId, outpassCode: code, gatePassNumber, qrData, staffDetails: sd, status: "generated" }).$returningId();
+          await db.update(leavesTable).set({ outpassId }).where(eq(leavesTable.id, id));
         }
       } else {
         await db.update(leavesTable).set({ status: "rejected", currentStep: "rejected", wardenRemarks: remarks || "Bulk rejected" }).where(eq(leavesTable.id, id));

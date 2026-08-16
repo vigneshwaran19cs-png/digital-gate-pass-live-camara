@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lt, ne } from "drizzle-orm";
-import { db, leavesTable, outpassesTable, usersTable, notificationsTable } from "@workspace/db";
+import { db, leavesTable, outpassesTable, usersTable, notificationsTable, departmentsTable } from "@workspace/db";
 import { GetMonthlyReportQueryParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -67,18 +67,27 @@ router.get("/dashboard/activity", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/occupancy", async (req, res): Promise<void> => {
-  const students = await db.select().from(usersTable).where(eq(usersTable.role, "student"));
-  const outpasses = await db.select().from(outpassesTable).where(eq(outpassesTable.status, "verified"));
+  const [students, outpasses, depts] = await Promise.all([
+    db.select().from(usersTable).where(eq(usersTable.role, "student")),
+    db.select().from(outpassesTable).where(eq(outpassesTable.status, "verified")),
+    db.select().from(departmentsTable),
+  ]);
 
   const totalCapacity = students.length;
   const onLeave = outpasses.length;
   const currentlyPresent = totalCapacity - onLeave;
   const occupancyPercent = totalCapacity > 0 ? Math.round((currentlyPresent / totalCapacity) * 100) : 100;
 
+  // Map students to their department names
+  const studentsWithDept = students.map(s => {
+    const dept = depts.find(d => d.id === s.departmentId);
+    return { ...s, department: dept?.name || null };
+  });
+
   // Department breakdown
-  const departments = [...new Set(students.map(s => s.department).filter(Boolean))];
+  const departments = [...new Set(studentsWithDept.map(s => s.department).filter(Boolean))];
   const departmentBreakdown = departments.map(dept => {
-    const deptStudents = students.filter(s => s.department === dept);
+    const deptStudents = studentsWithDept.filter(s => s.department === dept);
     const deptOnLeave = outpasses.filter(o => deptStudents.some(s => s.id === o.studentId)).length;
     return { department: dept!, total: deptStudents.length, present: deptStudents.length - deptOnLeave, onLeave: deptOnLeave };
   });
@@ -123,12 +132,20 @@ router.get("/dashboard/students-outside", async (req, res): Promise<void> => {
   const withDetails = await Promise.all(outpasses.map(async (o) => {
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, o.studentId));
     const [leave] = await db.select().from(leavesTable).where(eq(leavesTable.id, o.leaveId));
-    const isOverdue = leave ? leave.toDate < today : false;
+    const isOverdue = leave ? new Date(leave.toDate) < new Date(today) : false;
+
+    // Get department name
+    let departmentName: string | null = null;
+    if (student?.departmentId) {
+      const [dept] = await db.select().from(departmentsTable).where(eq(departmentsTable.id, student.departmentId));
+      if (dept) departmentName = dept.name;
+    }
+
     return {
       outpassId: o.id,
       studentName: student?.name ?? "Unknown",
       registerNumber: student?.registerNumber ?? "N/A",
-      department: student?.department ?? null,
+      department: departmentName,
       hostelRoom: student?.hostelRoom ?? null,
       destination: leave?.destination ?? "Unknown",
       exitTime: o.exitTime?.toISOString() ?? new Date().toISOString(),

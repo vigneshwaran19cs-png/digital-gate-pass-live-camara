@@ -1,20 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { User, UserRole } from "@workspace/api-client-react";
+import { User, UserRole, login as apiLogin, setAuthTokenGetter, getMe } from "@workspace/api-client-react";
 
 interface AuthContextType {
   user: User | null;
-  loginAs: (role: UserRole) => void;
+  loginAs: (role: UserRole) => Promise<void>;
+  loginWithCredentials: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
-const mockUsers: Record<UserRole, User> = {
-  student: { id: 1, name: "John Doe", email: "john@example.com", role: "student", registerNumber: "STU001", department: "Computer Science", phone: "1234567890", parentPhone: "0987654321", hostelRoom: "A-101", photoUrl: "" },
-  warden: { id: 2, name: "Mr. Warden", email: "warden@example.com", role: "warden" },
-  tutor: { id: 3, name: "Dr. Smith", email: "tutor@example.com", role: "tutor", department: "Computer Science" },
-  hod: { id: 4, name: "Prof. Hod", email: "hod@example.com", role: "hod", department: "Computer Science" },
-  principal: { id: 5, name: "Dr. Principal", email: "principal@example.com", role: "principal" },
-  security: { id: 6, name: "Officer Security", email: "security@example.com", role: "security" },
-  super_admin: { id: 7, name: "Super Admin", email: "admin@example.com", role: "super_admin" },
+const seedEmails: Record<UserRole, string> = {
+  student: "john@example.com",
+  warden: "warden@example.com",
+  tutor: "tutor@example.com",
+  hod: "hod@example.com",
+  principal: "principal@example.com",
+  security: "security@example.com",
+  super_admin: "admin@example.com",
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -23,27 +24,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("auth_user");
-    if (saved) {
-      try {
-        setUser(JSON.parse(saved));
-      } catch (e) {}
-    }
+    const initAuth = async () => {
+      const savedToken = localStorage.getItem("auth_token");
+      if (savedToken) {
+        setAuthTokenGetter(() => savedToken);
+        try {
+          const freshUser = await getMe();
+          setUser(freshUser);
+          localStorage.setItem("auth_user", JSON.stringify(freshUser));
+        } catch (e) {
+          // Token is invalid/expired or connection issue
+          setUser(null);
+          localStorage.removeItem("auth_user");
+          localStorage.removeItem("auth_token");
+          setAuthTokenGetter(() => null);
+        }
+      } else {
+        const savedUser = localStorage.getItem("auth_user");
+        if (savedUser) {
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch (e) {}
+        }
+      }
+    };
+    initAuth();
   }, []);
 
-  const loginAs = (role: UserRole) => {
-    const u = mockUsers[role];
-    setUser(u);
-    localStorage.setItem("auth_user", JSON.stringify(u));
+  const loginWithCredentials = async (email: string, password: string) => {
+    const res = await apiLogin({ email, password });
+    if (res.token && res.user) {
+      setUser(res.user);
+      localStorage.setItem("auth_user", JSON.stringify(res.user));
+      localStorage.setItem("auth_token", res.token);
+      setAuthTokenGetter(() => res.token);
+    } else {
+      throw new Error("Invalid login response");
+    }
+  };
+
+  const loginAs = async (role: UserRole) => {
+    const email = seedEmails[role];
+    await loginWithCredentials(email, "password");
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem("auth_user");
+    localStorage.removeItem("auth_token");
+    setAuthTokenGetter(() => null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginAs, logout }}>
+    <AuthContext.Provider value={{ user, loginAs, loginWithCredentials, logout }}>
       {children}
     </AuthContext.Provider>
   );

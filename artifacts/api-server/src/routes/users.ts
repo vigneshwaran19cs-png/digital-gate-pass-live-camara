@@ -28,10 +28,10 @@ router.get("/users", async (req, res): Promise<void> => {
     return;
   }
 
-  const { role, department } = parsed.data;
+  const { role, departmentId } = parsed.data;
   const conditions: SQL[] = [];
   if (role) conditions.push(eq(usersTable.role, role as any));
-  if (department) conditions.push(eq(usersTable.department, department));
+  if (departmentId) conditions.push(eq(usersTable.departmentId, departmentId));
 
   const users = conditions.length > 0
     ? await db.select().from(usersTable).where(and(...conditions))
@@ -48,10 +48,12 @@ router.post("/users", async (req, res): Promise<void> => {
   }
 
   const { password, ...rest } = parsed.data as any;
-  const [user] = await db.insert(usersTable).values({
+  const [{ id }] = await db.insert(usersTable).values({
     ...rest,
     passwordHash: hashPassword(password || "password123"),
-  }).returning();
+  }).$returningId();
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
 
   res.status(201).json(sanitize(user));
 });
@@ -85,10 +87,11 @@ router.patch("/users/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.update(usersTable)
+  await db.update(usersTable)
     .set(parsed.data)
-    .where(eq(usersTable.id, params.data.id))
-    .returning();
+    .where(eq(usersTable.id, params.data.id));
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, params.data.id));
 
   if (!user) {
     res.status(404).json({ error: "User not found" });
@@ -105,7 +108,10 @@ router.delete("/users/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.delete(usersTable).where(eq(usersTable.id, params.data.id)).returning();
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, params.data.id));
+  if (user) {
+    await db.delete(usersTable).where(eq(usersTable.id, params.data.id));
+  }
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;

@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useListLeaves, useApproveLeave, useRejectLeave, useBulkApproveLeaves,
-  useGetStudentsOutside, getListLeavesQueryKey, getGetStudentsOutsideQueryKey,
+  useGetStudentsOutside, useGetSimilarLeaveGroups, getListLeavesQueryKey,
+  getGetStudentsOutsideQueryKey, getGetSimilarLeaveGroupsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -31,12 +32,13 @@ const fadeUp = {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pending: "bg-amber-500/15 text-amber-400 border-amber-500/25",
-    warden_approved: "bg-cyan-500/15 text-cyan-400 border-cyan-500/25",
-    tutor_approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
-    hod_approved: "bg-violet-500/15 text-violet-400 border-violet-500/25",
-    fully_approved: "bg-blue-500/15 text-blue-400 border-blue-500/25",
-    rejected: "bg-rose-500/15 text-rose-400 border-rose-500/25",
+    pending: "bg-amber-50 text-amber-700 border-amber-100",
+    warden_approved: "bg-cyan-50 text-cyan-700 border-cyan-100",
+    tutor_approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    hod_approved: "bg-violet-50 text-violet-700 border-violet-100",
+    principal_approved: "bg-orange-50 text-orange-700 border-orange-100",
+    fully_approved: "bg-blue-50 text-blue-700 border-blue-100",
+    rejected: "bg-rose-50 text-rose-700 border-rose-100",
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border ${map[status] ?? "bg-muted text-muted-foreground border-border"}`}>
@@ -47,14 +49,15 @@ function StatusBadge({ status }: { status: string }) {
 
 const APPROVAL_STEPS = [
   { label: "Student Applied", key: "pending" },
-  { label: "Warden Approved", key: "warden" },
+  { label: "Warden (Initial)", key: "warden" },
   { label: "Tutor Approved", key: "tutor" },
   { label: "HOD Approved", key: "hod" },
-  { label: "Principal", key: "principal" },
+  { label: "Principal Approved", key: "principal" },
+  { label: "Warden (Final)", key: "warden_final" },
 ];
 
 function ApprovalTimeline({ leave }: { leave: any }) {
-  const stepOrder = ["warden", "tutor", "hod", "principal", "completed"];
+  const stepOrder = ["warden", "tutor", "hod", "principal", "warden_final", "completed"];
   const currentIdx = stepOrder.indexOf(leave.currentStep);
   return (
     <div className="space-y-2">
@@ -64,13 +67,13 @@ function ApprovalTimeline({ leave }: { leave: any }) {
         return (
           <div key={step.key} className="flex items-center gap-3">
             <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold transition-colors ${
-              done ? (current ? "bg-amber-500 text-white ring-2 ring-amber-400/30" : "bg-emerald-500/20 border border-emerald-500 text-emerald-400") : "bg-muted border border-border text-muted-foreground"
+              done ? (current ? "bg-amber-600 text-white ring-2 ring-amber-100" : "bg-emerald-50 border border-emerald-200 text-emerald-700") : "bg-slate-100 border border-slate-200 text-slate-400"
             }`}>
               {done && !current ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
             </div>
-            <span className={`text-sm ${done ? (current ? "text-amber-400 font-semibold" : "text-foreground") : "text-muted-foreground"}`}>
+            <span className={`text-sm ${done ? (current ? "text-amber-800 font-semibold" : "text-slate-800") : "text-slate-400"}`}>
               {step.label}
-              {current && <span className="ml-2 text-xs text-amber-400/70">← Awaiting</span>}
+              {current && <span className="ml-2 text-xs text-amber-600 font-medium">← Awaiting</span>}
             </span>
           </div>
         );
@@ -79,19 +82,8 @@ function ApprovalTimeline({ leave }: { leave: any }) {
   );
 }
 
-const MONTHLY_DATA = [
-  { month: "Jan", approved: 18, rejected: 4 }, { month: "Feb", approved: 14, rejected: 2 },
-  { month: "Mar", approved: 25, rejected: 6 }, { month: "Apr", approved: 21, rejected: 3 },
-  { month: "May", approved: 12, rejected: 1 }, { month: "Jun", approved: 7, rejected: 2 },
-];
 
-const PIE_DATA = [
-  { name: "Home", value: 45, color: "#f59e0b" },
-  { name: "Medical", value: 20, color: "#10b981" },
-  { name: "Personal", value: 15, color: "#8b5cf6" },
-  { name: "Educational", value: 10, color: "#3b82f6" },
-  { name: "Other", value: 10, color: "#64748b" },
-];
+
 
 export default function PrincipalDashboard() {
   const { user } = useAuth();
@@ -106,11 +98,14 @@ export default function PrincipalDashboard() {
     { query: { queryKey: getListLeavesQueryKey({ status: "hod_approved" }) } }
   );
   const { data: allData } = useListLeaves(
-    { status: "fully_approved" },
-    { query: { queryKey: getListLeavesQueryKey({ status: "fully_approved" }) } }
+    {},
+    { query: { queryKey: getListLeavesQueryKey({}) } }
   );
   const { data: outsideData } = useGetStudentsOutside(
     { query: { queryKey: getGetStudentsOutsideQueryKey() } }
+  );
+  const { data: similarGroups } = useGetSimilarLeaveGroups(
+    { query: { queryKey: getGetSimilarLeaveGroupsQueryKey() } }
   );
 
   const approveLeave = useApproveLeave();
@@ -120,21 +115,73 @@ export default function PrincipalDashboard() {
   const leaves = (leavesData as any)?.leaves ?? (leavesData as any) ?? [];
   const allLeaves = (allData as any)?.leaves ?? (allData as any) ?? [];
   const outsideStudents: any[] = (outsideData as any)?.students ?? [];
+  const groups: any[] = Array.isArray(similarGroups) ? similarGroups : [];
 
   const pending = (leaves as any[]).length;
-  const approved = (allLeaves as any[]).length;
-  const emergency = (leaves as any[]).filter((l: any) => l.leaveType === "medical").length;
+  const approved = (allLeaves as any[]).filter((l: any) => l.status === "fully_approved" || l.status === "principal_approved").length;
+  const emergency = (leaves as any[]).filter((l: any) => l.leaveType === "medical" || l.leaveType === "hospital_visit").length;
   const outside = outsideStudents.length;
+
+  // Dynamically compute monthly trends from allLeaves (approved vs rejected)
+  const monthlyMap: Record<string, { approved: number; rejected: number }> = {};
+  allLeaves.forEach((l: any) => {
+    if (l.fromDate) {
+      try {
+        const m = format(new Date(l.fromDate), "MMM");
+        if (!monthlyMap[m]) {
+          monthlyMap[m] = { approved: 0, rejected: 0 };
+        }
+        if (l.status === "fully_approved" || l.status === "principal_approved") {
+          monthlyMap[m].approved++;
+        } else if (l.status === "rejected") {
+          monthlyMap[m].rejected++;
+        }
+      } catch (e) {}
+    }
+  });
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const MONTHLY_DATA = MONTHS.map(m => ({
+    month: m,
+    approved: monthlyMap[m]?.approved || 0,
+    rejected: monthlyMap[m]?.rejected || 0,
+  }));
+
+  // Dynamically compute leave types distribution from allLeaves
+  const leaveTypesMap: Record<string, number> = {};
+  allLeaves.forEach((l: any) => {
+    const t = l.leaveType || "other";
+    leaveTypesMap[t] = (leaveTypesMap[t] || 0) + 1;
+  });
+  const totalLeavesCount = allLeaves.length || 1;
+  const PIE_DATA = Object.entries(leaveTypesMap).map(([name, count]) => {
+    const colors: Record<string, string> = {
+      semester_holiday: "#3b82f6",
+      medical: "#10b981",
+      hospital_visit: "#f43f5e",
+      family_function: "#8b5cf6",
+      festival: "#f59e0b",
+      internship: "#06b6d4",
+      project_work: "#84cc16",
+      other: "#64748b",
+    };
+    const cleanName = name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    return {
+      name: cleanName,
+      value: Math.round((count / totalLeavesCount) * 100),
+      color: colors[name] ?? "#64748b",
+    };
+  });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ status: "hod_approved" }) });
-    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ status: "fully_approved" }) });
+    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({}) });
+    queryClient.invalidateQueries({ queryKey: getGetSimilarLeaveGroupsQueryKey() });
   };
 
   const handleApprove = () => {
     if (!selectedLeave) return;
     approveLeave.mutate({ id: selectedLeave.id, data: { remarks } }, {
-      onSuccess: () => { toast({ title: "Final approval granted ✓ — Outpass generated" }); invalidate(); setSelectedLeave(null); setRemarks(""); },
+      onSuccess: () => { toast({ title: "Approved — forwarded to Warden for Final Verification ✓" }); invalidate(); setSelectedLeave(null); setRemarks(""); },
     });
   };
 
@@ -148,15 +195,27 @@ export default function PrincipalDashboard() {
   const handleBulkApproveAll = () => {
     const ids = (leaves as any[]).map((l: any) => l.id);
     bulkApprove.mutate({ data: { leaveIds: ids, action: "approve", remarks: "Bulk approved by Principal" } }, {
-      onSuccess: () => { toast({ title: `${ids.length} leaves approved in bulk ✓` }); invalidate(); },
+      onSuccess: () => { toast({ title: `${ids.length} leaves approved and forwarded for Warden Final Verification ✓` }); invalidate(); },
+    });
+  };
+
+  const handleBulkApprove = (leaveIds: number[]) => {
+    bulkApprove.mutate({ data: { leaveIds, action: "approve", remarks: "Bulk approved by Principal — same destination/dates" } }, {
+      onSuccess: () => { toast({ title: `${leaveIds.length} leaves approved in bulk ✓` }); invalidate(); },
+    });
+  };
+
+  const handleBulkReject = (leaveIds: number[]) => {
+    bulkApprove.mutate({ data: { leaveIds, action: "reject", remarks: "Bulk rejected by Principal" } }, {
+      onSuccess: () => { toast({ title: `${leaveIds.length} leaves rejected` }); invalidate(); },
     });
   };
 
   const stats = [
-    { label: "Pending Final Approval", value: pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", glow: "shadow-amber-500/10" },
-    { label: "Fully Approved", value: approved, icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", glow: "shadow-emerald-500/10" },
-    { label: "Emergency / Medical", value: emergency, icon: AlertTriangle, color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20", glow: "shadow-rose-500/10" },
-    { label: "Students Outside", value: outside, icon: UserCheck, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", glow: "shadow-blue-500/10" },
+    { label: "Pending Final Approval", value: pending, icon: Clock, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200", glow: "shadow-sm" },
+    { label: "Fully Approved", value: approved, icon: CheckCircle2, color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200", glow: "shadow-sm" },
+    { label: "Emergency / Medical", value: emergency, icon: AlertTriangle, color: "text-rose-700", bg: "bg-rose-50", border: "border-rose-200", glow: "shadow-sm" },
+    { label: "Students Outside", value: outside, icon: UserCheck, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200", glow: "shadow-sm" },
   ];
 
   return (
@@ -165,17 +224,17 @@ export default function PrincipalDashboard() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
-              <Crown className="w-4 h-4 text-amber-400" />
+            <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center">
+              <Crown className="w-4 h-4 text-amber-700" />
             </div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-amber-400">Principal Portal</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-amber-700">Principal Portal</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold">Principal Dashboard</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-slate-800">Principal Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Final approval authority · {format(new Date(), "EEEE, MMMM d yyyy")}</p>
         </div>
         <div className="flex items-center gap-2">
           {(leaves as any[]).length > 0 && (
-            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white gap-2 hidden md:flex" onClick={handleBulkApproveAll}>
+            <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-2 hidden md:flex" onClick={handleBulkApproveAll}>
               <Zap className="w-3.5 h-3.5" /> Approve All ({(leaves as any[]).length})
             </Button>
           )}
@@ -191,7 +250,7 @@ export default function PrincipalDashboard() {
           const Icon = s.icon;
           return (
             <motion.div key={s.label} custom={i} variants={fadeUp} initial="hidden" animate="show">
-              <div className={`glass-card rounded-2xl p-5 border ${s.border} shadow-lg ${s.glow}`}>
+              <div className={`glass-card rounded-2xl p-5 border ${s.border} bg-white shadow-sm`}>
                 <div className={`w-10 h-10 rounded-xl ${s.bg} border ${s.border} flex items-center justify-center mb-3`}>
                   <Icon className={`w-5 h-5 ${s.color}`} />
                 </div>
@@ -205,25 +264,59 @@ export default function PrincipalDashboard() {
 
       {/* Live: Students Outside */}
       {outsideStudents.length > 0 && (
-        <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show" className="glass-card rounded-2xl p-5 border border-blue-500/20">
+        <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show" className="glass-card rounded-2xl p-5 border border-blue-200 bg-blue-50/30 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-blue-400 animate-pulse" />
-            <h3 className="font-heading font-semibold text-sm">Live — Students Currently Outside</h3>
-            <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 ml-auto">{outsideStudents.length} out</Badge>
+            <Activity className="w-4 h-4 text-blue-700 animate-pulse" />
+            <h3 className="font-heading font-semibold text-sm text-blue-900">Live — Students Currently Outside</h3>
+            <Badge className="bg-blue-100 text-blue-700 border-blue-200 ml-auto">{outsideStudents.length} out</Badge>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {outsideStudents.slice(0, 6).map((s: any, i: number) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/15">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/25 flex items-center justify-center text-blue-400 font-bold text-xs">
+              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white border border-blue-100">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-xs">
                   {(s.student?.name ?? "?").charAt(0)}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{s.student?.name ?? "—"}</p>
+                  <p className="text-sm font-medium text-slate-800 truncate">{s.student?.name ?? "—"}</p>
                   <p className="text-xs text-muted-foreground">{s.student?.department} · Out since {s.exitTime ? format(new Date(s.exitTime), "h:mm a") : "—"}</p>
                 </div>
               </div>
             ))}
           </div>
+        </motion.div>
+      )}
+      {/* Bulk Approval Alert */}
+      {groups.length > 0 && (
+        <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show">
+          {groups.map((group: any, gi: number) => (
+            <div key={gi} className="glass-card rounded-2xl p-5 border border-amber-200 bg-amber-50/50 mb-3 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center flex-shrink-0">
+                  <Zap className="w-5 h-5 text-amber-700" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-heading font-semibold text-amber-900">
+                      {group.count ?? group.leaveIds?.length ?? 0} Similar Requests Found
+                    </h3>
+                    <Badge variant="outline" className="border-amber-200 text-amber-700 bg-amber-50 text-xs">Bulk Action Available</Badge>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-3">
+                    Same destination: <strong className="text-slate-900">{group.destination}</strong> · 
+                    Dates: <strong className="text-slate-900">{format(new Date(group.fromDate || Date.now()), "MMM d")} – {format(new Date(group.toDate || Date.now()), "MMM d")}</strong>
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={() => handleBulkApprove(group.leaveIds ?? [])}>
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Approve All
+                    </Button>
+                    <Button size="sm" variant="outline" className="border-rose-200 text-rose-700 hover:bg-rose-50 gap-2" onClick={() => handleBulkReject(group.leaveIds ?? [])}>
+                      <XCircle className="w-3.5 h-3.5" /> Reject All
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </motion.div>
       )}
 
@@ -234,43 +327,43 @@ export default function PrincipalDashboard() {
         </TabsList>
 
         <TabsContent value="queue" className="space-y-4">
-          <div className="glass-card rounded-2xl overflow-hidden">
+          <div className="glass-card rounded-2xl overflow-hidden bg-white shadow-sm">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
               <div>
-                <h2 className="font-heading font-semibold">Final Approval Queue</h2>
+                <h2 className="font-heading font-semibold text-slate-800">Final Approval Queue</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">These requests have passed Warden → Tutor → HOD</p>
               </div>
-              <Badge variant="outline" className="text-amber-400 border-amber-500/30">{(leaves as any[]).length} pending</Badge>
+              <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">{(leaves as any[]).length} pending</Badge>
             </div>
 
             {isLoading ? (
               <div className="p-12 text-center text-muted-foreground"><RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3" /> Loading…</div>
             ) : (leaves as any[]).length === 0 ? (
-              <div className="p-12 text-center"><CheckCircle2 className="w-12 h-12 text-amber-400/40 mx-auto mb-3" /><p className="text-muted-foreground">No requests awaiting final approval.</p></div>
+              <div className="p-12 text-center"><CheckCircle2 className="w-12 h-12 text-amber-300 mx-auto mb-3" /><p className="text-muted-foreground">No requests awaiting final approval.</p></div>
             ) : (
               <div className="divide-y divide-border/30">
                 {(leaves as any[]).map((leave: any, i: number) => (
                   <motion.div
                     key={leave.id}
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
-                    className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors group cursor-pointer"
+                    className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/50 transition-colors group cursor-pointer"
                     onClick={() => { setSelectedLeave(leave); setRemarks(""); }}
                   >
                     <div className="relative">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0 font-bold text-amber-400 text-sm">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center flex-shrink-0 font-bold text-amber-700 text-sm">
                         {(leave.student?.name ?? "?").charAt(0)}
                       </div>
                       {leave.leaveType === "medical" && (
                         <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-background flex items-center justify-center">
                           <AlertTriangle className="w-2.5 h-2.5 text-white" />
-                        </div>
-                      )}
+                         </div>
+                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-sm">{leave.student?.name ?? `#${leave.studentId}`}</span>
+                        <span className="font-semibold text-sm text-slate-800">{leave.student?.name ?? `#${leave.studentId}`}</span>
                         <StatusBadge status={leave.status} />
-                        {leave.leaveType === "medical" && <Badge className="bg-rose-500/15 text-rose-400 border-rose-500/25 text-[10px]">Emergency</Badge>}
+                        {leave.leaveType === "medical" && <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px]">Emergency</Badge>}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{leave.reason}</p>
                       <div className="flex items-center gap-3 mt-1">
@@ -279,7 +372,7 @@ export default function PrincipalDashboard() {
                       </div>
                     </div>
                     <div className="hidden md:flex flex-col items-end gap-1">
-                      <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white h-7 px-3 text-xs" onClick={e => { e.stopPropagation(); approveLeave.mutate({ id: leave.id, data: { remarks: "Approved by Principal" } }, { onSuccess: () => { toast({ title: "Approved ✓" }); invalidate(); } }); }}>
+                      <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white h-7 px-3 text-xs" onClick={e => { e.stopPropagation(); approveLeave.mutate({ id: leave.id, data: { remarks: "Approved by Principal" } }, { onSuccess: () => { toast({ title: "Approved ✓" }); invalidate(); } }); }}>
                         One-click Approve
                       </Button>
                     </div>
@@ -299,10 +392,10 @@ export default function PrincipalDashboard() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="glass-card rounded-2xl p-6">
+            <div className="glass-card rounded-2xl p-6 bg-white shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-4 h-4 text-amber-400" />
-                <h3 className="font-heading font-semibold text-sm">Approval Trends</h3>
+                <TrendingUp className="w-4 h-4 text-amber-700" />
+                <h3 className="font-heading font-semibold text-sm text-slate-800">Approval Trends</h3>
               </div>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={MONTHLY_DATA}>
@@ -312,7 +405,7 @@ export default function PrincipalDashboard() {
                       <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
@@ -322,10 +415,10 @@ export default function PrincipalDashboard() {
               </ResponsiveContainer>
             </div>
 
-            <div className="glass-card rounded-2xl p-6">
+            <div className="glass-card rounded-2xl p-6 bg-white shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <FileText className="w-4 h-4 text-amber-400" />
-                <h3 className="font-heading font-semibold text-sm">Leave Type Breakdown</h3>
+                <FileText className="w-4 h-4 text-amber-700" />
+                <h3 className="font-heading font-semibold text-sm text-slate-800">Leave Type Breakdown</h3>
               </div>
               <div className="flex items-center gap-4">
                 <ResponsiveContainer width="60%" height={160}>
@@ -373,9 +466,9 @@ export default function PrincipalDashboard() {
               </div>
 
               {selectedLeave.hodRemarks && (
-                <div className="p-3 rounded-xl bg-violet-500/5 border border-violet-500/20">
-                  <p className="text-xs text-violet-400 font-medium mb-1">HOD Remarks</p>
-                  <p className="text-sm italic">"{selectedLeave.hodRemarks}"</p>
+                <div className="p-3 rounded-xl bg-violet-50 border border-violet-100">
+                  <p className="text-xs text-violet-700 font-medium mb-1">HOD Remarks</p>
+                  <p className="text-sm text-violet-800 italic">"{selectedLeave.hodRemarks}"</p>
                 </div>
               )}
 
@@ -383,13 +476,13 @@ export default function PrincipalDashboard() {
               <div className="space-y-3">
                 <Textarea placeholder="Principal remarks (optional for approval)…" rows={2} value={remarks} onChange={e => setRemarks(e.target.value)} />
                 <div className="grid grid-cols-3 gap-2">
-                  <Button className="bg-amber-500 hover:bg-amber-600 text-white gap-1.5" onClick={handleApprove} disabled={approveLeave.isPending}>
+                  <Button className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5" onClick={handleApprove} disabled={approveLeave.isPending}>
                     <CheckCircle2 className="w-4 h-4" /> Approve
                   </Button>
-                  <Button variant="outline" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-1.5">
+                  <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50 gap-1.5">
                     <ArrowLeft className="w-4 h-4" /> Return to HOD
                   </Button>
-                  <Button variant="outline" className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-1.5" onClick={handleReject} disabled={rejectLeave.isPending}>
+                  <Button variant="outline" className="border-rose-200 text-rose-700 hover:bg-rose-50 gap-1.5" onClick={handleReject} disabled={rejectLeave.isPending}>
                     <XCircle className="w-4 h-4" /> Reject
                   </Button>
                 </div>

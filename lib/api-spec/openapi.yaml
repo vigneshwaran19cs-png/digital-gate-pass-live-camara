@@ -22,6 +22,10 @@ tags:
     description: Notifications
   - name: dashboard
     description: Analytics and dashboards
+  - name: departments
+    description: Department management
+  - name: classes
+    description: Class management
 paths:
   /healthz:
     get:
@@ -197,9 +201,13 @@ paths:
           schema:
             type: integer
         - in: query
-          name: department
+          name: departmentId
           schema:
-            type: string
+            type: integer
+        - in: query
+          name: classId
+          schema:
+            type: integer
         - in: query
           name: page
           schema:
@@ -519,6 +527,121 @@ paths:
               schema:
                 $ref: "#/components/schemas/Outpass"
 
+  # ─── DEPARTMENTS ─────────────────────────────────────────────────────────
+  /departments:
+    get:
+      operationId: listDepartments
+      tags: [departments]
+      summary: Get all departments
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Department"
+    post:
+      operationId: createDepartment
+      tags: [departments]
+      summary: Create a department
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                hodId:
+                  type: ["integer", "null"]
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Department"
+  
+  /departments/{id}:
+    delete:
+      operationId: deleteDepartment
+      tags: [departments]
+      summary: Delete a department
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+  
+  # ─── CLASSES ─────────────────────────────────────────────────────────────
+  /classes:
+    get:
+      operationId: listClasses
+      tags: [classes]
+      summary: Get all classes
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Class"
+    post:
+      operationId: createClass
+      tags: [classes]
+      summary: Create a class
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [departmentId, year, section]
+              properties:
+                departmentId:
+                  type: integer
+                year:
+                  type: string
+                  enum: ["I", "II", "III", "IV"]
+                section:
+                  type: string
+                tutorId:
+                  type: ["integer", "null"]
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Class"
+
+  /classes/{id}:
+    delete:
+      operationId: deleteClass
+      tags: [classes]
+      summary: Delete a class
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ─── NOTIFICATIONS ─────────────────────────────────────────────────────────
   /notifications:
     get:
@@ -534,6 +657,21 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Notification"
+
+  /notifications/logs:
+    get:
+      operationId: listNotificationLogs
+      tags: [notifications]
+      summary: Super Admin - Get notification delivery logs
+      responses:
+        "200":
+          description: Notification Logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationLog"
 
   /notifications/{id}/read:
     patch:
@@ -690,8 +828,8 @@ components:
           enum: [student, tutor, hod, principal, warden, security, super_admin]
         registerNumber:
           type: ["string", "null"]
-        department:
-          type: ["string", "null"]
+        departmentId:
+          type: ["integer", "null"]
         hostelRoom:
           type: ["string", "null"]
         phone:
@@ -699,6 +837,20 @@ components:
         parentPhone:
           type: ["string", "null"]
         photoUrl:
+          type: ["string", "null"]
+        classId:
+          type: ["integer", "null"]
+        hostelBlock:
+          type: ["string", "null"]
+        parentName:
+          type: ["string", "null"]
+        parentWhatsapp:
+          type: ["string", "null"]
+        parentEmail:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        designation:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -722,8 +874,8 @@ components:
           enum: [student, tutor, hod, principal, warden, security, super_admin]
         registerNumber:
           type: string
-        department:
-          type: string
+        departmentId:
+          type: integer
         hostelRoom:
           type: string
         phone:
@@ -731,6 +883,20 @@ components:
         parentPhone:
           type: string
         photoUrl:
+          type: string
+        classId:
+          type: integer
+        hostelBlock:
+          type: string
+        parentName:
+          type: string
+        parentWhatsapp:
+          type: string
+        parentEmail:
+          type: string
+        address:
+          type: string
+        designation:
           type: string
 
     UserUpdate:
@@ -744,15 +910,29 @@ components:
           type: string
         hostelRoom:
           type: string
-        department:
-          type: string
+        departmentId:
+          type: integer
         photoUrl:
+          type: string
+        classId:
+          type: integer
+        hostelBlock:
+          type: string
+        parentName:
+          type: string
+        parentWhatsapp:
+          type: string
+        parentEmail:
+          type: string
+        address:
+          type: string
+        designation:
           type: string
 
     # ── Leave Request ─────────────────────────────────────────────────────────
     LeaveRequest:
       type: object
-      required: [id, studentId, leaveType, reason, fromDate, toDate, destination, status, currentStep, createdAt]
+      required: [id, studentId, passType, leaveType, reason, fromDate, toDate, destination, status, currentStep, createdAt]
       properties:
         id:
           type: integer
@@ -760,9 +940,12 @@ components:
           type: integer
         student:
           $ref: "#/components/schemas/User"
+        passType:
+          type: string
+          enum: [leave, outing]
         leaveType:
           type: string
-          enum: [home, medical, emergency, personal, educational]
+          enum: [semester_holiday, study_holiday, diwali_holiday, pongal_holiday, christmas_holiday, ramzan_holiday, internship, project_work, family_function, family_emergency, marriage_function, medical_leave, hospital_visit, hair_cut, shopping, atm_withdrawal, bank_visit, medical_checkup, personal_work, other, home, medical, emergency, personal, educational, outing]
         reason:
           type: string
         fromDate:
@@ -778,7 +961,7 @@ components:
           enum: [pending, warden_approved, tutor_approved, hod_approved, principal_approved, fully_approved, rejected, cancelled]
         currentStep:
           type: string
-          enum: [warden, tutor, hod, principal, completed, rejected]
+          enum: [warden, tutor, hod, principal, warden_final, completed, rejected]
         wardenRemarks:
           type: ["string", "null"]
         tutorRemarks:
@@ -794,6 +977,37 @@ components:
           type: ["string", "null"]
         outpassId:
           type: ["integer", "null"]
+        aiGeneratedLetter:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+
+
+    NotificationLog:
+      type: object
+      required: [id, userId, channel, recipient, status, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        leaveId:
+          type: ["integer", "null"]
+        channel:
+          type: string
+          enum: [email, sms, whatsapp]
+        recipient:
+          type: string
+        status:
+          type: string
+          enum: [pending, sent, failed]
+        errorMessage:
+          type: ["string", "null"]
+        sentAt:
+          type: ["string", "null"]
+          format: date-time
         createdAt:
           type: string
           format: date-time
@@ -803,11 +1017,14 @@ components:
 
     LeaveInput:
       type: object
-      required: [leaveType, reason, fromDate, toDate, destination]
+      required: [passType, leaveType, reason, fromDate, toDate, destination]
       properties:
+        passType:
+          type: string
+          enum: [leave, outing]
         leaveType:
           type: string
-          enum: [home, medical, emergency, personal, educational]
+          enum: [semester_holiday, study_holiday, diwali_holiday, pongal_holiday, christmas_holiday, ramzan_holiday, internship, project_work, family_function, family_emergency, marriage_function, medical_leave, hospital_visit, hair_cut, shopping, atm_withdrawal, bank_visit, medical_checkup, personal_work, other, home, medical, emergency, personal, educational, outing]
         reason:
           type: string
           minLength: 1
@@ -1115,3 +1332,44 @@ components:
           format: date
         isOverdue:
           type: boolean
+
+    Department:
+      type: object
+      required: [id, code, name, createdAt]
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        hodId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Class:
+      type: object
+      required: [id, departmentId, year, section, createdAt]
+      properties:
+        id:
+          type: integer
+        departmentId:
+          type: integer
+        year:
+          type: string
+          enum: ["I", "II", "III", "IV"]
+        section:
+          type: string
+        tutorId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

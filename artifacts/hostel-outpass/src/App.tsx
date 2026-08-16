@@ -17,6 +17,15 @@ import SecurityPage from "@/pages/security";
 import ReportsPage from "@/pages/reports";
 import UsersPage from "@/pages/users";
 import NotificationsPage from "@/pages/notifications";
+import NotificationLogsPage from "@/pages/notifications/logs";
+import AdminDepartmentsPage from "@/pages/admin/departments";
+import AdminClassesPage from "@/pages/admin/classes";
+import AdminHostelsPage from "@/pages/admin/hostels";
+import LiveScannerPage from "@/pages/security/live-scanner";
+import EnrollmentPage from "@/pages/enrollment";
+import StudentProfilePage from "@/pages/students/profile";
+import EmergencyLeavePage from "@/pages/leaves/emergency";
+import BulkApprovePage from "@/pages/leaves/bulk-approve";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -44,15 +53,24 @@ function Router() {
     <Switch>
       <Route path="/" component={LoginPage} />
       <ProtectedRoute path="/dashboard" component={Dashboard} />
+      <ProtectedRoute path="/enrollment" component={EnrollmentPage} />
+      <ProtectedRoute path="/profile" component={StudentProfilePage} />
       <ProtectedRoute path="/leaves" component={LeavesPage} />
+      <ProtectedRoute path="/leaves/emergency" component={EmergencyLeavePage} />
+      <ProtectedRoute path="/leaves/bulk-approve" component={BulkApprovePage} />
       <ProtectedRoute path="/apply" component={ApplyLeavePage} />
       <ProtectedRoute path="/leaves/:id" component={LeaveDetailPage} />
       <ProtectedRoute path="/outpasses" component={OutpassesPage} />
       <ProtectedRoute path="/outpasses/:id" component={OutpassDetailPage} />
       <ProtectedRoute path="/security" component={SecurityPage} />
+      <ProtectedRoute path="/security/scanner" component={LiveScannerPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <ProtectedRoute path="/users" component={UsersPage} />
       <ProtectedRoute path="/notifications" component={NotificationsPage} />
+      <ProtectedRoute path="/admin/notification-logs" component={NotificationLogsPage} />
+      <ProtectedRoute path="/admin/departments" component={AdminDepartmentsPage} />
+      <ProtectedRoute path="/admin/classes" component={AdminClassesPage} />
+      <ProtectedRoute path="/admin/hostels" component={AdminHostelsPage} />
       
       <Route>
         {user ? (

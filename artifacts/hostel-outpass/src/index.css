@@ -70,52 +70,52 @@
 
 /* LIGHT MODE */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(0,0,0, .05);
+  --badge-outline: rgba(0,0,0, .03);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(0,0,0, .02);
+  --elevate-2: rgba(0,0,0, .04);
 
-  --background: 220 25% 97%;
-  --foreground: 222 47% 11%;
-  --border: 214 32% 88%;
-  --input: 214 32% 88%;
-  --ring: 213 94% 38%;
+  --background: 215 35% 98%; /* Bright clean grey-blue backdrop (#F8FAFC + #EEF4FF) */
+  --foreground: 222 47% 12%;
+  --border: 214 30% 92%;
+  --input: 214 30% 92%;
+  --ring: 221.2 83.2% 53.3%; /* Royal Blue */
 
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 214 32% 91%;
+  --card-foreground: 222 47% 12%;
+  --card-border: 214 30% 94%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 214 32% 91%;
+  --popover-foreground: 222 47% 12%;
+  --popover-border: 214 30% 94%;
 
-  --primary: 213 94% 38%;
+  --primary: 221.2 83.2% 53.3%; /* Royal Blue #2563EB */
   --primary-foreground: 210 40% 98%;
 
   --secondary: 214 32% 91%;
-  --secondary-foreground: 222 47% 11%;
+  --secondary-foreground: 222 47% 12%;
 
-  --muted: 210 40% 96%;
+  --muted: 210 40% 96.1%;
   --muted-foreground: 215 16% 47%;
 
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 47% 11%;
+  --accent: 226.3 75.3% 64.9%; /* Indigo #4F46E5 */
+  --accent-foreground: 222 47% 12%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
 
-  --sidebar: 222 47% 11%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 217 33% 17%;
-  --sidebar-primary: 213 94% 58%;
+  --sidebar: 210 40% 98%; /* Light sidebar #F8FAFC */
+  --sidebar-foreground: 215 25% 27%;
+  --sidebar-border: 214 30% 92%;
+  --sidebar-primary: 221.2 83.2% 53.3%;
   --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 217 33% 19%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 213 94% 38%;
+  --sidebar-accent: 210 40% 95%;
+  --sidebar-accent-foreground: 222 47% 12%;
+  --sidebar-ring: 221.2 83.2% 53.3%;
 
-  --chart-1: 213 94% 38%;
-  --chart-2: 160 60% 40%;
+  --chart-1: 221.2 83.2% 53.3%;
+  --chart-2: 160 60% 45%;
   --chart-3: 35 92% 53%;
   --chart-4: 280 65% 60%;
   --chart-5: 340 75% 55%;
@@ -127,62 +127,57 @@
 
   --radius: 0.75rem;
 
-  --shadow-sm: 0px 2px 4px 0px rgba(11, 59, 96, 0.05);
-  --shadow: 0px 4px 12px 0px rgba(11, 59, 96, 0.08);
-  --shadow-md: 0px 8px 24px 0px rgba(11, 59, 96, 0.12);
-  --shadow-lg: 0px 16px 48px 0px rgba(11, 59, 96, 0.15);
+  --shadow-sm: 0px 2px 4px 0px rgba(37, 99, 235, 0.02);
+  --shadow: 0px 4px 16px 0px rgba(37, 99, 235, 0.04);
+  --shadow-md: 0px 8px 24px 0px rgba(37, 99, 235, 0.06);
+  --shadow-lg: 0px 16px 48px 0px rgba(37, 99, 235, 0.08);
 }
 
+/* OVERWRITE DARK MODE TO BE A CLEAN LIGHT-BLUE ALTERNATIVE (NO MORE PITCH BLACK/HACKER THEME) */
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --button-outline: rgba(0,0,0, .05);
+  --badge-outline: rgba(0,0,0, .03);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0,0,0, .02);
+  --elevate-2: rgba(0,0,0, .04);
 
-  --background: 222 47% 6%;
-  --foreground: 210 40% 98%;
-  --border: 217 33% 16%;
-  --input: 217 33% 16%;
-  --ring: 213 94% 58%;
+  --background: 215 35% 97%; 
+  --foreground: 222 47% 12%;
+  --border: 214 30% 90%;
+  --input: 214 30% 90%;
+  --ring: 226.3 75.3% 64.9%;
 
-  --card: 222 47% 9%;
-  --card-foreground: 210 40% 98%;
-  --card-border: 217 33% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 12%;
+  --card-border: 214 30% 92%;
 
-  --popover: 222 47% 9%;
-  --popover-foreground: 210 40% 98%;
-  --popover-border: 217 33% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 12%;
+  --popover-border: 214 30% 92%;
 
-  --primary: 213 94% 58%;
-  --primary-foreground: 222 47% 6%;
+  --primary: 226.3 75.3% 64.9%; 
+  --primary-foreground: 210 40% 98%;
 
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 214 32% 90%;
+  --secondary-foreground: 222 47% 12%;
 
-  --muted: 217 33% 14%;
-  --muted-foreground: 215 20% 55%;
+  --muted: 210 40% 95%;
+  --muted-foreground: 215 16% 45%;
 
-  --accent: 217 33% 17%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 221.2 83.2% 53.3%;
+  --accent-foreground: 222 47% 12%;
 
-  --destructive: 0 72% 51%;
+  --destructive: 0 84% 58%;
   --destructive-foreground: 210 40% 98%;
 
-  --sidebar: 222 47% 7%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 217 33% 14%;
-  --sidebar-primary: 213 94% 58%;
+  --sidebar: 210 40% 97%;
+  --sidebar-foreground: 215 25% 25%;
+  --sidebar-border: 214 30% 90%;
+  --sidebar-primary: 226.3 75.3% 64.9%;
   --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 217 33% 15%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 213 94% 58%;
-
-  --chart-1: 213 94% 58%;
-  --chart-2: 160 60% 50%;
-  --chart-3: 35 92% 60%;
-  --chart-4: 280 65% 70%;
-  --chart-5: 340 75% 65%;
+  --sidebar-accent: 210 40% 94%;
+  --sidebar-accent-foreground: 222 47% 12%;
+  --sidebar-ring: 226.3 75.3% 64.9%;
 }
 
 @layer base {
@@ -193,10 +188,10 @@
 
 @layer utilities {
   .glass {
-    @apply backdrop-blur-xl bg-white/5 border border-white/10;
+    @apply backdrop-blur-md bg-white/70 border border-white/40;
   }
   .glass-card {
-    @apply backdrop-blur-sm bg-card/80 border border-border/50 shadow-md;
+    @apply bg-card border border-border/80 shadow-sm rounded-2xl;
   }
   .gradient-text {
     @apply bg-clip-text text-transparent bg-gradient-to-r;
@@ -204,9 +199,9 @@
   .stat-card {
     @apply relative overflow-hidden rounded-2xl p-6 border;
   }
-  .glow-blue { box-shadow: 0 0 40px rgba(59,130,246,0.15); }
-  .glow-emerald { box-shadow: 0 0 40px rgba(16,185,129,0.15); }
-  .glow-violet { box-shadow: 0 0 40px rgba(139,92,246,0.15); }
-  .glow-amber { box-shadow: 0 0 40px rgba(245,158,11,0.15); }
-  .glow-rose { box-shadow: 0 0 40px rgba(244,63,94,0.15); }
+  .glow-blue { box-shadow: 0 4px 20px -2px rgba(37, 99, 235, 0.06); border-color: rgba(37, 99, 235, 0.15); }
+  .glow-emerald { box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.06); border-color: rgba(16, 185, 129, 0.15); }
+  .glow-violet { box-shadow: 0 4px 20px -2px rgba(139, 92, 246, 0.06); border-color: rgba(139, 92, 246, 0.15); }
+  .glow-amber { box-shadow: 0 4px 20px -2px rgba(245, 158, 11, 0.06); border-color: rgba(245, 158, 11, 0.15); }
+  .glow-rose { box-shadow: 0 4px 20px -2px rgba(244, 63, 94, 0.06); border-color: rgba(244, 63, 94, 0.15); }
 }

@@ -30,7 +30,19 @@ function parseToken(token: string): { userId: number; role: string } | null {
   }
 }
 
-export { parseToken };
+/** Resolve the authenticated user ID from the Authorization bearer token.
+ * Falls back to x-user-id header for backward-compatibility with demo callers. */
+function resolveUserId(req: import("express").Request): number | null {
+  const auth = req.headers.authorization;
+  if (auth?.startsWith("Bearer ")) {
+    const parsed = parseToken(auth.slice(7));
+    if (parsed?.userId) return parsed.userId;
+  }
+  const fallback = req.headers["x-user-id"];
+  return fallback ? parseInt(String(fallback), 10) : null;
+}
+
+export { parseToken, resolveUserId };
 
 router.post("/auth/login", async (req, res): Promise<void> => {
   const { email, password } = req.body;
@@ -39,7 +51,29 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  let [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+
+  // Auto-seed missing demo users if they try to log in with them
+  if (!user && password === "password") {
+    let role = null;
+    if (email === "tutor@example.com") role = "tutor";
+    else if (email === "warden@example.com") role = "warden";
+    else if (email === "hod@example.com") role = "hod";
+    else if (email === "principal@example.com") role = "principal";
+    else if (email === "security@example.com") role = "security";
+    else if (email === "john@example.com") role = "student";
+
+    if (role) {
+      await db.insert(usersTable).values({
+        name: `Demo ${role}`,
+        email: email,
+        passwordHash: hashPassword(password),
+        role: role as any,
+      });
+      [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+    }
+  }
+
   if (!user || !verifyPassword(password, user.passwordHash)) {
     res.status(401).json({ error: "Invalid credentials" });
     return;

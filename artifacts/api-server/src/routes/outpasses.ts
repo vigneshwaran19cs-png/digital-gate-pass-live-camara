@@ -125,14 +125,15 @@ router.post("/outpasses/:id/verify", async (req, res): Promise<void> => {
     return;
   }
 
-  const [updated] = await db.update(outpassesTable)
+  await db.update(outpassesTable)
     .set({
       status: "verified",
       exitTime: new Date(),
       gateLocation: parsed.data.gateLocation,
     })
-    .where(eq(outpassesTable.id, params.data.id))
-    .returning();
+    .where(eq(outpassesTable.id, params.data.id));
+
+  const [updated] = await db.select().from(outpassesTable).where(eq(outpassesTable.id, params.data.id));
 
   if (!updated) {
     res.status(404).json({ error: "Outpass not found" });
@@ -163,10 +164,11 @@ router.post("/outpasses/:id/return", async (req, res): Promise<void> => {
     return;
   }
 
-  const [updated] = await db.update(outpassesTable)
+  await db.update(outpassesTable)
     .set({ status: "returned", returnTime: new Date() })
-    .where(eq(outpassesTable.id, params.data.id))
-    .returning();
+    .where(eq(outpassesTable.id, params.data.id));
+
+  const [updated] = await db.select().from(outpassesTable).where(eq(outpassesTable.id, params.data.id));
 
   if (!updated) {
     res.status(404).json({ error: "Outpass not found" });

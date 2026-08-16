@@ -4,6 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   useListLeaves, useApproveLeave, useRejectLeave, useBulkApproveLeaves,
   useGetSimilarLeaveGroups, getListLeavesQueryKey, getGetSimilarLeaveGroupsQueryKey,
+  useGetHostelOccupancy, getGetHostelOccupancyQueryKey,
+  useListDepartments,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -32,12 +34,13 @@ const fadeUp = {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pending: "bg-amber-500/15 text-amber-400 border-amber-500/25",
-    warden_approved: "bg-cyan-500/15 text-cyan-400 border-cyan-500/25",
-    tutor_approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
-    hod_approved: "bg-violet-500/15 text-violet-400 border-violet-500/25",
-    fully_approved: "bg-blue-500/15 text-blue-400 border-blue-500/25",
-    rejected: "bg-rose-500/15 text-rose-400 border-rose-500/25",
+    pending: "bg-amber-50 text-amber-700 border-amber-100",
+    warden_approved: "bg-cyan-50 text-cyan-700 border-cyan-100",
+    tutor_approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    hod_approved: "bg-violet-50 text-violet-700 border-violet-100",
+    principal_approved: "bg-orange-50 text-orange-700 border-orange-100",
+    fully_approved: "bg-blue-50 text-blue-700 border-blue-100",
+    rejected: "bg-rose-50 text-rose-700 border-rose-100",
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border ${map[status] ?? "bg-muted text-muted-foreground border-border"}`}>
@@ -46,18 +49,8 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-const DEPT_CHART_DATA = [
-  { name: "CSE", leaves: 14, color: "#8b5cf6" },
-  { name: "ECE", leaves: 9, color: "#6d5ef0" },
-  { name: "MECH", leaves: 7, color: "#a78bfa" },
-  { name: "CIVIL", leaves: 5, color: "#7c3aed" },
-  { name: "EEE", leaves: 11, color: "#c4b5fd" },
-];
 
-const MONTHLY_DATA = [
-  { month: "Jan", leaves: 22 }, { month: "Feb", leaves: 18 }, { month: "Mar", leaves: 31 },
-  { month: "Apr", leaves: 27 }, { month: "May", leaves: 15 }, { month: "Jun", leaves: 9 },
-];
+
 
 export default function HodDashboard() {
   const { user } = useAuth();
@@ -68,13 +61,20 @@ export default function HodDashboard() {
   const [remarks, setRemarks] = useState("");
   const [bulkGroupId, setBulkGroupId] = useState<string | null>(null);
 
+  const { data: departments = [] } = useListDepartments();
+  const myDept = (departments as any[]).find((d: any) => d.hodId === user?.id);
+  const myDeptId = myDept?.id;
+
   const { data: leavesData, isLoading } = useListLeaves(
-    { status: "tutor_approved" },
-    { query: { queryKey: getListLeavesQueryKey({ status: "tutor_approved" }) } }
+    { status: "tutor_approved", departmentId: myDeptId },
+    { query: { queryKey: getListLeavesQueryKey({ status: "tutor_approved", departmentId: myDeptId }) } }
   );
   const { data: allData } = useListLeaves(
-    { department: user?.department ?? undefined },
-    { query: { queryKey: getListLeavesQueryKey({ department: user?.department ?? undefined }) } }
+    { departmentId: myDeptId },
+    { query: { queryKey: getListLeavesQueryKey({ departmentId: myDeptId }) } }
+  );
+  const { data: occupancyData } = useGetHostelOccupancy(
+    { query: { queryKey: getGetHostelOccupancyQueryKey() } }
   );
   const { data: similarGroups } = useGetSimilarLeaveGroups(
     { query: { queryKey: getGetSimilarLeaveGroupsQueryKey() } }
@@ -87,10 +87,11 @@ export default function HodDashboard() {
   const leaves = (leavesData as any)?.leaves ?? (leavesData as any) ?? [];
   const allLeaves = (allData as any)?.leaves ?? (allData as any) ?? [];
   const groups: any[] = (similarGroups as any)?.groups ?? [];
+  const occupancy = occupancyData as any;
 
   const pending = (leaves as any[]).length;
   const total = (allLeaves as any[]).length;
-  const approved = (allLeaves as any[]).filter((l: any) => ["hod_approved","fully_approved"].includes(l.status)).length;
+  const approved = (allLeaves as any[]).filter((l: any) => ["hod_approved","principal_approved","fully_approved"].includes(l.status)).length;
   const rejected = (allLeaves as any[]).filter((l: any) => l.status === "rejected").length;
 
   const filtered = (leaves as any[]).filter((l: any) => {
@@ -98,10 +99,35 @@ export default function HodDashboard() {
     return !q || (l.student?.name ?? "").toLowerCase().includes(q) || (l.reason ?? "").toLowerCase().includes(q);
   });
 
+  // Calculate monthly trends from allLeaves
+  const monthlyMap: Record<string, number> = {};
+  allLeaves.forEach((l: any) => {
+    if (l.fromDate) {
+      try {
+        const m = format(new Date(l.fromDate), "MMM");
+        monthlyMap[m] = (monthlyMap[m] || 0) + 1;
+      } catch (e) {}
+    }
+  });
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const MONTHLY_DATA = MONTHS.map(m => ({ month: m, leaves: monthlyMap[m] || 0 }));
+
+  // Calculate department chart data from occupancy
+  const deptBreakdown: any[] = occupancy?.departmentBreakdown ?? [];
+  const DEPT_CHART_DATA = deptBreakdown.map((d: any, idx: number) => {
+    const colors = ["#8b5cf6", "#6d5ef0", "#a78bfa", "#7c3aed", "#c4b5fd", "#f59e0b", "#10b981"];
+    return {
+      name: d.department,
+      leaves: d.onLeave || 0,
+      color: colors[idx % colors.length]
+    };
+  });
+
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ status: "tutor_approved" }) });
-    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ department: user?.department ?? undefined }) });
+    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ status: "tutor_approved", departmentId: myDeptId }) });
+    queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey({ departmentId: myDeptId }) });
     queryClient.invalidateQueries({ queryKey: getGetSimilarLeaveGroupsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetHostelOccupancyQueryKey() });
   };
 
   const handleApprove = () => {
@@ -137,10 +163,10 @@ export default function HodDashboard() {
   };
 
   const stats = [
-    { label: "Total Requests", value: total, icon: Users, color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20" },
-    { label: "Pending Approvals", value: pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
-    { label: "Approved (All Time)", value: approved, icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-    { label: "Rejected", value: rejected, icon: XCircle, color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20" },
+    { label: "Total Requests", value: total, icon: Users, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100" },
+    { label: "Pending Approvals", value: pending, icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+    { label: "Approved (All Time)", value: approved, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
+    { label: "Rejected", value: rejected, icon: XCircle, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
   ];
 
   return (
@@ -149,10 +175,10 @@ export default function HodDashboard() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/30 flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-violet-400" />
+            <div className="w-8 h-8 rounded-lg bg-violet-50 border border-violet-100 flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-violet-600" />
             </div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-violet-400">HOD Portal</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-violet-600">HOD Portal</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-heading font-bold">HOD Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Department-level approval & analytics</p>
@@ -184,30 +210,30 @@ export default function HodDashboard() {
       {groups.length > 0 && (
         <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show">
           {groups.map((group: any, gi: number) => (
-            <div key={gi} className="glass-card rounded-2xl p-5 border border-amber-500/30 bg-amber-500/5 mb-3">
+            <div key={gi} className="glass-card rounded-2xl p-5 border border-amber-200 bg-amber-50/50 mb-3 shadow-sm">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
-                  <Zap className="w-5 h-5 text-amber-400" />
+                <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center flex-shrink-0">
+                  <Zap className="w-5 h-5 text-amber-700" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-heading font-semibold text-amber-400">
+                    <h3 className="font-heading font-semibold text-amber-900">
                       {group.count ?? group.leaveIds?.length ?? 0} Similar Requests Found
                     </h3>
-                    <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-xs">Bulk Action Available</Badge>
+                    <Badge variant="outline" className="border-amber-200 text-amber-700 bg-amber-50 text-xs">Bulk Action Available</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Same destination: <strong className="text-foreground">{group.destination}</strong> · 
-                    Dates: <strong className="text-foreground">{format(new Date(group.fromDate || Date.now()), "MMM d")} – {format(new Date(group.toDate || Date.now()), "MMM d")}</strong>
+                  <p className="text-sm text-slate-600 mb-3">
+                    Same destination: <strong className="text-slate-900">{group.destination}</strong> · 
+                    Dates: <strong className="text-slate-900">{format(new Date(group.fromDate || Date.now()), "MMM d")} – {format(new Date(group.toDate || Date.now()), "MMM d")}</strong>
                   </p>
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={() => handleBulkApprove(group.leaveIds ?? [])}>
                       <CheckCircle2 className="w-3.5 h-3.5" /> Approve All
                     </Button>
-                    <Button size="sm" variant="outline" className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-2" onClick={() => handleBulkReject(group.leaveIds ?? [])}>
+                    <Button size="sm" variant="outline" className="border-rose-200 text-rose-700 hover:bg-rose-50 gap-2" onClick={() => handleBulkReject(group.leaveIds ?? [])}>
                       <XCircle className="w-3.5 h-3.5" /> Reject All
                     </Button>
-                    <Button size="sm" variant="ghost" className="gap-2">
+                    <Button size="sm" variant="ghost" className="gap-2 text-slate-600 hover:text-slate-900">
                       <Layers className="w-3.5 h-3.5" /> Review Individually
                     </Button>
                   </div>
@@ -234,31 +260,31 @@ export default function HodDashboard() {
           </div>
 
           {/* Leaves */}
-          <div className="glass-card rounded-2xl overflow-hidden">
+          <div className="glass-card rounded-2xl overflow-hidden bg-white shadow-sm">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
-              <h2 className="font-heading font-semibold">Pending Approvals</h2>
-              <Badge variant="outline" className="text-violet-400 border-violet-500/30">{filtered.length} requests</Badge>
+              <h2 className="font-heading font-semibold text-slate-800">Pending Approvals</h2>
+              <Badge variant="outline" className="text-violet-700 border-violet-200 bg-violet-50">{filtered.length} requests</Badge>
             </div>
 
             {isLoading ? (
               <div className="p-12 text-center text-muted-foreground"><RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3" /> Loading…</div>
             ) : filtered.length === 0 ? (
-              <div className="p-12 text-center"><CheckCircle2 className="w-12 h-12 text-violet-400/40 mx-auto mb-3" /><p className="text-muted-foreground">No pending requests.</p></div>
+              <div className="p-12 text-center"><CheckCircle2 className="w-12 h-12 text-violet-300 mx-auto mb-3" /><p className="text-muted-foreground">No pending requests.</p></div>
             ) : (
               <div className="divide-y divide-border/30">
                 {filtered.map((leave: any, i: number) => (
                   <motion.div
                     key={leave.id}
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
-                    className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors group cursor-pointer"
+                    className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/50 transition-colors group cursor-pointer"
                     onClick={() => { setSelectedLeave(leave); setRemarks(""); }}
                   >
-                    <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0 font-bold text-violet-400 text-sm">
+                    <div className="w-10 h-10 rounded-xl bg-violet-100 border border-violet-200 flex items-center justify-center flex-shrink-0 font-bold text-violet-700 text-sm">
                       {(leave.student?.name ?? "?").charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-sm">{leave.student?.name ?? `Student #${leave.studentId}`}</span>
+                        <span className="font-semibold text-sm text-slate-800">{leave.student?.name ?? `Student #${leave.studentId}`}</span>
                         <StatusBadge status={leave.status} />
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{leave.reason}</p>
@@ -270,7 +296,7 @@ export default function HodDashboard() {
                     {leave.tutorRemarks && (
                       <div className="hidden md:block max-w-40">
                         <p className="text-xs text-muted-foreground mb-0.5">Tutor:</p>
-                        <p className="text-xs text-emerald-400 italic truncate">"{leave.tutorRemarks}"</p>
+                        <p className="text-xs text-emerald-700 italic truncate">"{leave.tutorRemarks}"</p>
                       </div>
                     )}
                     <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
@@ -283,14 +309,14 @@ export default function HodDashboard() {
 
         <TabsContent value="analytics" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="glass-card rounded-2xl p-6">
+            <div className="glass-card rounded-2xl p-6 bg-white shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-4 h-4 text-violet-400" />
-                <h3 className="font-heading font-semibold text-sm">Monthly Leave Trends</h3>
+                <TrendingUp className="w-4 h-4 text-violet-600" />
+                <h3 className="font-heading font-semibold text-sm text-slate-800">Monthly Leave Trends</h3>
               </div>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={MONTHLY_DATA}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
@@ -299,14 +325,14 @@ export default function HodDashboard() {
               </ResponsiveContainer>
             </div>
 
-            <div className="glass-card rounded-2xl p-6">
+            <div className="glass-card rounded-2xl p-6 bg-white shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <Building2 className="w-4 h-4 text-violet-400" />
-                <h3 className="font-heading font-semibold text-sm">Leaves by Department</h3>
+                <Building2 className="w-4 h-4 text-violet-600" />
+                <h3 className="font-heading font-semibold text-sm text-slate-800">Leaves by Department</h3>
               </div>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={DEPT_CHART_DATA} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                   <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={40} />
                   <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
@@ -337,9 +363,9 @@ export default function HodDashboard() {
               </div>
 
               {selectedLeave.tutorRemarks && (
-                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                  <p className="text-xs text-emerald-400 font-medium mb-1">Tutor Remarks</p>
-                  <p className="text-sm italic">"{selectedLeave.tutorRemarks}"</p>
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <p className="text-xs text-emerald-700 font-medium mb-1">Tutor Remarks</p>
+                  <p className="text-sm text-emerald-800 italic">"{selectedLeave.tutorRemarks}"</p>
                 </div>
               )}
 
@@ -350,10 +376,10 @@ export default function HodDashboard() {
                   <Button className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5" onClick={handleApprove} disabled={approveLeave.isPending}>
                     <CheckCircle2 className="w-4 h-4" /> Approve
                   </Button>
-                  <Button variant="outline" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-1.5" onClick={handleReturnToTutor}>
+                  <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50 gap-1.5" onClick={handleReturnToTutor}>
                     <ArrowLeft className="w-4 h-4" /> Return
                   </Button>
-                  <Button variant="outline" className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-1.5" onClick={handleReject} disabled={rejectLeave.isPending}>
+                  <Button variant="outline" className="border-rose-200 text-rose-700 hover:bg-rose-50 gap-1.5" onClick={handleReject} disabled={rejectLeave.isPending}>
                     <XCircle className="w-4 h-4" /> Reject
                   </Button>
                 </div>

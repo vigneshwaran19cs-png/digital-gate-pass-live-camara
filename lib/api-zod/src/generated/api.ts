@@ -5,87 +5,125 @@
  * Smart Hostel Leave & Digital Outpass Management System API
  * OpenAPI spec version: 0.1.0
  */
-import * as zod from 'zod';
-
+import * as zod from "zod";
 
 /**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  "status": zod.string()
-})
-
+  status: zod.string(),
+});
 
 /**
  * @summary Login
  */
 
-
-
 export const LoginBody = zod.object({
-  "email": zod.string().email(),
-  "password": zod.string().min(1)
-})
+  email: zod.string().email(),
+  password: zod.string().min(1),
+});
 
 export const LoginResponse = zod.object({
-  "token": zod.string(),
-  "user": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-})
-})
-
+  token: zod.string(),
+  user: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    email: zod.string(),
+    role: zod.enum([
+      "student",
+      "tutor",
+      "hod",
+      "principal",
+      "warden",
+      "security",
+      "super_admin",
+    ]),
+    registerNumber: zod.string().nullish(),
+    departmentId: zod.number().nullish(),
+    hostelRoom: zod.string().nullish(),
+    phone: zod.string().nullish(),
+    parentPhone: zod.string().nullish(),
+    photoUrl: zod.string().nullish(),
+    classId: zod.number().nullish(),
+    hostelBlock: zod.string().nullish(),
+    parentName: zod.string().nullish(),
+    parentWhatsapp: zod.string().nullish(),
+    parentEmail: zod.string().nullish(),
+    address: zod.string().nullish(),
+    designation: zod.string().nullish(),
+    createdAt: zod.coerce.date().optional(),
+  }),
+});
 
 /**
  * @summary Get current user
  */
 export const GetMeResponse = zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-})
-
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  role: zod.enum([
+    "student",
+    "tutor",
+    "hod",
+    "principal",
+    "warden",
+    "security",
+    "super_admin",
+  ]),
+  registerNumber: zod.string().nullish(),
+  departmentId: zod.number().nullish(),
+  hostelRoom: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  parentPhone: zod.string().nullish(),
+  photoUrl: zod.string().nullish(),
+  classId: zod.number().nullish(),
+  hostelBlock: zod.string().nullish(),
+  parentName: zod.string().nullish(),
+  parentWhatsapp: zod.string().nullish(),
+  parentEmail: zod.string().nullish(),
+  address: zod.string().nullish(),
+  designation: zod.string().nullish(),
+  createdAt: zod.coerce.date().optional(),
+});
 
 /**
  * @summary List users
  */
 export const ListUsersQueryParams = zod.object({
-  "role": zod.coerce.string().optional(),
-  "department": zod.coerce.string().optional()
-})
+  role: zod.coerce.string().optional(),
+  department: zod.coerce.string().optional(),
+});
 
 export const ListUsersResponseItem = zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-})
-export const ListUsersResponse = zod.array(ListUsersResponseItem)
-
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  role: zod.enum([
+    "student",
+    "tutor",
+    "hod",
+    "principal",
+    "warden",
+    "security",
+    "super_admin",
+  ]),
+  registerNumber: zod.string().nullish(),
+  departmentId: zod.number().nullish(),
+  hostelRoom: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  parentPhone: zod.string().nullish(),
+  photoUrl: zod.string().nullish(),
+  classId: zod.number().nullish(),
+  hostelBlock: zod.string().nullish(),
+  parentName: zod.string().nullish(),
+  parentWhatsapp: zod.string().nullish(),
+  parentEmail: zod.string().nullish(),
+  address: zod.string().nullish(),
+  designation: zod.string().nullish(),
+  createdAt: zod.coerce.date().optional(),
+});
+export const ListUsersResponse = zod.array(ListUsersResponseItem);
 
 /**
  * @summary Create user
@@ -93,954 +131,2055 @@ export const ListUsersResponse = zod.array(ListUsersResponseItem)
 
 export const createUserBodyPasswordMin = 6;
 
-
-
 export const CreateUserBody = zod.object({
-  "name": zod.string().min(1),
-  "email": zod.string().email(),
-  "password": zod.string().min(createUserBodyPasswordMin),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().optional(),
-  "department": zod.string().optional(),
-  "hostelRoom": zod.string().optional(),
-  "phone": zod.string().optional(),
-  "parentPhone": zod.string().optional(),
-  "photoUrl": zod.string().optional()
-})
-
+  name: zod.string().min(1),
+  email: zod.string().email(),
+  password: zod.string().min(createUserBodyPasswordMin),
+  role: zod.enum([
+    "student",
+    "tutor",
+    "hod",
+    "principal",
+    "warden",
+    "security",
+    "super_admin",
+  ]),
+  registerNumber: zod.string().optional(),
+  departmentId: zod.number().optional(),
+  hostelRoom: zod.string().optional(),
+  phone: zod.string().optional(),
+  parentPhone: zod.string().optional(),
+  photoUrl: zod.string().optional(),
+  classId: zod.number().optional(),
+  hostelBlock: zod.string().optional(),
+  parentName: zod.string().optional(),
+  parentWhatsapp: zod.string().optional(),
+  parentEmail: zod.string().optional(),
+  address: zod.string().optional(),
+  designation: zod.string().optional(),
+});
 
 /**
  * @summary Get user by ID
  */
 export const GetUserParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const GetUserResponse = zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-})
-
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  role: zod.enum([
+    "student",
+    "tutor",
+    "hod",
+    "principal",
+    "warden",
+    "security",
+    "super_admin",
+  ]),
+  registerNumber: zod.string().nullish(),
+  departmentId: zod.number().nullish(),
+  hostelRoom: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  parentPhone: zod.string().nullish(),
+  photoUrl: zod.string().nullish(),
+  classId: zod.number().nullish(),
+  hostelBlock: zod.string().nullish(),
+  parentName: zod.string().nullish(),
+  parentWhatsapp: zod.string().nullish(),
+  parentEmail: zod.string().nullish(),
+  address: zod.string().nullish(),
+  designation: zod.string().nullish(),
+  createdAt: zod.coerce.date().optional(),
+});
 
 /**
  * @summary Update user
  */
 export const UpdateUserParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const UpdateUserBody = zod.object({
-  "name": zod.string().optional(),
-  "phone": zod.string().optional(),
-  "parentPhone": zod.string().optional(),
-  "hostelRoom": zod.string().optional(),
-  "department": zod.string().optional(),
-  "photoUrl": zod.string().optional()
-})
+  name: zod.string().optional(),
+  phone: zod.string().optional(),
+  parentPhone: zod.string().optional(),
+  hostelRoom: zod.string().optional(),
+  departmentId: zod.number().optional(),
+  photoUrl: zod.string().optional(),
+  classId: zod.number().optional(),
+  hostelBlock: zod.string().optional(),
+  parentName: zod.string().optional(),
+  parentWhatsapp: zod.string().optional(),
+  parentEmail: zod.string().optional(),
+  address: zod.string().optional(),
+  designation: zod.string().optional(),
+});
 
 export const UpdateUserResponse = zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-})
-
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  role: zod.enum([
+    "student",
+    "tutor",
+    "hod",
+    "principal",
+    "warden",
+    "security",
+    "super_admin",
+  ]),
+  registerNumber: zod.string().nullish(),
+  departmentId: zod.number().nullish(),
+  hostelRoom: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  parentPhone: zod.string().nullish(),
+  photoUrl: zod.string().nullish(),
+  classId: zod.number().nullish(),
+  hostelBlock: zod.string().nullish(),
+  parentName: zod.string().nullish(),
+  parentWhatsapp: zod.string().nullish(),
+  parentEmail: zod.string().nullish(),
+  address: zod.string().nullish(),
+  designation: zod.string().nullish(),
+  createdAt: zod.coerce.date().optional(),
+});
 
 /**
  * @summary Delete user
  */
 export const DeleteUserParams = zod.object({
-  "id": zod.coerce.number()
-})
-
+  id: zod.coerce.number(),
+});
 
 /**
  * @summary List leave requests
  */
 export const ListLeavesQueryParams = zod.object({
-  "status": zod.coerce.string().optional(),
-  "studentId": zod.coerce.number().optional(),
-  "department": zod.coerce.string().optional(),
-  "page": zod.coerce.number().optional(),
-  "limit": zod.coerce.number().optional()
-})
+  status: zod.coerce.string().optional(),
+  studentId: zod.coerce.number().optional(),
+  departmentId: zod.coerce.number().optional(),
+  classId: zod.coerce.number().optional(),
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+});
 
 export const ListLeavesResponseItem = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-})
-export const ListLeavesResponse = zod.array(ListLeavesResponseItem)
-
+  id: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  passType: zod.enum(["leave", "outing"]),
+  leaveType: zod.enum([
+    "semester_holiday",
+    "study_holiday",
+    "diwali_holiday",
+    "pongal_holiday",
+    "christmas_holiday",
+    "ramzan_holiday",
+    "internship",
+    "project_work",
+    "family_function",
+    "family_emergency",
+    "marriage_function",
+    "medical_leave",
+    "hospital_visit",
+    "hair_cut",
+    "shopping",
+    "atm_withdrawal",
+    "bank_visit",
+    "medical_checkup",
+    "personal_work",
+    "other",
+    "home",
+    "medical",
+    "emergency",
+    "personal",
+    "educational",
+    "outing",
+  ]),
+  reason: zod.string(),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  destination: zod.string(),
+  status: zod.enum([
+    "pending",
+    "warden_approved",
+    "tutor_approved",
+    "hod_approved",
+    "principal_approved",
+    "fully_approved",
+    "rejected",
+    "cancelled",
+  ]),
+  currentStep: zod.enum([
+    "warden",
+    "tutor",
+    "hod",
+    "principal",
+    "warden_final",
+    "completed",
+    "rejected",
+  ]),
+  wardenRemarks: zod.string().nullish(),
+  tutorRemarks: zod.string().nullish(),
+  hodRemarks: zod.string().nullish(),
+  principalRemarks: zod.string().nullish(),
+  parentCallStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("confirmed"),
+      zod.literal("rejected"),
+      zod.literal("not_reachable"),
+      zod.literal("completed"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  parentCallNotes: zod.string().nullish(),
+  outpassId: zod.number().nullish(),
+  aiGeneratedLetter: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListLeavesResponse = zod.array(ListLeavesResponseItem);
 
 /**
  * @summary Apply for leave
  */
 
-
-
-
 export const CreateLeaveBody = zod.object({
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string().min(1),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string().min(1)
-})
-
+  passType: zod.enum(["leave", "outing"]),
+  leaveType: zod.enum([
+    "semester_holiday",
+    "study_holiday",
+    "diwali_holiday",
+    "pongal_holiday",
+    "christmas_holiday",
+    "ramzan_holiday",
+    "internship",
+    "project_work",
+    "family_function",
+    "family_emergency",
+    "marriage_function",
+    "medical_leave",
+    "hospital_visit",
+    "hair_cut",
+    "shopping",
+    "atm_withdrawal",
+    "bank_visit",
+    "medical_checkup",
+    "personal_work",
+    "other",
+    "home",
+    "medical",
+    "emergency",
+    "personal",
+    "educational",
+    "outing",
+  ]),
+  reason: zod.string().min(1),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  destination: zod.string().min(1),
+});
 
 /**
  * @summary Get leave request
  */
 export const GetLeaveParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const GetLeaveResponse = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-})
-
+  id: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  passType: zod.enum(["leave", "outing"]),
+  leaveType: zod.enum([
+    "semester_holiday",
+    "study_holiday",
+    "diwali_holiday",
+    "pongal_holiday",
+    "christmas_holiday",
+    "ramzan_holiday",
+    "internship",
+    "project_work",
+    "family_function",
+    "family_emergency",
+    "marriage_function",
+    "medical_leave",
+    "hospital_visit",
+    "hair_cut",
+    "shopping",
+    "atm_withdrawal",
+    "bank_visit",
+    "medical_checkup",
+    "personal_work",
+    "other",
+    "home",
+    "medical",
+    "emergency",
+    "personal",
+    "educational",
+    "outing",
+  ]),
+  reason: zod.string(),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  destination: zod.string(),
+  status: zod.enum([
+    "pending",
+    "warden_approved",
+    "tutor_approved",
+    "hod_approved",
+    "principal_approved",
+    "fully_approved",
+    "rejected",
+    "cancelled",
+  ]),
+  currentStep: zod.enum([
+    "warden",
+    "tutor",
+    "hod",
+    "principal",
+    "warden_final",
+    "completed",
+    "rejected",
+  ]),
+  wardenRemarks: zod.string().nullish(),
+  tutorRemarks: zod.string().nullish(),
+  hodRemarks: zod.string().nullish(),
+  principalRemarks: zod.string().nullish(),
+  parentCallStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("confirmed"),
+      zod.literal("rejected"),
+      zod.literal("not_reachable"),
+      zod.literal("completed"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  parentCallNotes: zod.string().nullish(),
+  outpassId: zod.number().nullish(),
+  aiGeneratedLetter: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Update leave request
  */
 export const UpdateLeaveParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const UpdateLeaveBody = zod.object({
-  "reason": zod.string().optional(),
-  "fromDate": zod.coerce.date().optional(),
-  "toDate": zod.coerce.date().optional(),
-  "destination": zod.string().optional()
-})
+  reason: zod.string().optional(),
+  fromDate: zod.coerce.date().optional(),
+  toDate: zod.coerce.date().optional(),
+  destination: zod.string().optional(),
+});
 
 export const UpdateLeaveResponse = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-})
-
+  id: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  passType: zod.enum(["leave", "outing"]),
+  leaveType: zod.enum([
+    "semester_holiday",
+    "study_holiday",
+    "diwali_holiday",
+    "pongal_holiday",
+    "christmas_holiday",
+    "ramzan_holiday",
+    "internship",
+    "project_work",
+    "family_function",
+    "family_emergency",
+    "marriage_function",
+    "medical_leave",
+    "hospital_visit",
+    "hair_cut",
+    "shopping",
+    "atm_withdrawal",
+    "bank_visit",
+    "medical_checkup",
+    "personal_work",
+    "other",
+    "home",
+    "medical",
+    "emergency",
+    "personal",
+    "educational",
+    "outing",
+  ]),
+  reason: zod.string(),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  destination: zod.string(),
+  status: zod.enum([
+    "pending",
+    "warden_approved",
+    "tutor_approved",
+    "hod_approved",
+    "principal_approved",
+    "fully_approved",
+    "rejected",
+    "cancelled",
+  ]),
+  currentStep: zod.enum([
+    "warden",
+    "tutor",
+    "hod",
+    "principal",
+    "warden_final",
+    "completed",
+    "rejected",
+  ]),
+  wardenRemarks: zod.string().nullish(),
+  tutorRemarks: zod.string().nullish(),
+  hodRemarks: zod.string().nullish(),
+  principalRemarks: zod.string().nullish(),
+  parentCallStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("confirmed"),
+      zod.literal("rejected"),
+      zod.literal("not_reachable"),
+      zod.literal("completed"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  parentCallNotes: zod.string().nullish(),
+  outpassId: zod.number().nullish(),
+  aiGeneratedLetter: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Cancel leave request
  */
 export const DeleteLeaveParams = zod.object({
-  "id": zod.coerce.number()
-})
-
+  id: zod.coerce.number(),
+});
 
 /**
  * @summary Approve a leave request (for current role's step)
  */
 export const ApproveLeaveParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const ApproveLeaveBody = zod.object({
-  "remarks": zod.string().optional()
-})
+  remarks: zod.string().optional(),
+});
 
 export const ApproveLeaveResponse = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-})
-
+  id: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  passType: zod.enum(["leave", "outing"]),
+  leaveType: zod.enum([
+    "semester_holiday",
+    "study_holiday",
+    "diwali_holiday",
+    "pongal_holiday",
+    "christmas_holiday",
+    "ramzan_holiday",
+    "internship",
+    "project_work",
+    "family_function",
+    "family_emergency",
+    "marriage_function",
+    "medical_leave",
+    "hospital_visit",
+    "hair_cut",
+    "shopping",
+    "atm_withdrawal",
+    "bank_visit",
+    "medical_checkup",
+    "personal_work",
+    "other",
+    "home",
+    "medical",
+    "emergency",
+    "personal",
+    "educational",
+    "outing",
+  ]),
+  reason: zod.string(),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  destination: zod.string(),
+  status: zod.enum([
+    "pending",
+    "warden_approved",
+    "tutor_approved",
+    "hod_approved",
+    "principal_approved",
+    "fully_approved",
+    "rejected",
+    "cancelled",
+  ]),
+  currentStep: zod.enum([
+    "warden",
+    "tutor",
+    "hod",
+    "principal",
+    "warden_final",
+    "completed",
+    "rejected",
+  ]),
+  wardenRemarks: zod.string().nullish(),
+  tutorRemarks: zod.string().nullish(),
+  hodRemarks: zod.string().nullish(),
+  principalRemarks: zod.string().nullish(),
+  parentCallStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("confirmed"),
+      zod.literal("rejected"),
+      zod.literal("not_reachable"),
+      zod.literal("completed"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  parentCallNotes: zod.string().nullish(),
+  outpassId: zod.number().nullish(),
+  aiGeneratedLetter: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Reject a leave request
  */
 export const RejectLeaveParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-
-
+  id: zod.coerce.number(),
+});
 
 export const RejectLeaveBody = zod.object({
-  "remarks": zod.string().min(1)
-})
+  remarks: zod.string().min(1),
+});
 
 export const RejectLeaveResponse = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-})
-
+  id: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  passType: zod.enum(["leave", "outing"]),
+  leaveType: zod.enum([
+    "semester_holiday",
+    "study_holiday",
+    "diwali_holiday",
+    "pongal_holiday",
+    "christmas_holiday",
+    "ramzan_holiday",
+    "internship",
+    "project_work",
+    "family_function",
+    "family_emergency",
+    "marriage_function",
+    "medical_leave",
+    "hospital_visit",
+    "hair_cut",
+    "shopping",
+    "atm_withdrawal",
+    "bank_visit",
+    "medical_checkup",
+    "personal_work",
+    "other",
+    "home",
+    "medical",
+    "emergency",
+    "personal",
+    "educational",
+    "outing",
+  ]),
+  reason: zod.string(),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  destination: zod.string(),
+  status: zod.enum([
+    "pending",
+    "warden_approved",
+    "tutor_approved",
+    "hod_approved",
+    "principal_approved",
+    "fully_approved",
+    "rejected",
+    "cancelled",
+  ]),
+  currentStep: zod.enum([
+    "warden",
+    "tutor",
+    "hod",
+    "principal",
+    "warden_final",
+    "completed",
+    "rejected",
+  ]),
+  wardenRemarks: zod.string().nullish(),
+  tutorRemarks: zod.string().nullish(),
+  hodRemarks: zod.string().nullish(),
+  principalRemarks: zod.string().nullish(),
+  parentCallStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("confirmed"),
+      zod.literal("rejected"),
+      zod.literal("not_reachable"),
+      zod.literal("completed"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  parentCallNotes: zod.string().nullish(),
+  outpassId: zod.number().nullish(),
+  aiGeneratedLetter: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Tutor records parent call outcome
  */
 export const RecordParentCallParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const RecordParentCallBody = zod.object({
-  "callStatus": zod.enum(['confirmed', 'rejected', 'not_reachable', 'completed']),
-  "notes": zod.string().optional()
-})
+  callStatus: zod.enum(["confirmed", "rejected", "not_reachable", "completed"]),
+  notes: zod.string().optional(),
+});
 
 export const RecordParentCallResponse = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-})
-
+  id: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  passType: zod.enum(["leave", "outing"]),
+  leaveType: zod.enum([
+    "semester_holiday",
+    "study_holiday",
+    "diwali_holiday",
+    "pongal_holiday",
+    "christmas_holiday",
+    "ramzan_holiday",
+    "internship",
+    "project_work",
+    "family_function",
+    "family_emergency",
+    "marriage_function",
+    "medical_leave",
+    "hospital_visit",
+    "hair_cut",
+    "shopping",
+    "atm_withdrawal",
+    "bank_visit",
+    "medical_checkup",
+    "personal_work",
+    "other",
+    "home",
+    "medical",
+    "emergency",
+    "personal",
+    "educational",
+    "outing",
+  ]),
+  reason: zod.string(),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  destination: zod.string(),
+  status: zod.enum([
+    "pending",
+    "warden_approved",
+    "tutor_approved",
+    "hod_approved",
+    "principal_approved",
+    "fully_approved",
+    "rejected",
+    "cancelled",
+  ]),
+  currentStep: zod.enum([
+    "warden",
+    "tutor",
+    "hod",
+    "principal",
+    "warden_final",
+    "completed",
+    "rejected",
+  ]),
+  wardenRemarks: zod.string().nullish(),
+  tutorRemarks: zod.string().nullish(),
+  hodRemarks: zod.string().nullish(),
+  principalRemarks: zod.string().nullish(),
+  parentCallStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("confirmed"),
+      zod.literal("rejected"),
+      zod.literal("not_reachable"),
+      zod.literal("completed"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  parentCallNotes: zod.string().nullish(),
+  outpassId: zod.number().nullish(),
+  aiGeneratedLetter: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Bulk approve/reject multiple leave requests
  */
 export const BulkApproveLeavesBody = zod.object({
-  "leaveIds": zod.array(zod.number()),
-  "action": zod.enum(['approve', 'reject']),
-  "remarks": zod.string().optional()
-})
+  leaveIds: zod.array(zod.number()),
+  action: zod.enum(["approve", "reject"]),
+  remarks: zod.string().optional(),
+});
 
 export const BulkApproveLeavesResponse = zod.object({
-  "processed": zod.number(),
-  "succeeded": zod.number(),
-  "failed": zod.number()
-})
-
+  processed: zod.number(),
+  succeeded: zod.number(),
+  failed: zod.number(),
+});
 
 /**
  * @summary Get groups of similar leave requests (same destination, dates, reason)
  */
 export const GetSimilarLeaveGroupsResponseItem = zod.object({
-  "destination": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "reason": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "count": zod.number(),
-  "leaveIds": zod.array(zod.number()),
-  "leaves": zod.array(zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-})).optional()
-})
-export const GetSimilarLeaveGroupsResponse = zod.array(GetSimilarLeaveGroupsResponseItem)
-
+  destination: zod.string(),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  reason: zod.string().nullish(),
+  department: zod.string().nullish(),
+  count: zod.number(),
+  leaveIds: zod.array(zod.number()),
+  leaves: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        studentId: zod.number(),
+        student: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            email: zod.string(),
+            role: zod.enum([
+              "student",
+              "tutor",
+              "hod",
+              "principal",
+              "warden",
+              "security",
+              "super_admin",
+            ]),
+            registerNumber: zod.string().nullish(),
+            departmentId: zod.number().nullish(),
+            hostelRoom: zod.string().nullish(),
+            phone: zod.string().nullish(),
+            parentPhone: zod.string().nullish(),
+            photoUrl: zod.string().nullish(),
+            classId: zod.number().nullish(),
+            hostelBlock: zod.string().nullish(),
+            parentName: zod.string().nullish(),
+            parentWhatsapp: zod.string().nullish(),
+            parentEmail: zod.string().nullish(),
+            address: zod.string().nullish(),
+            designation: zod.string().nullish(),
+            createdAt: zod.coerce.date().optional(),
+          })
+          .optional(),
+        passType: zod.enum(["leave", "outing"]),
+        leaveType: zod.enum([
+          "semester_holiday",
+          "study_holiday",
+          "diwali_holiday",
+          "pongal_holiday",
+          "christmas_holiday",
+          "ramzan_holiday",
+          "internship",
+          "project_work",
+          "family_function",
+          "family_emergency",
+          "marriage_function",
+          "medical_leave",
+          "hospital_visit",
+          "hair_cut",
+          "shopping",
+          "atm_withdrawal",
+          "bank_visit",
+          "medical_checkup",
+          "personal_work",
+          "other",
+          "home",
+          "medical",
+          "emergency",
+          "personal",
+          "educational",
+          "outing",
+        ]),
+        reason: zod.string(),
+        fromDate: zod.coerce.date(),
+        toDate: zod.coerce.date(),
+        destination: zod.string(),
+        status: zod.enum([
+          "pending",
+          "warden_approved",
+          "tutor_approved",
+          "hod_approved",
+          "principal_approved",
+          "fully_approved",
+          "rejected",
+          "cancelled",
+        ]),
+        currentStep: zod.enum([
+          "warden",
+          "tutor",
+          "hod",
+          "principal",
+          "warden_final",
+          "completed",
+          "rejected",
+        ]),
+        wardenRemarks: zod.string().nullish(),
+        tutorRemarks: zod.string().nullish(),
+        hodRemarks: zod.string().nullish(),
+        principalRemarks: zod.string().nullish(),
+        parentCallStatus: zod
+          .union([
+            zod.literal("pending"),
+            zod.literal("confirmed"),
+            zod.literal("rejected"),
+            zod.literal("not_reachable"),
+            zod.literal("completed"),
+            zod.literal(null),
+          ])
+          .nullish(),
+        parentCallNotes: zod.string().nullish(),
+        outpassId: zod.number().nullish(),
+        aiGeneratedLetter: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+      }),
+    )
+    .optional(),
+});
+export const GetSimilarLeaveGroupsResponse = zod.array(
+  GetSimilarLeaveGroupsResponseItem,
+);
 
 /**
  * @summary List outpasses
  */
 export const ListOutpassesQueryParams = zod.object({
-  "status": zod.coerce.string().optional(),
-  "studentId": zod.coerce.number().optional()
-})
+  status: zod.coerce.string().optional(),
+  studentId: zod.coerce.number().optional(),
+});
 
 export const ListOutpassesResponseItem = zod.object({
-  "id": zod.number(),
-  "leaveId": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leave": zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-}).optional(),
-  "outpassCode": zod.string(),
-  "gatePassNumber": zod.string().nullish(),
-  "qrData": zod.string(),
-  "staffDetails": zod.string().nullish(),
-  "status": zod.enum(['generated', 'verified', 'returned', 'expired']),
-  "exitTime": zod.coerce.date().nullish(),
-  "returnTime": zod.coerce.date().nullish(),
-  "gateLocation": zod.string().nullish(),
-  "verifiedBy": zod.number().nullish(),
-  "approvedByWarden": zod.string().nullish(),
-  "approvedByTutor": zod.string().nullish(),
-  "approvedByHod": zod.string().nullish(),
-  "approvedByPrincipal": zod.string().nullish(),
-  "createdAt": zod.coerce.date()
-})
-export const ListOutpassesResponse = zod.array(ListOutpassesResponseItem)
-
+  id: zod.number(),
+  leaveId: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  leave: zod
+    .object({
+      id: zod.number(),
+      studentId: zod.number(),
+      student: zod
+        .object({
+          id: zod.number(),
+          name: zod.string(),
+          email: zod.string(),
+          role: zod.enum([
+            "student",
+            "tutor",
+            "hod",
+            "principal",
+            "warden",
+            "security",
+            "super_admin",
+          ]),
+          registerNumber: zod.string().nullish(),
+          departmentId: zod.number().nullish(),
+          hostelRoom: zod.string().nullish(),
+          phone: zod.string().nullish(),
+          parentPhone: zod.string().nullish(),
+          photoUrl: zod.string().nullish(),
+          classId: zod.number().nullish(),
+          hostelBlock: zod.string().nullish(),
+          parentName: zod.string().nullish(),
+          parentWhatsapp: zod.string().nullish(),
+          parentEmail: zod.string().nullish(),
+          address: zod.string().nullish(),
+          designation: zod.string().nullish(),
+          createdAt: zod.coerce.date().optional(),
+        })
+        .optional(),
+      passType: zod.enum(["leave", "outing"]),
+      leaveType: zod.enum([
+        "semester_holiday",
+        "study_holiday",
+        "diwali_holiday",
+        "pongal_holiday",
+        "christmas_holiday",
+        "ramzan_holiday",
+        "internship",
+        "project_work",
+        "family_function",
+        "family_emergency",
+        "marriage_function",
+        "medical_leave",
+        "hospital_visit",
+        "hair_cut",
+        "shopping",
+        "atm_withdrawal",
+        "bank_visit",
+        "medical_checkup",
+        "personal_work",
+        "other",
+        "home",
+        "medical",
+        "emergency",
+        "personal",
+        "educational",
+        "outing",
+      ]),
+      reason: zod.string(),
+      fromDate: zod.coerce.date(),
+      toDate: zod.coerce.date(),
+      destination: zod.string(),
+      status: zod.enum([
+        "pending",
+        "warden_approved",
+        "tutor_approved",
+        "hod_approved",
+        "principal_approved",
+        "fully_approved",
+        "rejected",
+        "cancelled",
+      ]),
+      currentStep: zod.enum([
+        "warden",
+        "tutor",
+        "hod",
+        "principal",
+        "warden_final",
+        "completed",
+        "rejected",
+      ]),
+      wardenRemarks: zod.string().nullish(),
+      tutorRemarks: zod.string().nullish(),
+      hodRemarks: zod.string().nullish(),
+      principalRemarks: zod.string().nullish(),
+      parentCallStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("confirmed"),
+          zod.literal("rejected"),
+          zod.literal("not_reachable"),
+          zod.literal("completed"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      parentCallNotes: zod.string().nullish(),
+      outpassId: zod.number().nullish(),
+      aiGeneratedLetter: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  outpassCode: zod.string(),
+  gatePassNumber: zod.string().nullish(),
+  qrData: zod.string(),
+  staffDetails: zod.string().nullish(),
+  status: zod.enum(["generated", "verified", "returned", "expired"]),
+  exitTime: zod.coerce.date().nullish(),
+  returnTime: zod.coerce.date().nullish(),
+  gateLocation: zod.string().nullish(),
+  verifiedBy: zod.number().nullish(),
+  approvedByWarden: zod.string().nullish(),
+  approvedByTutor: zod.string().nullish(),
+  approvedByHod: zod.string().nullish(),
+  approvedByPrincipal: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListOutpassesResponse = zod.array(ListOutpassesResponseItem);
 
 /**
  * @summary Get outpass by ID
  */
 export const GetOutpassParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const GetOutpassResponse = zod.object({
-  "id": zod.number(),
-  "leaveId": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leave": zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-}).optional(),
-  "outpassCode": zod.string(),
-  "gatePassNumber": zod.string().nullish(),
-  "qrData": zod.string(),
-  "staffDetails": zod.string().nullish(),
-  "status": zod.enum(['generated', 'verified', 'returned', 'expired']),
-  "exitTime": zod.coerce.date().nullish(),
-  "returnTime": zod.coerce.date().nullish(),
-  "gateLocation": zod.string().nullish(),
-  "verifiedBy": zod.number().nullish(),
-  "approvedByWarden": zod.string().nullish(),
-  "approvedByTutor": zod.string().nullish(),
-  "approvedByHod": zod.string().nullish(),
-  "approvedByPrincipal": zod.string().nullish(),
-  "createdAt": zod.coerce.date()
-})
-
+  id: zod.number(),
+  leaveId: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  leave: zod
+    .object({
+      id: zod.number(),
+      studentId: zod.number(),
+      student: zod
+        .object({
+          id: zod.number(),
+          name: zod.string(),
+          email: zod.string(),
+          role: zod.enum([
+            "student",
+            "tutor",
+            "hod",
+            "principal",
+            "warden",
+            "security",
+            "super_admin",
+          ]),
+          registerNumber: zod.string().nullish(),
+          departmentId: zod.number().nullish(),
+          hostelRoom: zod.string().nullish(),
+          phone: zod.string().nullish(),
+          parentPhone: zod.string().nullish(),
+          photoUrl: zod.string().nullish(),
+          classId: zod.number().nullish(),
+          hostelBlock: zod.string().nullish(),
+          parentName: zod.string().nullish(),
+          parentWhatsapp: zod.string().nullish(),
+          parentEmail: zod.string().nullish(),
+          address: zod.string().nullish(),
+          designation: zod.string().nullish(),
+          createdAt: zod.coerce.date().optional(),
+        })
+        .optional(),
+      passType: zod.enum(["leave", "outing"]),
+      leaveType: zod.enum([
+        "semester_holiday",
+        "study_holiday",
+        "diwali_holiday",
+        "pongal_holiday",
+        "christmas_holiday",
+        "ramzan_holiday",
+        "internship",
+        "project_work",
+        "family_function",
+        "family_emergency",
+        "marriage_function",
+        "medical_leave",
+        "hospital_visit",
+        "hair_cut",
+        "shopping",
+        "atm_withdrawal",
+        "bank_visit",
+        "medical_checkup",
+        "personal_work",
+        "other",
+        "home",
+        "medical",
+        "emergency",
+        "personal",
+        "educational",
+        "outing",
+      ]),
+      reason: zod.string(),
+      fromDate: zod.coerce.date(),
+      toDate: zod.coerce.date(),
+      destination: zod.string(),
+      status: zod.enum([
+        "pending",
+        "warden_approved",
+        "tutor_approved",
+        "hod_approved",
+        "principal_approved",
+        "fully_approved",
+        "rejected",
+        "cancelled",
+      ]),
+      currentStep: zod.enum([
+        "warden",
+        "tutor",
+        "hod",
+        "principal",
+        "warden_final",
+        "completed",
+        "rejected",
+      ]),
+      wardenRemarks: zod.string().nullish(),
+      tutorRemarks: zod.string().nullish(),
+      hodRemarks: zod.string().nullish(),
+      principalRemarks: zod.string().nullish(),
+      parentCallStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("confirmed"),
+          zod.literal("rejected"),
+          zod.literal("not_reachable"),
+          zod.literal("completed"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      parentCallNotes: zod.string().nullish(),
+      outpassId: zod.number().nullish(),
+      aiGeneratedLetter: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  outpassCode: zod.string(),
+  gatePassNumber: zod.string().nullish(),
+  qrData: zod.string(),
+  staffDetails: zod.string().nullish(),
+  status: zod.enum(["generated", "verified", "returned", "expired"]),
+  exitTime: zod.coerce.date().nullish(),
+  returnTime: zod.coerce.date().nullish(),
+  gateLocation: zod.string().nullish(),
+  verifiedBy: zod.number().nullish(),
+  approvedByWarden: zod.string().nullish(),
+  approvedByTutor: zod.string().nullish(),
+  approvedByHod: zod.string().nullish(),
+  approvedByPrincipal: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Security lookup outpass by outpassCode, registerNumber, or studentName
  */
 export const LookupOutpassQueryParams = zod.object({
-  "outpassCode": zod.coerce.string().optional(),
-  "registerNumber": zod.coerce.string().optional(),
-  "studentName": zod.coerce.string().optional()
-})
+  outpassCode: zod.coerce.string().optional(),
+  registerNumber: zod.coerce.string().optional(),
+  studentName: zod.coerce.string().optional(),
+});
 
 export const LookupOutpassResponseItem = zod.object({
-  "id": zod.number(),
-  "leaveId": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leave": zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-}).optional(),
-  "outpassCode": zod.string(),
-  "gatePassNumber": zod.string().nullish(),
-  "qrData": zod.string(),
-  "staffDetails": zod.string().nullish(),
-  "status": zod.enum(['generated', 'verified', 'returned', 'expired']),
-  "exitTime": zod.coerce.date().nullish(),
-  "returnTime": zod.coerce.date().nullish(),
-  "gateLocation": zod.string().nullish(),
-  "verifiedBy": zod.number().nullish(),
-  "approvedByWarden": zod.string().nullish(),
-  "approvedByTutor": zod.string().nullish(),
-  "approvedByHod": zod.string().nullish(),
-  "approvedByPrincipal": zod.string().nullish(),
-  "createdAt": zod.coerce.date()
-})
-export const LookupOutpassResponse = zod.array(LookupOutpassResponseItem)
-
+  id: zod.number(),
+  leaveId: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  leave: zod
+    .object({
+      id: zod.number(),
+      studentId: zod.number(),
+      student: zod
+        .object({
+          id: zod.number(),
+          name: zod.string(),
+          email: zod.string(),
+          role: zod.enum([
+            "student",
+            "tutor",
+            "hod",
+            "principal",
+            "warden",
+            "security",
+            "super_admin",
+          ]),
+          registerNumber: zod.string().nullish(),
+          departmentId: zod.number().nullish(),
+          hostelRoom: zod.string().nullish(),
+          phone: zod.string().nullish(),
+          parentPhone: zod.string().nullish(),
+          photoUrl: zod.string().nullish(),
+          classId: zod.number().nullish(),
+          hostelBlock: zod.string().nullish(),
+          parentName: zod.string().nullish(),
+          parentWhatsapp: zod.string().nullish(),
+          parentEmail: zod.string().nullish(),
+          address: zod.string().nullish(),
+          designation: zod.string().nullish(),
+          createdAt: zod.coerce.date().optional(),
+        })
+        .optional(),
+      passType: zod.enum(["leave", "outing"]),
+      leaveType: zod.enum([
+        "semester_holiday",
+        "study_holiday",
+        "diwali_holiday",
+        "pongal_holiday",
+        "christmas_holiday",
+        "ramzan_holiday",
+        "internship",
+        "project_work",
+        "family_function",
+        "family_emergency",
+        "marriage_function",
+        "medical_leave",
+        "hospital_visit",
+        "hair_cut",
+        "shopping",
+        "atm_withdrawal",
+        "bank_visit",
+        "medical_checkup",
+        "personal_work",
+        "other",
+        "home",
+        "medical",
+        "emergency",
+        "personal",
+        "educational",
+        "outing",
+      ]),
+      reason: zod.string(),
+      fromDate: zod.coerce.date(),
+      toDate: zod.coerce.date(),
+      destination: zod.string(),
+      status: zod.enum([
+        "pending",
+        "warden_approved",
+        "tutor_approved",
+        "hod_approved",
+        "principal_approved",
+        "fully_approved",
+        "rejected",
+        "cancelled",
+      ]),
+      currentStep: zod.enum([
+        "warden",
+        "tutor",
+        "hod",
+        "principal",
+        "warden_final",
+        "completed",
+        "rejected",
+      ]),
+      wardenRemarks: zod.string().nullish(),
+      tutorRemarks: zod.string().nullish(),
+      hodRemarks: zod.string().nullish(),
+      principalRemarks: zod.string().nullish(),
+      parentCallStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("confirmed"),
+          zod.literal("rejected"),
+          zod.literal("not_reachable"),
+          zod.literal("completed"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      parentCallNotes: zod.string().nullish(),
+      outpassId: zod.number().nullish(),
+      aiGeneratedLetter: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  outpassCode: zod.string(),
+  gatePassNumber: zod.string().nullish(),
+  qrData: zod.string(),
+  staffDetails: zod.string().nullish(),
+  status: zod.enum(["generated", "verified", "returned", "expired"]),
+  exitTime: zod.coerce.date().nullish(),
+  returnTime: zod.coerce.date().nullish(),
+  gateLocation: zod.string().nullish(),
+  verifiedBy: zod.number().nullish(),
+  approvedByWarden: zod.string().nullish(),
+  approvedByTutor: zod.string().nullish(),
+  approvedByHod: zod.string().nullish(),
+  approvedByPrincipal: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const LookupOutpassResponse = zod.array(LookupOutpassResponseItem);
 
 /**
  * @summary Security verifies outpass (records exit time, gate location)
  */
 export const VerifyOutpassParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-
-
+  id: zod.coerce.number(),
+});
 
 export const VerifyOutpassBody = zod.object({
-  "gateLocation": zod.string().min(1)
-})
+  gateLocation: zod.string().min(1),
+});
 
 export const VerifyOutpassResponse = zod.object({
-  "id": zod.number(),
-  "leaveId": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leave": zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-}).optional(),
-  "outpassCode": zod.string(),
-  "gatePassNumber": zod.string().nullish(),
-  "qrData": zod.string(),
-  "staffDetails": zod.string().nullish(),
-  "status": zod.enum(['generated', 'verified', 'returned', 'expired']),
-  "exitTime": zod.coerce.date().nullish(),
-  "returnTime": zod.coerce.date().nullish(),
-  "gateLocation": zod.string().nullish(),
-  "verifiedBy": zod.number().nullish(),
-  "approvedByWarden": zod.string().nullish(),
-  "approvedByTutor": zod.string().nullish(),
-  "approvedByHod": zod.string().nullish(),
-  "approvedByPrincipal": zod.string().nullish(),
-  "createdAt": zod.coerce.date()
-})
-
+  id: zod.number(),
+  leaveId: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  leave: zod
+    .object({
+      id: zod.number(),
+      studentId: zod.number(),
+      student: zod
+        .object({
+          id: zod.number(),
+          name: zod.string(),
+          email: zod.string(),
+          role: zod.enum([
+            "student",
+            "tutor",
+            "hod",
+            "principal",
+            "warden",
+            "security",
+            "super_admin",
+          ]),
+          registerNumber: zod.string().nullish(),
+          departmentId: zod.number().nullish(),
+          hostelRoom: zod.string().nullish(),
+          phone: zod.string().nullish(),
+          parentPhone: zod.string().nullish(),
+          photoUrl: zod.string().nullish(),
+          classId: zod.number().nullish(),
+          hostelBlock: zod.string().nullish(),
+          parentName: zod.string().nullish(),
+          parentWhatsapp: zod.string().nullish(),
+          parentEmail: zod.string().nullish(),
+          address: zod.string().nullish(),
+          designation: zod.string().nullish(),
+          createdAt: zod.coerce.date().optional(),
+        })
+        .optional(),
+      passType: zod.enum(["leave", "outing"]),
+      leaveType: zod.enum([
+        "semester_holiday",
+        "study_holiday",
+        "diwali_holiday",
+        "pongal_holiday",
+        "christmas_holiday",
+        "ramzan_holiday",
+        "internship",
+        "project_work",
+        "family_function",
+        "family_emergency",
+        "marriage_function",
+        "medical_leave",
+        "hospital_visit",
+        "hair_cut",
+        "shopping",
+        "atm_withdrawal",
+        "bank_visit",
+        "medical_checkup",
+        "personal_work",
+        "other",
+        "home",
+        "medical",
+        "emergency",
+        "personal",
+        "educational",
+        "outing",
+      ]),
+      reason: zod.string(),
+      fromDate: zod.coerce.date(),
+      toDate: zod.coerce.date(),
+      destination: zod.string(),
+      status: zod.enum([
+        "pending",
+        "warden_approved",
+        "tutor_approved",
+        "hod_approved",
+        "principal_approved",
+        "fully_approved",
+        "rejected",
+        "cancelled",
+      ]),
+      currentStep: zod.enum([
+        "warden",
+        "tutor",
+        "hod",
+        "principal",
+        "warden_final",
+        "completed",
+        "rejected",
+      ]),
+      wardenRemarks: zod.string().nullish(),
+      tutorRemarks: zod.string().nullish(),
+      hodRemarks: zod.string().nullish(),
+      principalRemarks: zod.string().nullish(),
+      parentCallStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("confirmed"),
+          zod.literal("rejected"),
+          zod.literal("not_reachable"),
+          zod.literal("completed"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      parentCallNotes: zod.string().nullish(),
+      outpassId: zod.number().nullish(),
+      aiGeneratedLetter: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  outpassCode: zod.string(),
+  gatePassNumber: zod.string().nullish(),
+  qrData: zod.string(),
+  staffDetails: zod.string().nullish(),
+  status: zod.enum(["generated", "verified", "returned", "expired"]),
+  exitTime: zod.coerce.date().nullish(),
+  returnTime: zod.coerce.date().nullish(),
+  gateLocation: zod.string().nullish(),
+  verifiedBy: zod.number().nullish(),
+  approvedByWarden: zod.string().nullish(),
+  approvedByTutor: zod.string().nullish(),
+  approvedByHod: zod.string().nullish(),
+  approvedByPrincipal: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Record student return to hostel
  */
 export const RecordReturnParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const RecordReturnResponse = zod.object({
-  "id": zod.number(),
-  "leaveId": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leave": zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "student": zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "email": zod.string(),
-  "role": zod.enum(['student', 'tutor', 'hod', 'principal', 'warden', 'security', 'super_admin']),
-  "registerNumber": zod.string().nullish(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "phone": zod.string().nullish(),
-  "parentPhone": zod.string().nullish(),
-  "photoUrl": zod.string().nullish(),
-  "createdAt": zod.coerce.date().optional()
-}).optional(),
-  "leaveType": zod.enum(['home', 'medical', 'emergency', 'personal', 'educational']),
-  "reason": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "destination": zod.string(),
-  "status": zod.enum(['pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled']),
-  "currentStep": zod.enum(['warden', 'tutor', 'hod', 'principal', 'completed', 'rejected']),
-  "wardenRemarks": zod.string().nullish(),
-  "tutorRemarks": zod.string().nullish(),
-  "hodRemarks": zod.string().nullish(),
-  "principalRemarks": zod.string().nullish(),
-  "parentCallStatus": zod.union([zod.literal('pending'),zod.literal('confirmed'),zod.literal('rejected'),zod.literal('not_reachable'),zod.literal('completed'),zod.literal(null)]).nullish(),
-  "parentCallNotes": zod.string().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
-}).optional(),
-  "outpassCode": zod.string(),
-  "gatePassNumber": zod.string().nullish(),
-  "qrData": zod.string(),
-  "staffDetails": zod.string().nullish(),
-  "status": zod.enum(['generated', 'verified', 'returned', 'expired']),
-  "exitTime": zod.coerce.date().nullish(),
-  "returnTime": zod.coerce.date().nullish(),
-  "gateLocation": zod.string().nullish(),
-  "verifiedBy": zod.number().nullish(),
-  "approvedByWarden": zod.string().nullish(),
-  "approvedByTutor": zod.string().nullish(),
-  "approvedByHod": zod.string().nullish(),
-  "approvedByPrincipal": zod.string().nullish(),
-  "createdAt": zod.coerce.date()
-})
+  id: zod.number(),
+  leaveId: zod.number(),
+  studentId: zod.number(),
+  student: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.enum([
+        "student",
+        "tutor",
+        "hod",
+        "principal",
+        "warden",
+        "security",
+        "super_admin",
+      ]),
+      registerNumber: zod.string().nullish(),
+      departmentId: zod.number().nullish(),
+      hostelRoom: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      parentPhone: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      classId: zod.number().nullish(),
+      hostelBlock: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      parentWhatsapp: zod.string().nullish(),
+      parentEmail: zod.string().nullish(),
+      address: zod.string().nullish(),
+      designation: zod.string().nullish(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+  leave: zod
+    .object({
+      id: zod.number(),
+      studentId: zod.number(),
+      student: zod
+        .object({
+          id: zod.number(),
+          name: zod.string(),
+          email: zod.string(),
+          role: zod.enum([
+            "student",
+            "tutor",
+            "hod",
+            "principal",
+            "warden",
+            "security",
+            "super_admin",
+          ]),
+          registerNumber: zod.string().nullish(),
+          departmentId: zod.number().nullish(),
+          hostelRoom: zod.string().nullish(),
+          phone: zod.string().nullish(),
+          parentPhone: zod.string().nullish(),
+          photoUrl: zod.string().nullish(),
+          classId: zod.number().nullish(),
+          hostelBlock: zod.string().nullish(),
+          parentName: zod.string().nullish(),
+          parentWhatsapp: zod.string().nullish(),
+          parentEmail: zod.string().nullish(),
+          address: zod.string().nullish(),
+          designation: zod.string().nullish(),
+          createdAt: zod.coerce.date().optional(),
+        })
+        .optional(),
+      passType: zod.enum(["leave", "outing"]),
+      leaveType: zod.enum([
+        "semester_holiday",
+        "study_holiday",
+        "diwali_holiday",
+        "pongal_holiday",
+        "christmas_holiday",
+        "ramzan_holiday",
+        "internship",
+        "project_work",
+        "family_function",
+        "family_emergency",
+        "marriage_function",
+        "medical_leave",
+        "hospital_visit",
+        "hair_cut",
+        "shopping",
+        "atm_withdrawal",
+        "bank_visit",
+        "medical_checkup",
+        "personal_work",
+        "other",
+        "home",
+        "medical",
+        "emergency",
+        "personal",
+        "educational",
+        "outing",
+      ]),
+      reason: zod.string(),
+      fromDate: zod.coerce.date(),
+      toDate: zod.coerce.date(),
+      destination: zod.string(),
+      status: zod.enum([
+        "pending",
+        "warden_approved",
+        "tutor_approved",
+        "hod_approved",
+        "principal_approved",
+        "fully_approved",
+        "rejected",
+        "cancelled",
+      ]),
+      currentStep: zod.enum([
+        "warden",
+        "tutor",
+        "hod",
+        "principal",
+        "warden_final",
+        "completed",
+        "rejected",
+      ]),
+      wardenRemarks: zod.string().nullish(),
+      tutorRemarks: zod.string().nullish(),
+      hodRemarks: zod.string().nullish(),
+      principalRemarks: zod.string().nullish(),
+      parentCallStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("confirmed"),
+          zod.literal("rejected"),
+          zod.literal("not_reachable"),
+          zod.literal("completed"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      parentCallNotes: zod.string().nullish(),
+      outpassId: zod.number().nullish(),
+      aiGeneratedLetter: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  outpassCode: zod.string(),
+  gatePassNumber: zod.string().nullish(),
+  qrData: zod.string(),
+  staffDetails: zod.string().nullish(),
+  status: zod.enum(["generated", "verified", "returned", "expired"]),
+  exitTime: zod.coerce.date().nullish(),
+  returnTime: zod.coerce.date().nullish(),
+  gateLocation: zod.string().nullish(),
+  verifiedBy: zod.number().nullish(),
+  approvedByWarden: zod.string().nullish(),
+  approvedByTutor: zod.string().nullish(),
+  approvedByHod: zod.string().nullish(),
+  approvedByPrincipal: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
+/**
+ * @summary Get all departments
+ */
+export const ListDepartmentsResponseItem = zod.object({
+  id: zod.number(),
+  code: zod.string(),
+  name: zod.string(),
+  hodId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date().optional(),
+});
+export const ListDepartmentsResponse = zod.array(ListDepartmentsResponseItem);
+
+/**
+ * @summary Create a department
+ */
+export const CreateDepartmentBody = zod.object({
+  code: zod.string(),
+  name: zod.string(),
+  hodId: zod.number().nullish(),
+});
+
+/**
+ * @summary Delete a department
+ */
+export const DeleteDepartmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get all classes
+ */
+export const ListClassesResponseItem = zod.object({
+  id: zod.number(),
+  departmentId: zod.number(),
+  year: zod.enum(["I", "II", "III", "IV"]),
+  section: zod.string(),
+  tutorId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date().optional(),
+});
+export const ListClassesResponse = zod.array(ListClassesResponseItem);
+
+/**
+ * @summary Create a class
+ */
+export const CreateClassBody = zod.object({
+  departmentId: zod.number(),
+  year: zod.enum(["I", "II", "III", "IV"]),
+  section: zod.string(),
+  tutorId: zod.number().nullish(),
+});
+
+/**
+ * @summary Delete a class
+ */
+export const DeleteClassParams = zod.object({
+  id: zod.coerce.number(),
+});
 
 /**
  * @summary Get notifications for current user
  */
 export const ListNotificationsResponseItem = zod.object({
-  "id": zod.number(),
-  "userId": zod.number(),
-  "type": zod.enum(['leave_submitted', 'leave_approved', 'leave_rejected', 'outpass_generated', 'exit_recorded', 'return_reminder', 'parent_notified', 'bulk_action']),
-  "title": zod.string(),
-  "message": zod.string(),
-  "isRead": zod.boolean(),
-  "leaveId": zod.number().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date()
-})
-export const ListNotificationsResponse = zod.array(ListNotificationsResponseItem)
+  id: zod.number(),
+  userId: zod.number(),
+  type: zod.enum([
+    "leave_submitted",
+    "leave_approved",
+    "leave_rejected",
+    "outpass_generated",
+    "exit_recorded",
+    "return_reminder",
+    "parent_notified",
+    "bulk_action",
+  ]),
+  title: zod.string(),
+  message: zod.string(),
+  isRead: zod.boolean(),
+  leaveId: zod.number().nullish(),
+  outpassId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListNotificationsResponse = zod.array(
+  ListNotificationsResponseItem,
+);
 
+/**
+ * @summary Super Admin - Get notification delivery logs
+ */
+export const ListNotificationLogsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  leaveId: zod.number().nullish(),
+  channel: zod.enum(["email", "sms", "whatsapp"]),
+  recipient: zod.string(),
+  status: zod.enum(["pending", "sent", "failed"]),
+  errorMessage: zod.string().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date().optional(),
+});
+export const ListNotificationLogsResponse = zod.array(
+  ListNotificationLogsResponseItem,
+);
 
 /**
  * @summary Mark notification as read
  */
 export const MarkNotificationReadParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const MarkNotificationReadResponse = zod.object({
-  "id": zod.number(),
-  "userId": zod.number(),
-  "type": zod.enum(['leave_submitted', 'leave_approved', 'leave_rejected', 'outpass_generated', 'exit_recorded', 'return_reminder', 'parent_notified', 'bulk_action']),
-  "title": zod.string(),
-  "message": zod.string(),
-  "isRead": zod.boolean(),
-  "leaveId": zod.number().nullish(),
-  "outpassId": zod.number().nullish(),
-  "createdAt": zod.coerce.date()
-})
-
+  id: zod.number(),
+  userId: zod.number(),
+  type: zod.enum([
+    "leave_submitted",
+    "leave_approved",
+    "leave_rejected",
+    "outpass_generated",
+    "exit_recorded",
+    "return_reminder",
+    "parent_notified",
+    "bulk_action",
+  ]),
+  title: zod.string(),
+  message: zod.string(),
+  isRead: zod.boolean(),
+  leaveId: zod.number().nullish(),
+  outpassId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Get dashboard statistics
  */
 export const GetDashboardStatsResponse = zod.object({
-  "studentsOnLeave": zod.number(),
-  "studentsReturned": zod.number(),
-  "pendingApprovals": zod.number(),
-  "totalStudents": zod.number(),
-  "occupancyPercent": zod.number(),
-  "pendingWarden": zod.number(),
-  "pendingTutor": zod.number(),
-  "pendingHod": zod.number(),
-  "pendingPrincipal": zod.number(),
-  "pendingReturns": zod.number().optional(),
-  "todayApproved": zod.number().optional(),
-  "todayRejected": zod.number().optional()
-})
-
+  studentsOnLeave: zod.number(),
+  studentsReturned: zod.number(),
+  pendingApprovals: zod.number(),
+  totalStudents: zod.number(),
+  occupancyPercent: zod.number(),
+  pendingWarden: zod.number(),
+  pendingTutor: zod.number(),
+  pendingHod: zod.number(),
+  pendingPrincipal: zod.number(),
+  pendingReturns: zod.number().optional(),
+  todayApproved: zod.number().optional(),
+  todayRejected: zod.number().optional(),
+});
 
 /**
  * @summary Get recent activity feed
  */
 export const GetActivityFeedResponseItem = zod.object({
-  "id": zod.number(),
-  "type": zod.string(),
-  "description": zod.string(),
-  "studentName": zod.string().nullish(),
-  "registerNumber": zod.string().nullish(),
-  "timestamp": zod.coerce.date()
-})
-export const GetActivityFeedResponse = zod.array(GetActivityFeedResponseItem)
-
+  id: zod.number(),
+  type: zod.string(),
+  description: zod.string(),
+  studentName: zod.string().nullish(),
+  registerNumber: zod.string().nullish(),
+  timestamp: zod.coerce.date(),
+});
+export const GetActivityFeedResponse = zod.array(GetActivityFeedResponseItem);
 
 /**
  * @summary Get hostel occupancy breakdown
  */
 export const GetHostelOccupancyResponse = zod.object({
-  "totalCapacity": zod.number(),
-  "currentlyPresent": zod.number(),
-  "currentlyAbsent": zod.number(),
-  "onLeave": zod.number(),
-  "occupancyPercent": zod.number(),
-  "departmentBreakdown": zod.array(zod.object({
-  "department": zod.string(),
-  "total": zod.number(),
-  "present": zod.number(),
-  "onLeave": zod.number()
-})).optional()
-})
-
+  totalCapacity: zod.number(),
+  currentlyPresent: zod.number(),
+  currentlyAbsent: zod.number(),
+  onLeave: zod.number(),
+  occupancyPercent: zod.number(),
+  departmentBreakdown: zod
+    .array(
+      zod.object({
+        department: zod.string(),
+        total: zod.number(),
+        present: zod.number(),
+        onLeave: zod.number(),
+      }),
+    )
+    .optional(),
+});
 
 /**
  * @summary Get monthly leave statistics
  */
 export const GetMonthlyReportQueryParams = zod.object({
-  "month": zod.coerce.number().optional(),
-  "year": zod.coerce.number().optional()
-})
+  month: zod.coerce.number().optional(),
+  year: zod.coerce.number().optional(),
+});
 
 export const GetMonthlyReportResponseItem = zod.object({
-  "date": zod.string(),
-  "approved": zod.number(),
-  "rejected": zod.number(),
-  "pending": zod.number(),
-  "total": zod.number()
-})
-export const GetMonthlyReportResponse = zod.array(GetMonthlyReportResponseItem)
-
+  date: zod.string(),
+  approved: zod.number(),
+  rejected: zod.number(),
+  pending: zod.number(),
+  total: zod.number(),
+});
+export const GetMonthlyReportResponse = zod.array(GetMonthlyReportResponseItem);
 
 /**
  * @summary Get list of students currently outside
  */
 export const GetStudentsOutsideResponseItem = zod.object({
-  "outpassId": zod.number(),
-  "studentName": zod.string(),
-  "registerNumber": zod.string(),
-  "department": zod.string().nullish(),
-  "hostelRoom": zod.string().nullish(),
-  "destination": zod.string(),
-  "exitTime": zod.coerce.date(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "isOverdue": zod.boolean().optional()
-})
-export const GetStudentsOutsideResponse = zod.array(GetStudentsOutsideResponseItem)
-
-
+  outpassId: zod.number(),
+  studentName: zod.string(),
+  registerNumber: zod.string(),
+  department: zod.string().nullish(),
+  hostelRoom: zod.string().nullish(),
+  destination: zod.string(),
+  exitTime: zod.coerce.date(),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  isOverdue: zod.boolean().optional(),
+});
+export const GetStudentsOutsideResponse = zod.array(
+  GetStudentsOutsideResponseItem,
+);
