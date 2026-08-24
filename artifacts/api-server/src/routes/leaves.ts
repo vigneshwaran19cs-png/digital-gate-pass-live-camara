@@ -90,8 +90,26 @@ router.get("/leaves", async (req, res): Promise<void> => {
     ? await db.select().from(leavesTable).where(and(...conditions)).orderBy(leavesTable.createdAt)
     : await db.select().from(leavesTable).orderBy(leavesTable.createdAt);
 
+  // Requirement 3: Sort emergency leaves to the TOP of the list
+  leaves.sort((a: any, b: any) => {
+    const aEmerg = a.isEmergency === "true" || a.leaveType === "family_emergency" || a.leaveType === "emergency";
+    const bEmerg = b.isEmergency === "true" || b.leaveType === "family_emergency" || b.leaveType === "emergency";
+    if (aEmerg && !bEmerg) return -1;
+    if (!aEmerg && bEmerg) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  // Filter out Emergency leaves for Tutor and HOD roles (Emergency routing is Student -> Warden -> Principal)
+  const filteredLeaves = leaves.filter((l: any) => {
+    const isEmerg = l.isEmergency === "true" || l.leaveType === "family_emergency" || l.leaveType === "emergency";
+    if ((requesterRole === "tutor" || requesterRole === "hod") && isEmerg) {
+      return false;
+    }
+    return true;
+  });
+
   // Attach student info and apply department/class scoping
-  const withStudents = await Promise.all(leaves.map(async (leave) => {
+  const withStudents = await Promise.all(filteredLeaves.map(async (leave) => {
     const [student] = await db.select().from(usersTable).where(eq(usersTable.id, leave.studentId));
     if (!student) return null;
 
@@ -352,6 +370,7 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
   let updateFields: Partial<typeof leavesTable.$inferSelect> = {};
 
   const isOuting = leave.passType === "outing_pass";
+  const isEmergencyLeave = (leave as any).isEmergency === "true" || leave.leaveType === "family_emergency" || leave.leaveType === "emergency";
 
   switch (leave.currentStep) {
     case "warden":
@@ -362,6 +381,11 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
       if (isOuting) {
         newStatus = "fully_approved";
         newStep = "completed";
+        updateFields = { wardenRemarks: remarksField, status: newStatus, currentStep: newStep };
+      } else if (isEmergencyLeave) {
+        // Requirement 4 & 7: Emergency Leave workflow goes directly from Warden -> Principal
+        newStatus = "warden_approved";
+        newStep = "principal";
         updateFields = { wardenRemarks: remarksField, status: newStatus, currentStep: newStep };
       } else {
         newStatus = "warden_approved";
@@ -374,9 +398,11 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
         res.status(403).json({ error: "Only tutors can approve leave requests at this stage" });
         return;
       }
-      if (isOuting) {
-        res.status(400).json({ error: "Outing pass does not require tutor approval" });
-        return;
+      if (isEmergencyLeave) {
+        newStatus = "warden_approved";
+        newStep = "principal";
+        updateFields = { tutorRemarks: remarksField || "Forwarded emergency leave to Principal", status: newStatus, currentStep: newStep };
+        break;
       }
       // Verify assigned tutor (Relaxed for demo: allow if student has no class, or tutor is not assigned to any class)
       if (student.classId) {
@@ -401,6 +427,12 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
         res.status(403).json({ error: "Only HODs can approve leave requests at this stage" });
         return;
       }
+      if (isEmergencyLeave) {
+        newStatus = "hod_approved";
+        newStep = "principal";
+        updateFields = { hodRemarks: remarksField || "Forwarded emergency leave to Principal", status: newStatus, currentStep: newStep };
+        break;
+      }
       // Verify assigned HOD (Relaxed for demo)
       if (student.departmentId) {
         const [studentDept] = await db.select().from(departmentsTable).where(eq(departmentsTable.id, student.departmentId));
@@ -419,9 +451,16 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
         res.status(403).json({ error: "Only the principal can approve leave requests at this stage" });
         return;
       }
-      newStatus = "principal_approved";
-      newStep = "warden_final";
-      updateFields = { principalRemarks: remarksField, status: newStatus, currentStep: newStep };
+      if (isEmergencyLeave) {
+        // Requirement 4 & 7: Emergency leave principal approval completes the leave directly
+        newStatus = "fully_approved";
+        newStep = "completed";
+        updateFields = { principalRemarks: remarksField, status: newStatus, currentStep: newStep };
+      } else {
+        newStatus = "principal_approved";
+        newStep = "warden_final";
+        updateFields = { principalRemarks: remarksField, status: newStatus, currentStep: newStep };
+      }
       break;
     case "warden_final":
       if (user.role !== "warden") {
@@ -485,12 +524,22 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
     const [principalUser] = await db.select().from(usersTable).where(eq(usersTable.role, "principal")).limit(1);
     const [wardenUser] = await db.select().from(usersTable).where(eq(usersTable.role, "warden")).limit(1);
     const now = new Date().toISOString();
-    const staffDetails = JSON.stringify({
-      tutor: { name: tutorUser?.name ?? "Tutor", designation: "Class Tutor", approvedAt: now },
-      hod: { name: hodUser?.name ?? "HOD", designation: "Head of Department", approvedAt: now },
-      principal: { name: principalUser?.name ?? "Principal", designation: "Principal", approvedAt: now },
-      warden: { name: wardenUser?.name ?? "Warden", designation: "Hostel Warden", approvedAt: now },
-    });
+
+    let staffDetailsObj: any = {};
+    if (isEmergencyLeave) {
+      staffDetailsObj = {
+        warden: { name: wardenUser?.name ?? "Hostel Warden", designation: "Warden", approvedAt: now },
+        principal: { name: principalUser?.name ?? "Dr. Principal", designation: "Principal", approvedAt: now },
+      };
+    } else {
+      staffDetailsObj = {
+        tutor: { name: tutorUser?.name ?? "Class Tutor", designation: "Tutor", approvedAt: now },
+        hod: { name: hodUser?.name ?? "Head of Department", designation: "HOD", approvedAt: now },
+        principal: { name: principalUser?.name ?? "Dr. Principal", designation: "Principal", approvedAt: now },
+        warden: { name: wardenUser?.name ?? "Hostel Warden", designation: "Warden", approvedAt: now },
+      };
+    }
+    const staffDetails = JSON.stringify(staffDetailsObj);
 
     const [{ id: outpassId }] = await db.insert(outpassesTable).values({
       leaveId: updated.id,

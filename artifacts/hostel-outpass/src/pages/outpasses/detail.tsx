@@ -387,6 +387,29 @@ export default function OutpassDetailPage() {
                 {/* Grid Table */}
                 <table className="grid-table w-full border-collapse border-2 border-[#0a2540] text-[8px] text-black mt-1">
                   <tbody>
+                    {/* Student Photo & General Info Header */}
+                    <tr>
+                      <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1 w-[25%] text-center" rowSpan={2}>
+                        {outpass.student?.photoUrl ? (
+                          <img src={outpass.student.photoUrl} className="w-12 h-12 object-cover mx-auto rounded border border-[#0a2540]" alt="Student Photo" />
+                        ) : (
+                          <div className="w-12 h-12 bg-slate-100 border border-slate-300 rounded flex flex-col items-center justify-center mx-auto text-[6px] font-bold text-slate-600 text-center leading-tight p-0.5">
+                            Profile Photo Not Available
+                          </div>
+                        )}
+                      </td>
+                      <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1 w-[25%]">Student Name</td>
+                      <td className="val-cell border border-[#0a2540] px-2 py-1 truncate" colSpan={2}>
+                        {outpass.student?.name}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1">Reg Number</td>
+                      <td className="val-cell border border-[#0a2540] px-2 py-1 font-mono font-bold" colSpan={2}>
+                        {outpass.student?.registerNumber || "STU-001"}
+                      </td>
+                    </tr>
+
                     {/* Row 1: Out Date & Time */}
                     <tr>
                       <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1 w-[30%]">Out Date & Time</td>
@@ -395,19 +418,11 @@ export default function OutpassDetailPage() {
                       </td>
                     </tr>
 
-                    {/* Row 2: Student Name */}
-                    <tr>
-                      <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1">Student Name</td>
-                      <td className="val-cell border border-[#0a2540] px-2 py-1 truncate" colSpan={3}>
-                        {outpass.student?.name}
-                      </td>
-                    </tr>
-
                     {/* Row 3: Department / Year */}
                     <tr>
                       <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1">Department / Year</td>
                       <td className="val-cell border border-[#0a2540] px-2 py-1" colSpan={3}>
-                        {getDeptName(outpass.student?.departmentId) || "—"} / {outpass.student?.registerNumber?.startsWith("STU") ? "3rd Year" : "2nd Year"}
+                        {getDeptName(outpass.student?.departmentId) || "Engineering"} / {outpass.student?.registerNumber?.startsWith("STU") ? "3rd Year" : "2nd Year"}
                       </td>
                     </tr>
 
@@ -419,18 +434,15 @@ export default function OutpassDetailPage() {
                       </td>
                     </tr>
 
-                    {/* Row 5: Tutor */}
-                    <tr>
-                      <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1">Tutor</td>
-                      <td className="val-cell border border-[#0a2540] px-2 py-1" colSpan={3}>
-                        {staff.tutor?.name || "Dr. Smith"}
-                      </td>
-                    </tr>
-
                     {/* Row 6: Purpose & In Date */}
                     <tr>
                       <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1 w-[20%]">Purpose</td>
-                      <td className="val-cell border border-[#0a2540] px-2 py-1 w-[30%] truncate">{outpass.leave?.reason}</td>
+                      <td className="val-cell border border-[#0a2540] px-2 py-1 w-[30%] truncate">
+                        {outpass.leave?.reason}
+                        {((outpass.leave as any)?.isEmergency === "true" || outpass.leave?.leaveType === "family_emergency") && (
+                          <span className="ml-1 text-red-600 font-extrabold">(🔴 EMERGENCY)</span>
+                        )}
+                      </td>
                       <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1 w-[20%]">In Date & Time</td>
                       <td className="val-cell border border-[#0a2540] px-2 py-1 w-[30%]">{formattedInDate}</td>
                     </tr>
@@ -443,75 +455,92 @@ export default function OutpassDetailPage() {
                       <td className="val-cell border border-[#0a2540] px-2 py-1">Yes</td>
                     </tr>
 
-                    {/* Row 8: Warden & Year No */}
-                    <tr>
-                      <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1">Warden</td>
-                      <td className="val-cell border border-[#0a2540] px-2 py-1 truncate">{staff.warden?.name || "Mr. Warden"}</td>
-                      <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1">Year No</td>
-                      <td className="val-cell border border-[#0a2540] px-2 py-1">Yes</td>
-                    </tr>
-
-                    {/* Row 9: Signatures Row */}
+                    {/* Row 9: Dynamic Signatures Row (Requirement 9 & 10) */}
                     <tr>
                       <td colSpan={4} className="signatures-row p-0 border border-[#0a2540]">
-                        <table className="sig-table w-full border-collapse border-none">
-                          <tbody>
-                            <tr>
-                              {/* Tutor Signature */}
-                              <td className="border-r border-[#0a2540] py-1 text-center w-[25%]">
-                                <div className="sig-space h-6 flex items-center justify-center">
-                                  {staff.tutor?.name && (
-                                    <span className="sig-font font-serif italic text-blue-600 font-bold text-[10px] select-none rotate-[-2deg]">
-                                      {staff.tutor.name.split(" ").slice(-1)[0]}
+                        {((outpass.leave as any)?.isEmergency === "true" || outpass.leave?.leaveType === "family_emergency") ? (
+                          /* Emergency Leave Signatures (Warden + Principal ONLY) */
+                          <table className="sig-table w-full border-collapse border-none">
+                            <tbody>
+                              <tr>
+                                {/* Warden Signature */}
+                                <td className="border-r border-[#0a2540] py-1 text-center w-[50%]">
+                                  <div className="sig-space h-6 flex flex-col items-center justify-center">
+                                    <span className="sig-font font-serif italic text-blue-600 font-bold text-[9px] select-none rotate-[-2deg]">
+                                      {staff.warden?.name || "Mr. Hostel Warden"}
                                     </span>
-                                  )}
-                                </div>
-                                <div className="sig-title border-t border-[#0a2540] pt-0.5 text-[7px] font-bold text-[#0a2540] uppercase leading-none">
-                                  Tutor Signature
-                                </div>
-                              </td>
-                              {/* HOD Signature */}
-                              <td className="border-r border-[#0a2540] py-1 text-center w-[25%]">
-                                <div className="sig-space h-6 flex items-center justify-center">
-                                  {staff.hod?.name && (
-                                    <span className="sig-font font-serif italic text-blue-600 font-bold text-[10px] select-none rotate-[-2deg]">
-                                      {staff.hod.name.split(" ").slice(-1)[0]}
+                                  </div>
+                                  <div className="sig-title border-t border-[#0a2540] pt-0.5 text-[7px] font-bold text-[#0a2540] uppercase leading-none">
+                                    Warden Signature
+                                  </div>
+                                </td>
+                                {/* Principal Signature */}
+                                <td className="py-1 text-center w-[50%]">
+                                  <div className="sig-space h-6 flex flex-col items-center justify-center">
+                                    <span className="sig-font font-serif italic text-blue-600 font-bold text-[9px] select-none rotate-[-2deg]">
+                                      {staff.principal?.name || "Dr. Principal"}
                                     </span>
-                                  )}
-                                </div>
-                                <div className="sig-title border-t border-[#0a2540] pt-0.5 text-[7px] font-bold text-[#0a2540] uppercase leading-none">
-                                  HOD Signature
-                                </div>
-                              </td>
-                              {/* Principal Signature */}
-                              <td className="border-r border-[#0a2540] py-1 text-center w-[25%]">
-                                <div className="sig-space h-6 flex items-center justify-center">
-                                  {staff.principal?.name && (
-                                    <span className="sig-font font-serif italic text-blue-600 font-bold text-[10px] select-none rotate-[-2deg]">
-                                      {staff.principal.name.split(" ").slice(-1)[0]}
+                                  </div>
+                                  <div className="sig-title border-t border-[#0a2540] pt-0.5 text-[7px] font-bold text-[#0a2540] uppercase leading-none">
+                                    Principal Signature
+                                  </div>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        ) : (
+                          /* Normal Leave Signatures (Tutor, HOD, Principal, Warden) */
+                          <table className="sig-table w-full border-collapse border-none">
+                            <tbody>
+                              <tr>
+                                {/* Tutor Signature */}
+                                <td className="border-r border-[#0a2540] py-1 text-center w-[25%]">
+                                  <div className="sig-space h-6 flex flex-col items-center justify-center">
+                                    <span className="sig-font font-serif italic text-blue-600 font-bold text-[9px] select-none rotate-[-2deg]">
+                                      {staff.tutor?.name || "Dr. Smith"}
                                     </span>
-                                  )}
-                                </div>
-                                <div className="sig-title border-t border-[#0a2540] pt-0.5 text-[7px] font-bold text-[#0a2540] uppercase leading-none">
-                                  Principal Signature
-                                </div>
-                              </td>
-                              {/* Warden Signature */}
-                              <td className="py-1 text-center w-[25%]">
-                                <div className="sig-space h-6 flex items-center justify-center">
-                                  {staff.warden?.name && (
-                                    <span className="sig-font font-serif italic text-blue-600 font-bold text-[10px] select-none rotate-[-2deg]">
-                                      {staff.warden.name.split(" ").slice(-1)[0]}
+                                  </div>
+                                  <div className="sig-title border-t border-[#0a2540] pt-0.5 text-[7px] font-bold text-[#0a2540] uppercase leading-none">
+                                    Tutor Signature
+                                  </div>
+                                </td>
+                                {/* HOD Signature */}
+                                <td className="border-r border-[#0a2540] py-1 text-center w-[25%]">
+                                  <div className="sig-space h-6 flex flex-col items-center justify-center">
+                                    <span className="sig-font font-serif italic text-blue-600 font-bold text-[9px] select-none rotate-[-2deg]">
+                                      {staff.hod?.name || "Prof. K. HOD"}
                                     </span>
-                                  )}
-                                </div>
-                                <div className="sig-title border-t border-[#0a2540] pt-0.5 text-[7px] font-bold text-[#0a2540] uppercase leading-none">
-                                  Warden Signature
-                                </div>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+                                  </div>
+                                  <div className="sig-title border-t border-[#0a2540] pt-0.5 text-[7px] font-bold text-[#0a2540] uppercase leading-none">
+                                    HOD Signature
+                                  </div>
+                                </td>
+                                {/* Principal Signature */}
+                                <td className="border-r border-[#0a2540] py-1 text-center w-[25%]">
+                                  <div className="sig-space h-6 flex flex-col items-center justify-center">
+                                    <span className="sig-font font-serif italic text-blue-600 font-bold text-[9px] select-none rotate-[-2deg]">
+                                      {staff.principal?.name || "Dr. Principal"}
+                                    </span>
+                                  </div>
+                                  <div className="sig-title border-t border-[#0a2540] pt-0.5 text-[7px] font-bold text-[#0a2540] uppercase leading-none">
+                                    Principal Signature
+                                  </div>
+                                </td>
+                                {/* Warden Signature */}
+                                <td className="py-1 text-center w-[25%]">
+                                  <div className="sig-space h-6 flex flex-col items-center justify-center">
+                                    <span className="sig-font font-serif italic text-blue-600 font-bold text-[9px] select-none rotate-[-2deg]">
+                                      {staff.warden?.name || "Mr. Hostel Warden"}
+                                    </span>
+                                  </div>
+                                  <div className="sig-title border-t border-[#0a2540] pt-0.5 text-[7px] font-bold text-[#0a2540] uppercase leading-none">
+                                    Warden Signature
+                                  </div>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        )}
                       </td>
                     </tr>
                   </tbody>

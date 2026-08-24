@@ -32,21 +32,10 @@ const fadeUp = {
   show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, type: "spring" as const, stiffness: 400, damping: 32 } }),
 };
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    pending: "bg-amber-50 text-amber-700 border-amber-100",
-    warden_approved: "bg-cyan-50 text-cyan-700 border-cyan-100",
-    tutor_approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    hod_approved: "bg-violet-50 text-violet-700 border-violet-100",
-    principal_approved: "bg-orange-50 text-orange-700 border-orange-100",
-    fully_approved: "bg-blue-50 text-blue-700 border-blue-100",
-    rejected: "bg-rose-50 text-rose-700 border-rose-100",
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border ${map[status] ?? "bg-muted text-muted-foreground border-border"}`}>
-      {status.replace(/_/g, " ")}
-    </span>
-  );
+import { ForwardingStatusBadge } from "@/components/ForwardingStatusBadge";
+
+function StatusBadge({ status, currentStep, isEmergency }: { status: string; currentStep?: string; isEmergency?: boolean }) {
+  return <ForwardingStatusBadge status={status} currentStep={currentStep} isEmergency={isEmergency} />;
 }
 
 
@@ -133,7 +122,15 @@ export default function HodDashboard() {
   const handleApprove = () => {
     if (!selectedLeave) return;
     approveLeave.mutate({ id: selectedLeave.id, data: { remarks } }, {
-      onSuccess: () => { toast({ title: "Approved — forwarded to Principal ✓" }); invalidate(); setSelectedLeave(null); setRemarks(""); },
+      onSuccess: () => {
+        toast({
+          title: "Leave Approved ✓",
+          description: "Forwarded to Principal for Final Approval",
+        });
+        invalidate();
+        setSelectedLeave(null);
+        setRemarks("");
+      },
     });
   };
 

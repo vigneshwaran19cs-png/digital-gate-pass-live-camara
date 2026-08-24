@@ -36,21 +36,10 @@ const CALL_STATUS_OPTIONS = [
   { value: "completed", label: "Call Completed", icon: PhoneCall, color: "text-blue-600" },
 ];
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    pending: "bg-amber-50 text-amber-700 border-amber-100",
-    warden_approved: "bg-cyan-50 text-cyan-700 border-cyan-100",
-    tutor_approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    hod_approved: "bg-violet-50 text-violet-700 border-violet-100",
-    principal_approved: "bg-orange-50 text-orange-700 border-orange-100",
-    fully_approved: "bg-blue-50 text-blue-700 border-blue-100",
-    rejected: "bg-rose-50 text-rose-700 border-rose-100",
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border ${map[status] ?? "bg-muted text-muted-foreground border-border"}`}>
-      {status.replace(/_/g, " ")}
-    </span>
-  );
+import { ForwardingStatusBadge } from "@/components/ForwardingStatusBadge";
+
+function StatusBadge({ status, currentStep, isEmergency }: { status: string; currentStep?: string; isEmergency?: boolean }) {
+  return <ForwardingStatusBadge status={status} currentStep={currentStep} isEmergency={isEmergency} />;
 }
 
 function CallBadge({ status }: { status?: string | null }) {
@@ -133,14 +122,31 @@ export default function TutorDashboard() {
   const handleApprove = () => {
     if (!selectedLeave) return;
     approveLeave.mutate({ id: selectedLeave.id, data: { remarks } }, {
-      onSuccess: () => { toast({ title: "Leave approved ✓" }); invalidate(); setSelectedLeave(null); setRemarks(""); },
+      onSuccess: () => {
+        toast({
+          title: "Leave Approved ✓",
+          description: "Forwarded to HOD for Department Approval",
+        });
+        invalidate();
+        setSelectedLeave(null);
+        setRemarks("");
+      },
     });
   };
 
   const handleReject = () => {
     if (!selectedLeave || !remarks) { toast({ title: "Remarks required", variant: "destructive" }); return; }
     rejectLeave.mutate({ id: selectedLeave.id, data: { remarks } }, {
-      onSuccess: () => { toast({ title: "Leave rejected" }); invalidate(); setSelectedLeave(null); setRemarks(""); },
+      onSuccess: () => {
+        toast({
+          title: "Leave Rejected ❌",
+          description: "Leave request rejected and student notified",
+          variant: "destructive",
+        });
+        invalidate();
+        setSelectedLeave(null);
+        setRemarks("");
+      },
     });
   };
 

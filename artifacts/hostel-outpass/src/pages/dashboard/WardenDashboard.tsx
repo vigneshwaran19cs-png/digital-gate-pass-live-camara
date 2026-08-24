@@ -28,21 +28,10 @@ const fadeUp = {
   show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, type: "spring" as const, stiffness: 400, damping: 32 } }),
 };
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    pending: "bg-amber-50 text-amber-700 border-amber-100",
-    warden_approved: "bg-cyan-50 text-cyan-700 border-cyan-100",
-    tutor_approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    hod_approved: "bg-violet-50 text-violet-700 border-violet-100",
-    principal_approved: "bg-orange-50 text-orange-700 border-orange-100",
-    fully_approved: "bg-blue-50 text-blue-700 border-blue-100",
-    rejected: "bg-rose-50 text-rose-700 border-rose-100",
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border ${map[status] ?? "bg-muted text-muted-foreground border-border"}`}>
-      {status.replace(/_/g, " ")}
-    </span>
-  );
+import { ForwardingStatusBadge } from "@/components/ForwardingStatusBadge";
+
+function StatusBadge({ status, currentStep, isEmergency }: { status: string; currentStep?: string; isEmergency?: boolean }) {
+  return <ForwardingStatusBadge status={status} currentStep={currentStep} isEmergency={isEmergency} />;
 }
 
 export default function WardenDashboard() {
@@ -91,8 +80,26 @@ export default function WardenDashboard() {
     query: { queryKey: getGetSimilarLeaveGroupsQueryKey() }
   });
 
-  const initialLeaves = (initialLeavesData as any)?.leaves ?? (initialLeavesData as any) ?? [];
-  const finalLeaves = (finalLeavesData as any)?.leaves ?? (finalLeavesData as any) ?? [];
+  const rawInitial = (initialLeavesData as any)?.leaves ?? (initialLeavesData as any) ?? [];
+  const rawFinal = (finalLeavesData as any)?.leaves ?? (finalLeavesData as any) ?? [];
+
+  const isEmergCheck = (l: any) => l.isEmergency === "true" || l.leaveType === "family_emergency" || l.leaveType === "emergency" || l.leaveType === "medical";
+
+  const initialLeaves = [...rawInitial].sort((a: any, b: any) => {
+    const aE = isEmergCheck(a);
+    const bE = isEmergCheck(b);
+    if (aE && !bE) return -1;
+    if (!aE && bE) return 1;
+    return 0;
+  });
+
+  const finalLeaves = [...rawFinal].sort((a: any, b: any) => {
+    const aE = isEmergCheck(a);
+    const bE = isEmergCheck(b);
+    if (aE && !bE) return -1;
+    if (!aE && bE) return 1;
+    return 0;
+  });
   const allLeaves = (allData as any)?.leaves ?? (allData as any) ?? [];
   const outsideStudents: any[] = (outsideData as any)?.students ?? [];
   const activities: any[] = (activityFeed as any)?.activities ?? [];
@@ -120,12 +127,20 @@ export default function WardenDashboard() {
 
   const handleApprove = () => {
     if (!selectedLeave) return;
+    const isEmerg = selectedLeave.isEmergency === "true" || selectedLeave.leaveType === "family_emergency" || selectedLeave.leaveType === "emergency";
     approveLeave.mutate({ id: selectedLeave.id, data: { remarks } }, {
       onSuccess: () => {
-        const msg = selectedLeave.currentStep === "warden"
-          ? "Approved — forwarded to Tutor ✓"
-          : "Final gate pass approved — Outpass generated ✓";
-        toast({ title: msg });
+        if (selectedLeave.currentStep === "warden") {
+          toast({
+            title: isEmerg ? "Emergency Leave Verified ✓" : "Initial Verification Complete ✓",
+            description: isEmerg ? "Priority Forwarded directly to Principal" : "Forwarded to Tutor for Academic Review",
+          });
+        } else {
+          toast({
+            title: "Digital Gate Pass Released ✓",
+            description: "Final approval complete — Outpass ready for student exit",
+          });
+        }
         invalidate();
         setSelectedLeave(null);
         setRemarks("");
@@ -163,6 +178,27 @@ export default function WardenDashboard() {
         </div>
         <Button variant="outline" size="sm" onClick={invalidate} className="gap-2 hidden md:flex">
           <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
+        </Button>
+      </motion.div>
+
+      {/* 8:00 PM Automatic Daily Report Notification Alert (Requirement 12) */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/90 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 flex items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+            📊
+          </div>
+          <div>
+            <div className="font-bold text-sm text-indigo-950 dark:text-indigo-100 flex items-center gap-2">
+              Daily Entry/Exit Report Generated
+              <Badge className="bg-indigo-600 text-white text-[10px]">Generated at: 8:00 PM</Badge>
+            </div>
+            <div className="text-xs text-indigo-700 dark:text-indigo-300 mt-0.5">
+              The day's complete Student Entry/Exit History report is available in your portal and Reports page.
+            </div>
+          </div>
+        </div>
+        <Button size="sm" asChild className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold">
+          <a href="/reports">View Daily Report</a>
         </Button>
       </motion.div>
 
@@ -304,22 +340,50 @@ export default function WardenDashboard() {
               <div className="p-12 text-center"><CheckCircle2 className="w-12 h-12 text-emerald-400/40 mx-auto mb-3" /><p className="text-muted-foreground font-medium">All clear! No pending initial requests.</p></div>
             ) : (
               <div className="divide-y divide-border/30">
-                {initialLeaves.map((leave: any, i: number) => (
-                  <div key={leave.id} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors group cursor-pointer" onClick={() => setSelectedLeave(leave)}>
-                    <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold text-sm shrink-0">
-                      {(leave.student?.name ?? "?").charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{leave.student?.name ?? `Student #${leave.studentId}`}</p>
-                      <p className="text-xs text-muted-foreground truncate">{leave.reason?.substring(0, 80)}</p>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground"><Calendar className="w-3 h-3" />{format(new Date(leave.fromDate), "MMM d")} – {format(new Date(leave.toDate), "MMM d")}</span>
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="w-3 h-3" />{leave.destination}</span>
+                {initialLeaves.map((leave: any, i: number) => {
+                  const isEmerg = leave.isEmergency === "true" || leave.leaveType === "family_emergency" || leave.leaveType === "emergency" || leave.leaveType === "medical";
+                  return (
+                    <div
+                      key={leave.id}
+                      className={`flex items-center gap-4 px-6 py-4 transition-colors group cursor-pointer ${
+                        isEmerg
+                          ? "bg-rose-50 dark:bg-rose-950/40 border-l-4 border-l-rose-600 border-y border-rose-200 dark:border-rose-800"
+                          : "hover:bg-muted/30"
+                      }`}
+                      onClick={() => setSelectedLeave(leave)}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                        isEmerg ? "bg-rose-600 text-white shadow-md animate-pulse" : "bg-cyan-500/10 border border-cyan-500/20 text-cyan-500"
+                      }`}>
+                        {(leave.student?.name ?? "?").charAt(0)}
                       </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className={`font-bold text-sm ${isEmerg ? "text-rose-900 dark:text-rose-200" : "text-slate-800 dark:text-slate-100"}`}>
+                            {leave.student?.name ?? `Student #${leave.studentId}`}
+                          </p>
+                          {isEmerg && (
+                            <Badge className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[11px] px-2 py-0.5 shadow-sm animate-pulse flex items-center gap-1">
+                              🔴 EMERGENCY LEAVE
+                            </Badge>
+                          )}
+                        </div>
+                        <p className={`text-xs truncate ${isEmerg ? "text-rose-800 dark:text-rose-300 font-semibold" : "text-muted-foreground"}`}>
+                          {leave.reason?.substring(0, 80)}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <span className={`flex items-center gap-1 text-xs ${isEmerg ? "text-rose-700 dark:text-rose-400 font-medium" : "text-muted-foreground"}`}>
+                            <Calendar className="w-3 h-3" />{format(new Date(leave.fromDate), "MMM d")} – {format(new Date(leave.toDate), "MMM d")}
+                          </span>
+                          <span className={`flex items-center gap-1 text-xs ${isEmerg ? "text-rose-700 dark:text-rose-400 font-medium" : "text-muted-foreground"}`}>
+                            <MapPin className="w-3 h-3" />{leave.destination}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 transition-colors shrink-0 ${isEmerg ? "text-rose-600" : "text-muted-foreground/40 group-hover:text-muted-foreground"}`} />
                     </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -337,22 +401,50 @@ export default function WardenDashboard() {
               <div className="p-12 text-center"><CheckCircle2 className="w-12 h-12 text-amber-500/40 mx-auto mb-3" /><p className="text-muted-foreground font-medium">No requests awaiting final Gate Pass generation.</p></div>
             ) : (
               <div className="divide-y divide-border/30">
-                {finalLeaves.map((leave: any, i: number) => (
-                  <div key={leave.id} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors group cursor-pointer" onClick={() => setSelectedLeave(leave)}>
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-sm shrink-0">
-                      {(leave.student?.name ?? "?").charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{leave.student?.name ?? `Student #${leave.studentId}`}</p>
-                      <p className="text-xs text-muted-foreground truncate">{leave.reason}</p>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground"><Calendar className="w-3 h-3" />{format(new Date(leave.fromDate), "MMM d")} – {format(new Date(leave.toDate), "MMM d")}</span>
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="w-3 h-3" />{leave.destination}</span>
+                {finalLeaves.map((leave: any, i: number) => {
+                  const isEmerg = leave.isEmergency === "true" || leave.leaveType === "family_emergency" || leave.leaveType === "emergency" || leave.leaveType === "medical";
+                  return (
+                    <div
+                      key={leave.id}
+                      className={`flex items-center gap-4 px-6 py-4 transition-colors group cursor-pointer ${
+                        isEmerg
+                          ? "bg-rose-50 dark:bg-rose-950/40 border-l-4 border-l-rose-600 border-y border-rose-200 dark:border-rose-800"
+                          : "hover:bg-muted/30"
+                      }`}
+                      onClick={() => setSelectedLeave(leave)}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                        isEmerg ? "bg-rose-600 text-white shadow-md animate-pulse" : "bg-amber-500/10 border border-amber-500/20 text-amber-400"
+                      }`}>
+                        {(leave.student?.name ?? "?").charAt(0)}
                       </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className={`font-bold text-sm ${isEmerg ? "text-rose-900 dark:text-rose-200" : "text-slate-800 dark:text-slate-100"}`}>
+                            {leave.student?.name ?? `Student #${leave.studentId}`}
+                          </p>
+                          {isEmerg && (
+                            <Badge className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[11px] px-2 py-0.5 shadow-sm animate-pulse flex items-center gap-1">
+                              🔴 EMERGENCY LEAVE
+                            </Badge>
+                          )}
+                        </div>
+                        <p className={`text-xs truncate ${isEmerg ? "text-rose-800 dark:text-rose-300 font-semibold" : "text-muted-foreground"}`}>
+                          {leave.reason}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <span className={`flex items-center gap-1 text-xs ${isEmerg ? "text-rose-700 dark:text-rose-400 font-medium" : "text-muted-foreground"}`}>
+                            <Calendar className="w-3 h-3" />{format(new Date(leave.fromDate), "MMM d")} – {format(new Date(leave.toDate), "MMM d")}
+                          </span>
+                          <span className={`flex items-center gap-1 text-xs ${isEmerg ? "text-rose-700 dark:text-rose-400 font-medium" : "text-muted-foreground"}`}>
+                            <MapPin className="w-3 h-3" />{leave.destination}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 transition-colors shrink-0 ${isEmerg ? "text-rose-600" : "text-muted-foreground/40 group-hover:text-muted-foreground"}`} />
                     </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

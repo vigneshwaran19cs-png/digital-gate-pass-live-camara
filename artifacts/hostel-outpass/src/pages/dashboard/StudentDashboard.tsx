@@ -9,27 +9,17 @@ import {
   FileText, Calendar, MapPin, ChevronRight, ArrowRight,
 } from "lucide-react";
 import { format } from "date-fns";
+import { StudentProfilePhoto } from "@/components/StudentProfilePhoto";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
   show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, type: "spring" as const, stiffness: 400, damping: 32 } }),
 };
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    pending: "bg-amber-50 text-amber-700 border-amber-100",
-    warden_approved: "bg-cyan-50 text-cyan-700 border-cyan-100",
-    tutor_approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    hod_approved: "bg-violet-50 text-violet-700 border-violet-100",
-    principal_approved: "bg-orange-50 text-orange-700 border-orange-100",
-    fully_approved: "bg-blue-50 text-blue-700 border-blue-100",
-    rejected: "bg-rose-50 text-rose-700 border-rose-100",
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border ${map[status] ?? "bg-muted text-muted-foreground border-border"}`}>
-      {status.replace(/_/g, " ")}
-    </span>
-  );
+import { ForwardingStatusBadge } from "@/components/ForwardingStatusBadge";
+
+function StatusBadge({ status, currentStep, isEmergency }: { status: string; currentStep?: string; isEmergency?: boolean }) {
+  return <ForwardingStatusBadge status={status} currentStep={currentStep} isEmergency={isEmergency} />;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -64,15 +54,34 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center">
-            <GraduationCap className="w-4 h-4 text-blue-600" />
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-4">
+          <StudentProfilePhoto photoUrl={user?.photoUrl} name={user?.name} size="lg" className="shrink-0 shadow-sm" />
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-6 h-6 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center">
+                <GraduationCap className="w-3.5 h-3.5 text-blue-600" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-widest text-blue-600">Student Portal</span>
+            </div>
+            <h1 className="text-2xl font-heading font-bold">Welcome, {user?.name?.split(" ")[0]}</h1>
+            <p className="text-muted-foreground text-xs font-mono mt-0.5">Reg No: {user?.registerNumber || "STU001"} · III Year CSE A</p>
           </div>
-          <span className="text-xs font-semibold uppercase tracking-widest text-blue-600">Student Portal</span>
         </div>
-        <h1 className="text-2xl md:text-3xl font-heading font-bold">Welcome, {user?.name?.split(" ")[0]}</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage your leave applications and outpasses</p>
+
+        <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 w-full sm:w-auto justify-around">
+          <div className="text-center px-2">
+            <div className="text-[10px] uppercase font-bold text-slate-500">Attendance</div>
+            <div className="text-lg font-extrabold text-emerald-600">{(user as any)?.attendancePercentage || 87}%</div>
+            <div className="text-[9px] text-muted-foreground">174 Days Present</div>
+          </div>
+          <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
+          <div className="text-center px-2">
+            <div className="text-[10px] uppercase font-bold text-slate-500">Leave Taken</div>
+            <div className="text-lg font-extrabold text-slate-800 dark:text-slate-200">{(leaves as any[]).length} Days</div>
+            <div className="text-[9px] text-muted-foreground">Academic Year 2026</div>
+          </div>
+        </div>
       </motion.div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

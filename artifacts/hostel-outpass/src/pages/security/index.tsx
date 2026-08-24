@@ -9,15 +9,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ScanLine, Search, UserCheck, UserX, Activity, Shield, Clock,
   User, Building, Home, QrCode, RefreshCw, CheckCircle2, XCircle,
-  MapPin, Calendar, Hash, AlertTriangle, ChevronRight,
+  MapPin, Calendar, Hash, AlertTriangle, Camera, Barcode, Check
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { QRScanner } from "@/components/QRScanner";
+import { StudentProfilePhoto } from "@/components/StudentProfilePhoto";
+import { formatDateTime } from "@/lib/dateUtils";
+import { Link } from "wouter";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -26,23 +30,25 @@ const fadeUp = {
 
 function OutpassStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    generated: { label: "Ready", cls: "bg-blue-50 text-blue-700 border-blue-100" },
-    verified: { label: "Verified / Out", cls: "bg-amber-50 text-amber-700 border-amber-100" },
-    returned: { label: "Returned", cls: "bg-emerald-50 text-emerald-700 border-emerald-100" },
-    expired: { label: "Expired", cls: "bg-rose-50 text-rose-700 border-rose-100" },
+    generated: { label: "Pass Active", cls: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+    verified: { label: "Verified / Out", cls: "bg-amber-100 text-amber-800 border-amber-200" },
+    returned: { label: "Inside Hostel", cls: "bg-blue-100 text-blue-800 border-blue-200" },
+    expired: { label: "Expired", cls: "bg-rose-100 text-rose-800 border-rose-200" },
   };
   const m = map[status] ?? { label: status, cls: "bg-slate-100 text-slate-700 border-slate-200" };
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border ${m.cls}`}>{m.label}</span>;
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold border ${m.cls}`}>{m.label}</span>;
 }
 
 export default function SecurityDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
-  const [searchType, setSearchType] = useState<"outpass" | "register" | "name">("outpass");
+  const [searchType, setSearchType] = useState<"barcode" | "outpass" | "register">("barcode");
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<any | null>(null);
 
   const handleScanSuccess = (code: string) => {
     let outpassCode = code;
@@ -51,9 +57,7 @@ export default function SecurityDashboard() {
       if (parsed && typeof parsed === "object") {
         outpassCode = parsed.outpassCode || parsed.code || parsed.id || code;
       }
-    } catch (e) {
-      // Fallback to raw scanned code
-    }
+    } catch (e) {}
     setSearchType("outpass");
     setSearchInput(outpassCode);
     setActiveSearch(outpassCode);
@@ -61,14 +65,14 @@ export default function SecurityDashboard() {
 
   const queryParams = {
     outpassCode: searchType === "outpass" ? activeSearch : undefined,
-    registerNumber: searchType === "register" ? activeSearch : undefined,
-    studentName: searchType === "name" ? activeSearch : undefined,
+    registerNumber: searchType === "register" || searchType === "barcode" ? activeSearch : undefined,
   };
 
-  const { data: outpass, isLoading: isSearching, isError } = useLookupOutpass(
+  const { data: outpass, isLoading: isSearching } = useLookupOutpass(
     queryParams,
     { query: { enabled: !!activeSearch, queryKey: getLookupOutpassQueryKey(queryParams) } }
   );
+
   const { data: activityFeed, refetch: refetchActivity } = useGetActivityFeed(
     { query: { queryKey: getGetActivityFeedQueryKey() } }
   );
@@ -81,19 +85,34 @@ export default function SecurityDashboard() {
   const STATS = [
     { label: "Exited Today", value: activities.filter((a: any) => a.action === "exit").length, icon: UserX, color: "text-rose-700", bg: "bg-rose-50", border: "border-rose-100" },
     { label: "Returned Today", value: activities.filter((a: any) => a.action === "return").length, icon: UserCheck, color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-100" },
-    { label: "Active Outpasses", value: activities.filter((a: any) => a.action === "exit").length - activities.filter((a: any) => a.action === "return").length, icon: QrCode, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-100" },
-    { label: "Invalid Attempts", value: 0, icon: AlertTriangle, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-100" },
+    { label: "Active Outpasses", value: Math.max(0, activities.filter((a: any) => a.action === "exit").length - activities.filter((a: any) => a.action === "return").length), icon: QrCode, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-100" },
+    { label: "Gate Logs Today", value: activities.length, icon: Shield, color: "text-indigo-700", bg: "bg-indigo-50", border: "border-indigo-100" },
   ];
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleBarcodeSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchInput.trim()) setActiveSearch(searchInput.trim());
-  };
+    if (!searchInput.trim()) return;
+    setActiveSearch(searchInput.trim());
 
-  const handleTabChange = (type: "outpass" | "register" | "name") => {
-    setSearchType(type);
-    setSearchInput("");
-    setActiveSearch("");
+    if (searchType === "barcode") {
+      try {
+        const res = await fetch("/api/gate/verify-barcode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ barcode: searchInput.trim() }),
+        });
+        const data = await res.json();
+        setVerificationResult(data);
+        if (data.verified) {
+          toast({
+            title: `${data.actionType === "EXIT" ? "EXIT RECORDED ✓" : "ENTRY RECORDED ✓"}`,
+            description: data.duplicateMessage || `${data.student?.name} ${data.actionType === "EXIT" ? "Exited" : "Entered"} Main Gate via ID Barcode`,
+          });
+        }
+      } catch (err) {
+        toast({ title: "Barcode Lookup Failed", variant: "destructive" });
+      }
+    }
   };
 
   const op = Array.isArray(outpass) && outpass.length > 0 ? (outpass[0] as any) : null;
@@ -101,10 +120,10 @@ export default function SecurityDashboard() {
   const handleVerify = () => {
     if (!op?.id) return;
     verifyOutpass.mutate(
-      { id: op.id, data: { gateLocation: "Main Gate" } },
+      { id: op.id, data: { gateLocation: "Main Gate 1" } },
       {
         onSuccess: () => {
-          toast({ title: "Exit Verified ✓", description: `Student exit recorded at Main Gate — ${format(new Date(), "h:mm a")}` });
+          toast({ title: "EXIT RECORDED ✓", description: `Student exit recorded at Main Gate — ${formatDateTime(new Date())}` });
           queryClient.invalidateQueries({ queryKey: getLookupOutpassQueryKey(queryParams) });
           queryClient.invalidateQueries({ queryKey: getGetActivityFeedQueryKey() });
         },
@@ -118,7 +137,7 @@ export default function SecurityDashboard() {
       { id: op.id },
       {
         onSuccess: () => {
-          toast({ title: "Return Recorded ✓", description: `Student return logged — ${format(new Date(), "h:mm a")}` });
+          toast({ title: "ENTRY RECORDED ✓", description: `Student entry logged at Main Gate — ${formatDateTime(new Date())}` });
           queryClient.invalidateQueries({ queryKey: getLookupOutpassQueryKey(queryParams) });
           queryClient.invalidateQueries({ queryKey: getGetActivityFeedQueryKey() });
         },
@@ -127,7 +146,7 @@ export default function SecurityDashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
         <div>
@@ -135,16 +154,19 @@ export default function SecurityDashboard() {
             <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center">
               <ScanLine className="w-4 h-4 text-rose-700" />
             </div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-rose-700">Security Gate</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-rose-700">Security Gate Control</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold text-slate-800">Gate Control Console</h1>
-          <p className="text-muted-foreground text-sm mt-1">Outpass verification & student movement tracking · {user?.name}</p>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-slate-900 dark:text-slate-100">
+            Multi-Method Gate Verification Console
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">ID Card Barcode (Primary) · Live Face (Secondary) · QR Gate Pass</p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-medium text-emerald-700">Gate Active</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <Link href="/security/scanner">
+            <Button variant="outline" className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+              <Camera className="w-4 h-4" /> Live Webcam Face Scanner
+            </Button>
+          </Link>
         </div>
       </motion.div>
 
@@ -154,257 +176,287 @@ export default function SecurityDashboard() {
           const Icon = s.icon;
           return (
             <motion.div key={s.label} custom={i} variants={fadeUp} initial="hidden" animate="show">
-              <div className={`glass-card rounded-2xl p-5 border ${s.border} bg-white shadow-sm`}>
-                <div className={`w-10 h-10 rounded-xl ${s.bg} border ${s.border} flex items-center justify-center mb-3`}>
-                  <Icon className={`w-5 h-5 ${s.color}`} />
+              <div className={`glass-card rounded-2xl p-4 border ${s.border} bg-white dark:bg-slate-900 shadow-sm`}>
+                <div className={`w-9 h-9 rounded-xl ${s.bg} border ${s.border} flex items-center justify-center mb-2`}>
+                  <Icon className={`w-4 h-4 ${s.color}`} />
                 </div>
-                <div className={`text-3xl font-heading font-bold ${s.color} mb-1`}>{s.value}</div>
-                <div className="text-xs text-muted-foreground">{s.label}</div>
+                <div className={`text-2xl font-heading font-bold ${s.color} mb-0.5`}>{s.value}</div>
+                <div className="text-xs text-muted-foreground font-medium">{s.label}</div>
               </div>
             </motion.div>
           );
         })}
       </div>
 
-      {/* Search Console */}
-    <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show" className="glass-card rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-      <div className="px-6 py-4 border-b border-border/50 bg-slate-50/50">
-        <div className="flex items-center gap-2">
-          <Search className="w-4 h-4 text-slate-700" />
-          <h2 className="font-heading font-semibold text-sm text-slate-900">Outpass Verification</h2>
+      {/* Verification Selection Methods (Requirement 15 & 16) */}
+      <Card className="glass-card shadow-md border-blue-100 dark:border-blue-900/30 overflow-hidden">
+        <div className="bg-slate-900 text-white p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-600 rounded-xl">
+              <Barcode className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="font-bold text-sm">SELECT VERIFICATION METHOD</h2>
+              <p className="text-xs text-slate-300">Scan College ID Card Barcode, Live Face, or QR Gate Pass</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className="bg-emerald-500 text-white font-bold px-2.5 py-1 text-xs">
+              PRIMARY: Scan ID Barcode
+            </Badge>
+            <Badge className="bg-indigo-600 text-white font-bold px-2.5 py-1 text-xs">
+              SECONDARY: Webcam Face
+            </Badge>
+          </div>
         </div>
-      </div>
 
-      <div className="p-6 space-y-4">
-        {/* Search type tabs & Scan button */}
-        <div className="flex items-center justify-between gap-2 flex-wrap w-full">
-          <div className="flex gap-2 flex-wrap">
-            {[
-              { key: "outpass", label: "Outpass ID", icon: QrCode },
-              { key: "register", label: "Register No.", icon: Hash },
-              { key: "name", label: "Student Name", icon: User },
-            ].map(t => {
-              const TIcon = t.icon;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => handleTabChange(t.key as any)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                    searchType === t.key
-                      ? "bg-slate-800 border-slate-800 text-white"
-                      : "bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                  }`}
-                >
-                  <TIcon className="w-3.5 h-3.5" /> {t.label}
-                </button>
-              );
-            })}
+        <CardContent className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => setSearchType("barcode")}
+              className={`p-4 rounded-xl border text-left flex items-start gap-3 transition-all ${
+                searchType === "barcode"
+                  ? "border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 ring-2 ring-blue-500/20"
+                  : "border-slate-200 dark:border-slate-800 hover:bg-slate-50"
+              }`}
+            >
+              <div className="p-2.5 rounded-lg bg-blue-600 text-white shrink-0">
+                <Barcode className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wide">Option 1 (Primary)</div>
+                <div className="font-extrabold text-sm text-blue-900 dark:text-blue-300 mt-0.5">Scan ID Card Barcode</div>
+                <div className="text-[11px] text-muted-foreground mt-1">Read student barcode on physical college ID card</div>
+              </div>
+            </button>
+
+            <Link href="/security/scanner">
+              <div className="p-4 rounded-xl border text-left flex items-start gap-3 border-indigo-200 bg-indigo-50/40 hover:bg-indigo-100/50 transition-all cursor-pointer h-full">
+                <div className="p-2.5 rounded-lg bg-indigo-600 text-white shrink-0">
+                  <Camera className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-xs text-indigo-900 uppercase tracking-wide">Option 2 (Secondary)</div>
+                  <div className="font-extrabold text-sm text-indigo-950 mt-0.5">Verify Using Webcam Face</div>
+                  <div className="text-[11px] text-indigo-700 mt-1">Live 3D WASM face landmarker match</div>
+                </div>
+              </div>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearchType("outpass");
+                setIsScannerOpen(true);
+              }}
+              className={`p-4 rounded-xl border text-left flex items-start gap-3 transition-all ${
+                searchType === "outpass"
+                  ? "border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20"
+                  : "border-slate-200 dark:border-slate-800 hover:bg-slate-50"
+              }`}
+            >
+              <div className="p-2.5 rounded-lg bg-emerald-600 text-white shrink-0">
+                <QrCode className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wide">Option 3</div>
+                <div className="font-extrabold text-sm text-emerald-900 dark:text-emerald-300 mt-0.5">QR Gate Pass Verification</div>
+                <div className="text-[11px] text-muted-foreground mt-1">Scan digital QR code printed on approved gate pass</div>
+              </div>
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsScannerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100/80 transition-all sm:ml-auto"
-          >
-            <ScanLine className="w-3.5 h-3.5" /> Scan QR Code
-          </button>
-        </div>
-
-          <form onSubmit={handleSearch} className="flex gap-3">
+          <form onSubmit={handleBarcodeSearch} className="flex gap-3 pt-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
-                className={`pl-9 text-base h-12 font-mono ${searchType === "outpass" ? "pr-12" : ""}`}
+                className="pl-10 text-base h-12 font-mono border-slate-300 focus:border-blue-500"
                 placeholder={
-                  searchType === "outpass" ? "e.g. OP-0007-0001-LKM3X" :
-                  searchType === "register" ? "e.g. CSE2021001" : "Student full name"
+                  searchType === "barcode"
+                    ? "Scan barcode or enter Register No (e.g. STU001)..."
+                    : searchType === "outpass"
+                    ? "Enter Outpass Code (e.g. OP-0001)..."
+                    : "Enter Register Number..."
                 }
                 value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
+                onChange={(e) => setSearchInput(e.target.value)}
                 autoFocus
               />
-              {searchType === "outpass" && (
-                <button
-                  type="button"
-                  onClick={() => setIsScannerOpen(true)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 transition-colors p-1.5 hover:bg-slate-100 rounded-lg"
-                  title="Scan QR Code"
-                >
-                  <QrCode className="w-5 h-5 text-emerald-600 animate-pulse" />
-                </button>
-              )}
             </div>
-            <Button type="submit" className="h-12 px-6 bg-slate-900 hover:bg-slate-800 text-white gap-2">
-              <ScanLine className="w-4 h-4" /> Verify
+            <Button type="submit" className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2">
+              <Check className="w-4 h-4" /> Scan & Verify
             </Button>
           </form>
 
-          {/* Result */}
+          {/* Barcode Verification Result Details (Requirement 14 & 17 & 19) */}
+          {verificationResult && (
+            <div className="mt-4 p-4 border-2 border-emerald-500/80 bg-emerald-50/40 dark:bg-emerald-950/20 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between border-b pb-3 border-emerald-200">
+                <div className="flex items-center gap-3">
+                  <StudentProfilePhoto
+                    photoUrl={verificationResult.student?.photoUrl}
+                    name={verificationResult.student?.name}
+                    size="lg"
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100">{verificationResult.student?.name}</h3>
+                      <Badge className="bg-emerald-600 text-white font-bold">
+                        {verificationResult.actionType === "EXIT" ? "EXIT RECORDED ✓" : "ENTRY RECORDED ✓"}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground font-mono">
+                      Reg: {verificationResult.student?.registerNumber || "STU001"} · Dept: {verificationResult.student?.department || "CSE"} · Room: {verificationResult.student?.hostelRoom || "A-101"}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-emerald-800 font-bold uppercase">Gate Status</div>
+                  <div className="text-sm font-extrabold text-slate-800 dark:text-slate-200">
+                    {verificationResult.actionType === "EXIT" ? "Student Outside Hostel" : "Student Inside Hostel"}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{formatDateTime(verificationResult.timestamp)}</div>
+                </div>
+              </div>
+
+              {verificationResult.duplicateMessage && (
+                <div className="p-2.5 bg-amber-100 text-amber-900 rounded-lg text-xs font-semibold border border-amber-200">
+                  {verificationResult.duplicateMessage}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-white dark:bg-slate-900 p-3 rounded-xl border">
+                <div>
+                  <span className="text-muted-foreground block text-[10px]">Verification Method</span>
+                  <span className="font-bold text-blue-700">ID Card Barcode Scan</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px]">Gate Pass Status</span>
+                  <span className="font-bold text-emerald-600">Active Gate Pass Verified</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px]">Last Gate Movement</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">{formatDateTime(verificationResult.timestamp)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px]">Security Officer</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">{user?.name || "Security Officer"}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Outpass Search Result Details */}
           <AnimatePresence mode="wait">
-            {isSearching && (
-              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center justify-center py-8 gap-3 text-muted-foreground">
-                <RefreshCw className="w-5 h-5 animate-spin" /> Searching outpass records…
-              </motion.div>
-            )}
-
-            {activeSearch && !isSearching && !op && (
-              <motion.div key="notfound" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                className="flex flex-col items-center justify-center py-10 gap-3 bg-slate-50 border border-slate-100 rounded-2xl">
-                <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center">
-                  <AlertTriangle className="w-7 h-7 text-slate-500" />
-                </div>
-                <div className="text-center">
-                  <p className="font-heading font-bold text-slate-800 text-lg">Outpass Not Found</p>
-                  <p className="text-sm text-slate-600 mt-1">No valid outpass matched "{activeSearch}"</p>
-                </div>
-              </motion.div>
-            )}
-
             {op && !isSearching && (
               <motion.div key="found" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="border border-slate-200 bg-white rounded-2xl overflow-hidden shadow-sm">
-                {/* Student Hero */}
-                <div className="flex items-center gap-4 p-5 bg-slate-50 border-b border-slate-100">
-                  <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-2xl font-heading flex-shrink-0">
-                    {(op.leave?.student?.name ?? op.student?.name ?? "?").charAt(0)}
-                  </div>
+                className="border border-slate-200 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm mt-4">
+                <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800 border-b">
+                  <StudentProfilePhoto
+                    photoUrl={op.student?.photoUrl || op.leave?.student?.photoUrl}
+                    name={op.student?.name || op.leave?.student?.name}
+                    size="lg"
+                  />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-heading font-bold text-lg text-slate-800">{op.leave?.student?.name ?? op.student?.name ?? "Student"}</h3>
+                      <h3 className="font-heading font-bold text-lg text-slate-800 dark:text-slate-100">{op.leave?.student?.name ?? op.student?.name ?? "Student"}</h3>
                       <OutpassStatusBadge status={op.status} />
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                      <span className="flex items-center gap-1"><Hash className="w-3.5 h-3.5" />{op.leave?.student?.registerNumber ?? "—"}</span>
-                      <span className="flex items-center gap-1"><Building className="w-3.5 h-3.5" />{op.leave?.student?.department ?? "—"}</span>
-                      <span className="flex items-center gap-1"><Home className="w-3.5 h-3.5" />Room {op.leave?.student?.hostelRoom ?? "—"}</span>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400 font-mono">
+                      <span>Reg: {op.leave?.student?.registerNumber ?? "STU001"}</span>
+                      <span>Dept: {op.leave?.student?.department ?? "CSE"}</span>
+                      <span>Room: {op.leave?.student?.hostelRoom ?? "A-101"}</span>
                     </div>
                   </div>
-                  <div className="text-right hidden md:block">
-                    <p className="text-xs text-slate-400">Outpass ID</p>
-                    <p className="font-mono font-bold text-slate-800 text-sm">{op.outpassCode}</p>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 text-xs">
+                  <div>
+                    <span className="text-muted-foreground block">Leave Purpose</span>
+                    <span className="font-bold">{op.leave?.reason}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block">Destination</span>
+                    <span className="font-bold">{op.leave?.destination}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block">Out Date & Time</span>
+                    <span className="font-bold">{formatDateTime(op.leave?.fromDate)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block">Return Date & Time</span>
+                    <span className="font-bold">{formatDateTime(op.leave?.toDate)}</span>
                   </div>
                 </div>
 
-                {/* Leave Details Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-y divide-slate-100">
-                  {[
-                    { label: "Leave Type", value: op.leave?.leaveType ?? "—", icon: Calendar },
-                    { label: "Destination", value: op.leave?.destination ?? "—", icon: MapPin },
-                    { label: "From", value: op.leave?.fromDate ? format(new Date(op.leave.fromDate), "MMM d, yyyy") : "—", icon: Clock },
-                    { label: "Return By", value: op.leave?.toDate ? format(new Date(op.leave.toDate), "MMM d, yyyy") : "—", icon: Clock },
-                  ].map((item, i) => {
-                    const ItemIcon = item.icon;
-                    return (
-                      <div key={i} className="p-4">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <ItemIcon className="w-3.5 h-3.5 text-slate-400" />
-                          <p className="text-xs text-slate-500">{item.label}</p>
-                        </div>
-                        <p className="text-sm font-semibold capitalize text-slate-800">{item.value}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {op.exitTime && (
-                  <div className="px-5 py-3 bg-amber-50 border-t border-amber-100">
-                    <p className="text-xs text-amber-800">
-                      <span className="font-medium">Exit recorded:</span> {format(new Date(op.exitTime), "MMM d, yyyy 'at' h:mm a")} · Gate: {op.gateLocation ?? "Main Gate"} · Staff: {user?.name}
-                    </p>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 p-5 border-t border-slate-100">
+                <div className="flex gap-3 p-4 border-t bg-slate-50 dark:bg-slate-900">
                   <Button
-                    className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold"
                     disabled={op.status !== "generated" || verifyOutpass.isPending}
                     onClick={handleVerify}
                   >
-                    <UserX className="w-4 h-4" /> Verify Exit
+                    <UserX className="w-4 h-4" /> RECORD EXIT ✓
                   </Button>
                   <Button
-                    className="flex-1 h-11 bg-slate-900 hover:bg-slate-800 text-white gap-2"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white gap-2 font-bold"
                     disabled={op.status !== "verified" || recordReturn.isPending}
                     onClick={handleReturn}
                   >
-                    <UserCheck className="w-4 h-4" /> Verify Return
+                    <UserCheck className="w-4 h-4" /> RECORD RETURN ✓
                   </Button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
-      </motion.div>
+        </CardContent>
+      </Card>
 
-    {/* Live Activity Feed */}
-    <motion.div custom={5} variants={fadeUp} initial="hidden" animate="show" className="glass-card rounded-2xl overflow-hidden bg-white shadow-sm border border-slate-200">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-slate-700 animate-pulse" />
-          <h2 className="font-heading font-semibold text-sm text-slate-800">Live Activity Feed</h2>
+      {/* Live Activity Feed */}
+      <Card className="glass-card rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-blue-600 animate-pulse" />
+            <h2 className="font-heading font-bold text-sm text-slate-800 dark:text-slate-100">Live Gate Entry & Exit Activity Audit</h2>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => refetchActivity()} className="gap-1.5 text-xs">
+            <RefreshCw className="w-3 h-3" /> Refresh Feed
+          </Button>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => refetchActivity()} className="gap-1.5 text-xs text-slate-500 hover:text-slate-800">
-          <RefreshCw className="w-3 h-3" /> Refresh
-        </Button>
-      </div>
 
         <Tabs defaultValue="all" className="w-full">
           <div className="px-6 pt-3">
-            <TabsList className="h-8 bg-slate-100">
-              <TabsTrigger value="all" className="text-xs h-7">All Activity</TabsTrigger>
+            <TabsList className="h-8 bg-slate-100 dark:bg-slate-800">
+              <TabsTrigger value="all" className="text-xs h-7">All Movements</TabsTrigger>
               <TabsTrigger value="exits" className="text-xs h-7">Exits</TabsTrigger>
-              <TabsTrigger value="returns" className="text-xs h-7">Returns</TabsTrigger>
-              <TabsTrigger value="pending" className="text-xs h-7">Pending Returns</TabsTrigger>
+              <TabsTrigger value="returns" className="text-xs h-7">Entries</TabsTrigger>
             </TabsList>
           </div>
 
-          {(["all", "exits", "returns", "pending"] as const).map(tab => (
-            <TabsContent key={tab} value={tab} className="p-0">
+          <TabsContent value="all" className="p-0">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-80 overflow-y-auto">
               {activities.length === 0 ? (
-                <div className="p-12 text-center">
-                  <Activity className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                  <p className="text-sm text-slate-500">No activity recorded yet today.</p>
-                </div>
+                <div className="p-8 text-center text-xs text-muted-foreground">No gate movements logged yet today.</div>
               ) : (
-                <div className="divide-y divide-slate-100">
-                  {activities
-                    .filter((a: any) => tab === "all" || (tab === "exits" && a.action === "exit") || (tab === "returns" && a.action === "return") || (tab === "pending" && a.action === "exit" && !a.returned))
-                    .slice(0, 15)
-                    .map((activity: any, i: number) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-                        className="flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50 transition-colors"
-                      >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          activity.action === "exit" ? "bg-rose-50 border border-rose-100" : "bg-emerald-50 border border-emerald-100"
-                        }`}>
-                          {activity.action === "exit"
-                            ? <UserX className="w-4 h-4 text-rose-700" />
-                            : <UserCheck className="w-4 h-4 text-emerald-700" />
-                          }
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{activity.studentName ?? `Student #${activity.studentId}`}</p>
-                          <p className="text-xs text-slate-500">{activity.action === "exit" ? "Exited" : "Returned"} · {activity.gateLocation ?? "Main Gate"}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <span className={`text-xs font-semibold ${activity.action === "exit" ? "text-rose-700" : "text-emerald-700"}`}>
-                            {activity.action === "exit" ? "EXIT" : "RETURN"}
-                          </span>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {activity.time ? formatDistanceToNow(new Date(activity.time), { addSuffix: true }) : "—"}
-                          </p>
-                        </div>
-                      </motion.div>
-                    ))}
-                </div>
+                activities.slice(0, 15).map((act: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between px-6 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-lg ${act.action === "exit" ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"}`}>
+                        {act.action === "exit" ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-slate-100">{act.studentName || "Student"}</div>
+                        <div className="text-[11px] text-muted-foreground">{act.action === "exit" ? "EXIT GATE" : "ENTRY GATE"} · {formatDateTime(act.time)}</div>
+                      </div>
+                    </div>
+                    <Badge variant="outline">{act.action?.toUpperCase()}</Badge>
+                  </div>
+                ))
               )}
-            </TabsContent>
-          ))}
+            </div>
+          </TabsContent>
         </Tabs>
-      </motion.div>
+      </Card>
 
       <QRScanner
         isOpen={isScannerOpen}

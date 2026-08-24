@@ -242,13 +242,13 @@ export default function LoginPage() {
                 </div>
               )}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Email Address</label>
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Email or Student ID (Register No.)</label>
                 <input
-                  type="email"
+                  type="text"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
+                  placeholder="john@example.com or STU001"
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition bg-white text-sm text-slate-800"
                 />
               </div>
@@ -276,7 +276,7 @@ export default function LoginPage() {
               <div className="bg-slate-50 border border-slate-200/55 rounded-2xl p-4 mt-6">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Default Test Accounts</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[10.5px] text-slate-600">
-                  <div><strong>Student:</strong> john@example.com</div>
+                  <div><strong>Student:</strong> john@example.com / STU001</div>
                   <div><strong>Warden:</strong> warden@example.com</div>
                   <div><strong>Tutor:</strong> tutor@example.com</div>
                   <div><strong>HOD:</strong> hod@example.com</div>

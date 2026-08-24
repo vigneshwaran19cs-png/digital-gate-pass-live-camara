@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SS Bakery | Artisan Cakes, Pastries & Gourmet Coffee</title>
+  <meta name="description" content="Welcome to SS Bakery! Discover hand-crafted artisan cakes, flaky butter croissants, sourdough breads, and custom celebration cakes baked fresh daily.">
+
+  <!-- PWA & Mobile Web App Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2C190E">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="images/app-icon.png">
+
+  <!-- Google Fonts: Stylish Typography (Great Vibes & Cinzel Decorative) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Great+Vibes&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,400;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=style" rel="stylesheet">
+
+  <!-- Remix Icon CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Glassmorphism Navbar -->
+  <nav class="navbar">
+    <div class="container nav-container">
+      <a href="#" class="brand-logo">
+        <i class="ri-cake-3-line"></i>
+        <span class="brand-text">SS Bakery</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#home" class="nav-link active">Home</a></li>
+        <li><a href="#menu" class="nav-link">Menu & Bakery</a></li>
+        <li><a href="#custom-builder" class="nav-link">Custom Cake Builder</a></li>
+        <li><a href="#reviews" class="nav-link">Reviews</a></li>
+        <li><a href="#visit" class="nav-link">Visit Us</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <button class="btn-icon" id="cartBtn" title="Shopping Cart">
+          <i class="ri-shopping-bag-3-line"></i>
+          <span class="badge-count" id="cartCountBadge">0</span>
+        </button>
+        <a href="#menu" class="btn-primary">
+          <span>Order Online</span>
+          <i class="ri-arrow-right-line"></i>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section id="home" class="hero-section">
+    <div class="container hero-grid">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <i class="ri-sparkles-fill"></i>
+          <span>Artisanal Bakery & Cafe</span>
+        </div>
+        <h1 class="heading-serif hero-title">
+          Baked with Love, <span>Crafted to Perfection.</span>
+        </h1>
+        <p class="hero-subtitle">
+          Indulge in freshly baked golden croissants, decadent Belgian chocolate layer cakes, sourdough breads, and personalized celebration cakes made from 100% natural organic ingredients.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#menu" class="btn-primary">
+            <span>Explore Fresh Menu</span>
+            <i class="ri-restaurant-line"></i>
+          </a>
+          <a href="#custom-builder" class="btn-secondary">
+            <i class="ri-magic-line"></i>
+            <span>Build Custom Cake</span>
+          </a>
+        </div>
+
+        <div class="hero-stats">
+          <div class="stat-item">
+            <h4>100%</h4>
+            <p>Organic & Fresh</p>
+          </div>
+          <div class="stat-item">
+            <h4>4.9 ★</h4>
+            <p>Over 2,500+ Reviews</p>
+          </div>
+          <div class="stat-item">
+            <h4>30 Min</h4>
+            <p>Express Local Delivery</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="hero-img-wrapper">
+          <img src="images/hero.png" alt="SS Bakery Fresh Spread">
+        </div>
+        <div class="floating-card">
+          <i class="ri-cup-line"></i>
+          <div>
+            <h5 style="font-weight: 700; color: var(--color-mocha);">Morning Coffee & Danish</h5>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">Baked fresh daily at 6:00 AM</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bakery Menu Section -->
+  <section id="menu" style="padding: 4rem 0;">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Fresh Daily Menu</span>
+        <h2 class="heading-serif section-title">Explore Our Delicious Creations</h2>
+        <p class="section-subtitle">From warm crispy croissants to handcrafted dark chocolate gateaux, discover your favorite daily treat.</p>
+      </div>
+
+      <!-- Filter & Search Bar -->
+      <div class="filter-bar">
+        <div class="filter-chips">
+          <button class="chip active" data-category="all">All Delights</button>
+          <button class="chip" data-category="cakes">Signature Cakes</button>
+          <button class="chip" data-category="pastries">French Pastries</button>
+          <button class="chip" data-category="breads">Artisanal Breads</button>
+          <button class="chip" data-category="cookies">Cookies & Macarons</button>
+          <button class="chip" data-category="beverages">Coffee & Drinks</button>
+        </div>
+
+        <div class="search-box">
+          <i class="ri-search-line"></i>
+          <input type="text" id="searchInput" placeholder="Search croissants, cakes...">
+        </div>
+      </div>
+
+      <!-- Product Cards Grid -->
+      <div class="product-grid" id="productGrid">
+        <!-- Injected dynamically by app.js -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Custom Cake Builder -->
+  <section id="custom-builder" class="builder-section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Interactive Workshop</span>
+        <h2 class="heading-serif section-title">Design Your Custom Dream Cake</h2>
+        <p class="section-subtitle">Pick your size, flavor, frosting, and custom toppings to create a personalized masterpiece for birthdays, weddings, or special events.</p>
+      </div>
+
+      <div class="builder-card">
+        <!-- Live Visual Preview -->
+        <div class="builder-preview">
+          <div class="cake-visual-box">
+            <img src="images/custom_cake.png" alt="Custom Cake Preview">
+            <div class="cake-custom-msg-overlay" id="cakeMsgPreview">"Happy Birthday!"</div>
+          </div>
+          <h3 style="font-family: var(--font-serif); font-size: 1.5rem; margin-bottom: 0.5rem;">Custom Celebration Cake</h3>
+          
+          <div class="builder-summary-list">
+            <div class="builder-summary-item">
+              <span>Size:</span>
+              <strong id="summarySize">1 kg</strong>
+            </div>
+            <div class="builder-summary-item">
+              <span>Flavor:</span>
+              <strong id="summaryFlavor">Belgian Chocolate</strong>
+            </div>
+            <div class="builder-summary-item">
+              <span>Frosting:</span>
+              <strong id="summaryFrosting">Buttercream</strong>
+            </div>
+            <div class="builder-summary-item">
+              <span>Topping:</span>
+              <strong id="summaryTopping">Fresh Berries</strong>
+            </div>
+          </div>
+
+          <div style="font-size: 0.9rem; color: #D1D5DB; margin-bottom: 0.25rem;">Estimated Price</div>
+          <div class="builder-total-price" id="cakeTotalPrice">$47.00</div>
+
+          <button class="btn-primary" id="addCustomCakeBtn" style="margin-top: 1.5rem; width: 100%; justify-content: center;">
+            <i class="ri-shopping-bag-3-line"></i>
+            <span>Add Custom Cake To Cart</span>
+          </button>
+        </div>
+
+        <!-- Interactive Form Wizard -->
+        <div class="builder-form">
+          <!-- Step 1: Size -->
+          <div class="form-group">
+            <label class="form-label">1. Choose Cake Weight / Size</label>
+            <div class="options-grid" id="sizeOptions">
+              <button class="option-btn selected" data-value="0.5 kg" data-price="25">0.5 kg ($25)</button>
+              <button class="option-btn" data-value="1 kg" data-price="35">1 kg ($35)</button>
+              <button class="option-btn" data-value="2 kg" data-price="60">2 kg ($60)</button>
+              <button class="option-btn" data-value="3 Tier" data-price="95">3 Tier ($95)</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Flavor -->
+          <div class="form-group">
+            <label class="form-label">2. Select Sponge Flavor</label>
+            <div class="options-grid" id="flavorOptions">
+              <button class="option-btn selected" data-value="Belgian Chocolate" data-price="5">Chocolate (+$5)</button>
+              <button class="option-btn" data-value="Vanilla Bean" data-price="3">Vanilla (+$3)</button>
+              <button class="option-btn" data-value="Red Velvet" data-price="6">Red Velvet (+$6)</button>
+              <button class="option-btn" data-value="Pistachio Rose" data-price="8">Pistachio (+$8)</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Frosting -->
+          <div class="form-group">
+            <label class="form-label">3. Select Frosting Type</label>
+            <div class="options-grid" id="frostingOptions">
+              <button class="option-btn selected" data-value="Buttercream" data-price="3">Buttercream (+$3)</button>
+              <button class="option-btn" data-value="Swiss Whipped Cream" data-price="4">Whipped Cream (+$4)</button>
+              <button class="option-btn" data-value="Dark Ganache" data-price="6">Ganache (+$6)</button>
+              <button class="option-btn" data-value="Fondant" data-price="8">Fondant (+$8)</button>
+            </div>
+          </div>
+
+          <!-- Step 4: Toppings -->
+          <div class="form-group">
+            <label class="form-label">4. Select Premium Topping</label>
+            <div class="options-grid" id="toppingOptions">
+              <button class="option-btn selected" data-value="Fresh Berries" data-price="4">Fresh Berries (+$4)</button>
+              <button class="option-btn" data-value="Edible Gold & Flowers" data-price="7">Gold & Floral (+$7)</button>
+              <button class="option-btn" data-value="Salted Caramel Drip" data-price="3">Caramel Drip (+$3)</button>
+              <button class="option-btn" data-value="Macarons" data-price="5">Macarons (+$5)</button>
+            </div>
+          </div>
+
+          <!-- Step 5: Custom Message -->
+          <div class="form-group">
+            <label class="form-label">5. Custom Piping Message on Cake (Optional)</label>
+            <input type="text" id="cakeMessageInput" class="input-text" placeholder="e.g. Happy 25th Birthday Sarah!">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials Section -->
+  <section id="reviews" class="reviews-section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Happy Customers</span>
+        <h2 class="heading-serif section-title">What Dessert Lovers Say</h2>
+        <p class="section-subtitle">Read real reviews from cake enthusiasts and neighborhood coffee regulars.</p>
+      </div>
+
+      <div class="reviews-grid">
+        <div class="review-card">
+          <i class="ri-double-quotes-r quote-icon"></i>
+          <div class="review-stars">
+            <i class="ri-star-fill"></i><i class="ri-star-fill"></i><i class="ri-star-fill"></i><i class="ri-star-fill"></i><i class="ri-star-fill"></i>
+          </div>
+          <p class="review-text">"The Belgian Chocolate Ganache cake was the absolute highlight of my wedding anniversary! Fresh, not overly sweet, and visually stunning."</p>
+          <div class="reviewer-profile">
+            <div class="reviewer-avatar">E</div>
+            <div>
+              <div class="reviewer-name">Emily Watson</div>
+              <div class="reviewer-role">Verified Buyer</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="review-card">
+          <i class="ri-double-quotes-r quote-icon"></i>
+          <div class="review-stars">
+            <i class="ri-star-fill"></i><i class="ri-star-fill"></i><i class="ri-star-fill"></i><i class="ri-star-fill"></i><i class="ri-star-fill"></i>
+          </div>
+          <p class="review-text">"Best French croissants in the city! Flaky, buttery, and paired with their salted caramel espresso cold brew, it's my daily morning ritual."</p>
+          <div class="reviewer-profile">
+            <div class="reviewer-avatar">M</div>
+            <div>
+              <div class="reviewer-name">Marcus Vance</div>
+              <div class="reviewer-role">Local Foodie</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="review-card">
+          <i class="ri-double-quotes-r quote-icon"></i>
+          <div class="review-stars">
+            <i class="ri-star-fill"></i><i class="ri-star-fill"></i><i class="ri-star-fill"></i><i class="ri-star-fill"></i><i class="ri-star-fill"></i>
+          </div>
+          <p class="review-text">"The custom cake builder tool on their website was super easy to use! I built a custom 2-tier red velvet cake and it arrived right on time."</p>
+          <div class="reviewer-profile">
+            <div class="reviewer-avatar">S</div>
+            <div>
+              <div class="reviewer-name">Sophia Martinez</div>
+              <div class="reviewer-role">Event Planner</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Location & Operating Hours Section -->
+  <section id="visit" class="location-section">
+    <div class="container">
+      <div class="location-box">
+        <div class="location-info">
+          <h3>Visit Our Cozy Cafe</h3>
+          <p>Drop by for freshly brewed specialty coffees, warm sourdough bread, and fresh desserts served daily.</p>
+          
+          <div class="hours-table">
+            <div class="hours-row">
+              <span>Monday – Friday</span>
+              <span>7:00 AM – 8:30 PM</span>
+            </div>
+            <div class="hours-row">
+              <span>Saturday & Sunday</span>
+              <span>8:00 AM – 9:30 PM</span>
+            </div>
+            <div class="hours-row">
+              <span>Fresh Bread Batches</span>
+              <span>Daily @ 7 AM & 3 PM</span>
+            </div>
+          </div>
+
+          <div class="contact-details">
+            <div class="contact-item">
+              <i class="ri-map-pin-2-fill"></i>
+              <span>42 Artisan Lane, Gourmet District, City Center</span>
+            </div>
+            <div class="contact-item">
+              <i class="ri-phone-fill"></i>
+              <span>+1 (800) 555-BAKE (2253)</span>
+            </div>
+            <div class="contact-item">
+              <i class="ri-mail-fill"></i>
+              <span>hello@ssbakery.com</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="store-card-preview">
+          <i class="ri-store-3-line"></i>
+          <h4 style="font-family: var(--font-serif); font-size: 1.5rem; margin-bottom: 0.5rem; color: #FFF;">Warm Ambiance & Seating</h4>
+          <p style="color: #D1D5DB; font-size: 0.9rem; margin-bottom: 1.5rem;">Free Wi-Fi, outdoor patio seating, and fresh bakery scent guaranteed!</p>
+          <div style="background: rgba(255, 255, 255, 0.1); padding: 0.8rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--color-amber);">
+            <i class="ri-coupon-3-fill"></i> Use Promo <strong>SWEET20</strong> for 20% OFF Online Orders!
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide-out Cart Drawer -->
+  <div class="cart-drawer-overlay" id="cartOverlay"></div>
+  <div class="cart-drawer" id="cartDrawer">
+    <div class="cart-header">
+      <h3>SS Bakery Basket</h3>
+      <button class="btn-close" id="cartCloseBtn">
+        <i class="ri-close-line"></i>
+      </button>
+    </div>
+
+    <div class="cart-body" id="cartBody">
+      <!-- Dynamic cart items injected here -->
+    </div>
+
+    <div class="cart-footer">
+      <div class="promo-code-box">
+        <input type="text" id="promoCodeInput" placeholder="Promo code (e.g. SWEET20)">
+        <button class="btn-secondary" id="applyPromoBtn" style="padding: 0.5rem 1rem; font-size: 0.85rem;">Apply</button>
+      </div>
+
+      <div class="cart-total-row">
+        <span>Subtotal</span>
+        <span id="cartSubtotal">$0.00</span>
+      </div>
+      <div class="cart-total-row" style="color: #059669;">
+        <span>Discount</span>
+        <span id="cartDiscount">-$0.00</span>
+      </div>
+      <div class="cart-total-row cart-grand-total">
+        <span>Grand Total</span>
+        <span id="cartGrandTotal">$0.00</span>
+      </div>
+
+      <button class="btn-primary" id="checkoutBtn" style="width: 100%; justify-content: center; margin-top: 1rem;">
+        <span>Proceed to Checkout</span>
+        <i class="ri-arrow-right-line"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Checkout Receipt Modal -->
+  <div class="modal-overlay" id="checkoutModal">
+    <div class="modal-content">
+      <div class="modal-icon-success">
+        <i class="ri-check-line"></i>
+      </div>
+      <h3 class="modal-title">Order Confirmed!</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">Thank you for ordering with SS Bakery! Your items are being prepared with fresh ingredients.</p>
+
+      <div id="receiptBody">
+        <!-- Mock order receipt content -->
+      </div>
+
+      <button class="btn-primary" id="modalCloseBtn" style="width: 100%; justify-content: center; margin-top: 1rem;">
+        Done & Back to Home
+      </button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="brand-logo" style="color: #FFF; margin-bottom: 1rem;">
+            <i class="ri-cake-3-line" style="color: var(--color-amber);"></i>
+            <span class="brand-text">SS Bakery</span>
+          </div>
+          <p style="font-size: 0.9rem; line-height: 1.6; color: #9CA3AF; max-width: 320px;">
+            Crafting gourmet cakes, butter pastries, and fresh sourdough breads daily with love and passion.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="#home">Home</a></li>
+            <li><a href="#menu">Our Menu</a></li>
+            <li><a href="#custom-builder">Custom Cake Builder</a></li>
+            <li><a href="#reviews">Customer Reviews</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Categories</h4>
+          <ul class="footer-links">
+            <li><a href="#menu">Signature Cakes</a></li>
+            <li><a href="#menu">French Croissants</a></li>
+            <li><a href="#menu">Organic Sourdough</a></li>
+            <li><a href="#menu">Specialty Coffee</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Stay Sweet!</h4>
+          <p style="font-size: 0.85rem; color: #9CA3AF; margin-bottom: 1rem;">Subscribe to receive weekend discounts & fresh batch alerts.</p>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="email" placeholder="Your email address" style="padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); border: none; font-size: 0.85rem; width: 100%; outline: none;">
+            <button class="btn-primary" style="padding: 0.6rem 1rem;"><i class="ri-send-plane-fill"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>© 2026 SS Bakery. All rights reserved. Crafted for dessert lovers everywhere.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Mobile Bottom Navigation Bar -->
+  <div class="mobile-bottom-nav">
+    <a href="#home" class="bottom-nav-item active">
+      <i class="ri-home-5-line"></i>
+      <span>Home</span>
+    </a>
+    <a href="#menu" class="bottom-nav-item">
+      <i class="ri-restaurant-line"></i>
+      <span>Menu</span>
+    </a>
+    <a href="#custom-builder" class="bottom-nav-item">
+      <i class="ri-magic-line"></i>
+      <span>Build Cake</span>
+    </a>
+    <button class="bottom-nav-item" onclick="toggleCartDrawer(true)">
+      <i class="ri-shopping-bag-3-line"></i>
+      <span>Cart</span>
+      <span class="bottom-nav-badge" id="mobileCartCount">0</span>
+    </button>
+    <a href="#visit" class="bottom-nav-item">
+      <i class="ri-map-pin-line"></i>
+      <span>Visit</span>
+    </a>
+  </div>
+
+  <!-- Main JavaScript File -->
+  <script src="app.js"></script>
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('PWA Service Worker registered!', reg))
+          .catch(err => console.log('Service Worker registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
