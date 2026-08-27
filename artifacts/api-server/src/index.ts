@@ -1,7 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { db, pool, usersTable, departmentsTable, ALL_COLLEGE_DEPARTMENTS } from "@workspace/db";
-import { count } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
 
@@ -97,7 +97,9 @@ async function initDatabase() {
     try { await pool.query(`ALTER TABLE users ADD COLUMN attendance_percentage INT DEFAULT 87;`); } catch(e) {}
     try { await pool.query(`ALTER TABLE users ADD COLUMN college_type VARCHAR(100) DEFAULT 'Engineering';`); } catch(e) {}
     try { await pool.query(`ALTER TABLE gate_logs ADD COLUMN captured_live_photo TEXT;`); } catch(e) {}
+    try { await pool.query(`CREATE INDEX idx_users_register_number ON users (register_number);`); } catch(e) {}
     try { await pool.query(`UPDATE users SET photo_url = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400', is_face_enrolled = 'true' WHERE photo_url IS NULL OR photo_url = '';`); } catch(e) {}
+    try { await pool.query(`UPDATE users SET department_id = 1, hostel_block = 'Boys Hostel - A Block', hostel_room = 'A-101', parent_name = 'Robert Doe', parent_phone = '0987654321', phone = '1234567890' WHERE register_number = 'STU001' AND (department_id IS NULL OR hostel_block IS NULL);`); } catch(e) {}
 
     logger.info("Missing tables, gate logs, location logs, and schema columns initialized.");
 
@@ -121,66 +123,20 @@ async function initDatabase() {
   }
 }
 
+import { populateRealisticTestData } from "./lib/seed_service";
+
 async function seedDatabase() {
   try {
     await initDatabase();
-    const [{ value }] = await db.select({ value: count() }).from(usersTable);
-    if ((value ?? 0) === 0) {
-      logger.info("Database is empty. Seeding demo users...");
-      const demoUsers = [
-        {
-          name: "John Doe",
-          email: "john@example.com",
-          passwordHash: "hashed_password",
-          role: "student" as const,
-          registerNumber: "STU001",
-          phone: "1234567890",
-          parentPhone: "0987654321",
-          hostelRoom: "A-101",
-          photoUrl: "",
-        },
-        {
-          name: "Mr. Warden",
-          email: "warden@example.com",
-          passwordHash: "hashed_password",
-          role: "warden" as const,
-        },
-        {
-          name: "Dr. Smith",
-          email: "tutor@example.com",
-          passwordHash: "hashed_password",
-          role: "tutor" as const,
-        },
-        {
-          name: "Prof. Hod",
-          email: "hod@example.com",
-          passwordHash: "hashed_password",
-          role: "hod" as const,
-        },
-        {
-          name: "Dr. Principal",
-          email: "principal@example.com",
-          passwordHash: "hashed_password",
-          role: "principal" as const,
-        },
-        {
-          name: "Officer Security",
-          email: "security@example.com",
-          passwordHash: "hashed_password",
-          role: "security" as const,
-        },
-        {
-          name: "Super Admin",
-          email: "admin@example.com",
-          passwordHash: "hashed_password",
-          role: "super_admin" as const,
-        },
-      ];
-
-      await db.insert(usersTable).values(demoUsers);
-      logger.info("Database seeded successfully!");
+    
+    // Check if real student VIMAL M exists; if not, seed realistic dataset
+    const [vimal] = await db.select().from(usersTable).where(eq(usersTable.registerNumber, "731225ME029"));
+    if (!vimal) {
+      logger.info("Seeding 20 realistic student profiles + JKKM ID cards + multi-stage workflows...");
+      await populateRealisticTestData();
+      logger.info("Realistic dataset seeded successfully!");
     } else {
-      logger.info({ count: value }, "Database already contains users. Skipping seed.");
+      logger.info("Realistic student dataset already present in database.");
     }
   } catch (err) {
     logger.error({ err }, "Error checking/seeding database");

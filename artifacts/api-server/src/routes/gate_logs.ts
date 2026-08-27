@@ -1,9 +1,23 @@
 import { Router, type IRouter } from "express";
-import { db, gateLogsTable, usersTable, leavesTable } from "@workspace/db";
+import { db, gateLogsTable, usersTable, leavesTable, departmentsTable, classesTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { resolveUserId } from "./auth";
+import { enrichStudentProfile } from "../lib/student_utils";
 
 const router: IRouter = Router();
+
+function matchStudentCode(u: any, cleanCode: string): boolean {
+  if (u.role !== "student") return false;
+  const reg = (u.registerNumber || "").trim().toLowerCase();
+  const email = (u.email || "").trim().toLowerCase();
+  const idStr = String(u.id);
+
+  if (reg && reg === cleanCode) return true;
+  if (reg && (reg.endsWith(cleanCode) || cleanCode.endsWith(reg))) return true;
+  if (cleanCode === `stu00${idStr}` || cleanCode === `stu0${idStr}` || cleanCode === `stu${idStr}` || cleanCode === idStr) return true;
+  if (email && email.startsWith(cleanCode)) return true;
+  return false;
+}
 
 router.get("/gate/logs", async (req, res): Promise<void> => {
   try {
@@ -11,7 +25,7 @@ router.get("/gate/logs", async (req, res): Promise<void> => {
     const withStudents = await Promise.all(
       logs.map(async (log) => {
         const [student] = await db.select().from(usersTable).where(eq(usersTable.id, log.studentId));
-        const { passwordHash: _, ...safeStudent } = student ?? {};
+        const safeStudent = student ? await enrichStudentProfile(student) : null;
         return { ...log, student: safeStudent };
       })
     );
@@ -45,14 +59,12 @@ router.post("/gate/verify-face", async (req, res): Promise<void> => {
       const [s] = await db.select().from(usersTable).where(eq(usersTable.id, reqStudentId));
       student = s;
     } else if (registerNumber) {
-      const [s] = await db.select().from(usersTable).where(eq(usersTable.registerNumber, registerNumber));
-      student = s;
-    } else {
-      const [s] = await db.select().from(usersTable).where(eq(usersTable.id, 1));
-      student = s;
+      const cleanCode = String(registerNumber).trim().toLowerCase();
+      const allUsers = await db.select().from(usersTable);
+      student = allUsers.find((s) => matchStudentCode(s, cleanCode)) || null;
     }
 
-    if (!student) {
+    if (!student || student.role !== "student") {
       res.status(404).json({ verified: false, message: "Face not recognized. Student profile not found." });
       return;
     }
@@ -139,18 +151,18 @@ router.post("/gate/verify-barcode", async (req, res): Promise<void> => {
       const [s] = await db.select().from(usersTable).where(eq(usersTable.id, reqStudentId));
       student = s;
     } else if (queryCode) {
-      const [s] = await db.select().from(usersTable).where(eq(usersTable.registerNumber, String(queryCode).trim()));
-      student = s;
+      const cleanCode = String(queryCode).trim().toLowerCase();
+      const allUsers = await db.select().from(usersTable);
+      student = allUsers.find((s) => matchStudentCode(s, cleanCode)) || null;
     }
 
-    if (!student) {
-      // Fallback to demo student if unknown code
-      const [s] = await db.select().from(usersTable).where(eq(usersTable.role, "student")).limit(1);
-      student = s;
-    }
-
-    if (!student) {
-      res.status(404).json({ verified: false, message: "Student barcode not found in database." });
+    // STRICT LOOKUP: Return 404 if not found (No demo fallback!)
+    if (!student || student.role !== "student") {
+      res.status(404).json({
+        verified: false,
+        message: "Student not found",
+        error: "Student not found",
+      });
       return;
     }
 
@@ -192,7 +204,7 @@ router.post("/gate/verify-barcode", async (req, res): Promise<void> => {
       capturedLivePhoto: student.photoUrl || null,
     }).$returningId();
 
-    const { passwordHash: _, ...safeStudent } = student;
+    const safeStudent = await enrichStudentProfile(student);
 
     res.json({
       verified: true,

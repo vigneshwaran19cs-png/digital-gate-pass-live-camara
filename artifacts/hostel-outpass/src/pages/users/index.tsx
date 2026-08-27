@@ -203,9 +203,40 @@ export default function UsersPage() {
     });
   };
 
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  const handleSeedTestData = async () => {
+    setIsSeeding(true);
+    try {
+      const res = await fetch("/api/admin/seed-test-data", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          title: "✅ Test Data Populated",
+          description: "20 Realistic Student profiles + JKKM ID cards + workflows loaded successfully!",
+        });
+        refetch();
+      } else {
+        toast({
+          title: "❌ Seeding Failed",
+          description: data.error || "Could not populate test data.",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: "❌ Network Error",
+        description: e.message || "Failed to reach server.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   const exportCSV = () => {
-    const header = "Name,Email,Role,Department,Register Number,Phone\n";
-    const rows = filtered.map(u => `${u.name},${u.email},${u.role},${u.department || ""},${u.registerNumber || ""},${u.phone || ""}`).join("\n");
+    const header = "Name,Email,Role,Department,Register Number,Phone,Attendance,HostelRoom\n";
+    const rows = filtered.map(u => `"${u.name}","${u.email}","${u.role}","${u.department || ""}","${u.registerNumber || ""}","${u.phone || ""}","${u.attendancePercentage || 85}%","${u.hostelRoom || ""}"`).join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -228,7 +259,17 @@ export default function UsersPage() {
           <h1 className="text-2xl md:text-3xl font-heading font-bold text-slate-800">Directory</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage all students and staff accounts</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100"
+            onClick={handleSeedTestData}
+            disabled={isSeeding}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSeeding ? "animate-spin" : ""}`} />
+            {isSeeding ? "Populating…" : "Load 20 Test Students"}
+          </Button>
           <Button variant="outline" size="sm" className="gap-2 hidden md:flex" onClick={exportCSV}>
             <Download className="w-3.5 h-3.5" /> Export CSV
           </Button>
@@ -330,9 +371,17 @@ export default function UsersPage() {
                           transition={{ delay: i * 0.03 }}
                           className="flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50/50 transition-colors group"
                         >
-                          <div className={`w-10 h-10 rounded-xl ${rc.bg} border ${rc.border} flex items-center justify-center flex-shrink-0 font-bold text-sm ${rc.color}`}>
-                            {u.name?.charAt(0) ?? "?"}
-                          </div>
+                          {u.photoUrl ? (
+                            <img
+                              src={u.photoUrl}
+                              alt={u.name}
+                              className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs flex-shrink-0"
+                            />
+                          ) : (
+                            <div className={`w-10 h-10 rounded-xl ${rc.bg} border ${rc.border} flex items-center justify-center flex-shrink-0 font-bold text-sm ${rc.color}`}>
+                              {u.name?.charAt(0) ?? "?"}
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                               <span className="font-semibold text-sm text-slate-800">{u.name}</span>
@@ -340,6 +389,17 @@ export default function UsersPage() {
                               {u.hostelRoom && (
                                 <span className="text-[10px] bg-cyan-50 border border-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded">
                                   Room {u.hostelRoom}
+                                </span>
+                              )}
+                              {u.role === "student" && u.attendancePercentage != null && (
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                                  u.attendancePercentage >= 85
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : u.attendancePercentage >= 75
+                                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                                    : "bg-rose-50 text-rose-700 border-rose-200"
+                                }`}>
+                                  {u.attendancePercentage}% Att
                                 </span>
                               )}
                             </div>

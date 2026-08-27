@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, like, and, SQL } from "drizzle-orm";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, departmentsTable, classesTable } from "@workspace/db";
 import {
   ListUsersQueryParams,
   CreateUserBody,
@@ -9,6 +9,8 @@ import {
   UpdateUserBody,
   DeleteUserParams,
 } from "@workspace/api-zod";
+import { enrichStudentProfile } from "../lib/student_utils";
+import { populateRealisticTestData } from "../lib/seed_service";
 
 const router: IRouter = Router();
 
@@ -21,6 +23,100 @@ function sanitize(user: typeof usersTable.$inferSelect) {
   return safe;
 }
 
+function matchStudentCode(u: any, cleanCode: string): boolean {
+  if (u.role !== "student") return false;
+  const reg = (u.registerNumber || "").trim().toLowerCase();
+  const email = (u.email || "").trim().toLowerCase();
+  const idStr = String(u.id);
+
+  if (reg && reg === cleanCode) return true;
+  if (reg && (reg.endsWith(cleanCode) || cleanCode.endsWith(reg))) return true;
+  if (cleanCode === `stu00${idStr}` || cleanCode === `stu0${idStr}` || cleanCode === `stu${idStr}` || cleanCode === idStr) return true;
+  if (email && email.startsWith(cleanCode)) return true;
+  return false;
+}
+
+// Student barcode / register number lookup endpoint
+router.get("/students/barcode/:barcode", async (req, res): Promise<void> => {
+  try {
+    const rawBarcode = req.params.barcode;
+    if (!rawBarcode) {
+      res.status(400).json({ error: "Barcode is required", message: "Barcode is required" });
+      return;
+    }
+    const cleanBarcode = String(rawBarcode).trim().toLowerCase();
+
+    const allUsers = await db.select().from(usersTable);
+    const student = allUsers.find((u) => matchStudentCode(u, cleanBarcode));
+
+    if (!student) {
+      res.status(404).json({ error: "Student not found", message: "Student not found" });
+      return;
+    }
+
+    const enriched = await enrichStudentProfile(student);
+    res.json(enriched);
+  } catch (error) {
+    console.error("Failed to lookup student by barcode:", error);
+    res.status(500).json({ error: "Failed to lookup student by barcode" });
+  }
+});
+
+// Student general lookup endpoint (?barcode=STU001 or ?registerNumber=STU001 or ?studentId=1)
+router.get("/students/lookup", async (req, res): Promise<void> => {
+  try {
+    const { barcode, registerNumber, studentId } = req.query;
+    const queryCode = barcode || registerNumber;
+
+    let student = null;
+    if (studentId) {
+      const [s] = await db.select().from(usersTable).where(eq(usersTable.id, parseInt(String(studentId), 10)));
+      student = s;
+    } else if (queryCode) {
+      const cleanCode = String(queryCode).trim().toLowerCase();
+      const allUsers = await db.select().from(usersTable);
+      student = allUsers.find((u) => matchStudentCode(u, cleanCode)) || null;
+    }
+
+    if (!student || student.role !== "student") {
+      res.status(404).json({ error: "Student not found", message: "Student not found" });
+      return;
+    }
+
+    const enriched = await enrichStudentProfile(student);
+    res.json(enriched);
+  } catch (error) {
+    console.error("Failed to lookup student:", error);
+    res.status(500).json({ error: "Failed to lookup student" });
+  }
+});
+
+// Alias for /users/barcode/:barcode
+router.get("/users/barcode/:barcode", async (req, res): Promise<void> => {
+  try {
+    const rawBarcode = req.params.barcode;
+    if (!rawBarcode) {
+      res.status(400).json({ error: "Barcode is required", message: "Barcode is required" });
+      return;
+    }
+    const cleanBarcode = String(rawBarcode).trim().toLowerCase();
+
+    const allUsers = await db.select().from(usersTable);
+    const user = allUsers.find((u) => matchStudentCode(u, cleanBarcode));
+
+    if (!user) {
+      res.status(404).json({ error: "Student not found", message: "Student not found" });
+      return;
+    }
+
+    const enriched = await enrichStudentProfile(user);
+    res.json(enriched);
+  } catch (error) {
+    console.error("Failed to lookup user by barcode:", error);
+    res.status(500).json({ error: "Failed to lookup user by barcode" });
+  }
+});
+
 router.get("/users", async (req, res): Promise<void> => {
   const parsed = ListUsersQueryParams.safeParse(req.query);
   if (!parsed.success) {
@@ -28,16 +124,17 @@ router.get("/users", async (req, res): Promise<void> => {
     return;
   }
 
-  const { role, departmentId } = parsed.data;
+  const { role, department } = parsed.data;
   const conditions: SQL[] = [];
   if (role) conditions.push(eq(usersTable.role, role as any));
-  if (departmentId) conditions.push(eq(usersTable.departmentId, departmentId));
+  if (department) conditions.push(eq(usersTable.departmentId, Number(department)));
 
   const users = conditions.length > 0
     ? await db.select().from(usersTable).where(and(...conditions))
     : await db.select().from(usersTable);
 
-  res.json(users.map(sanitize));
+  const enriched = await Promise.all(users.map(enrichStudentProfile));
+  res.json(enriched);
 });
 
 router.post("/users", async (req, res): Promise<void> => {
@@ -71,7 +168,8 @@ router.get("/users/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(sanitize(user));
+  const enriched = await enrichStudentProfile(user);
+  res.json(enriched);
 });
 
 router.patch("/users/:id", async (req, res): Promise<void> => {
@@ -118,6 +216,21 @@ router.delete("/users/:id", async (req, res): Promise<void> => {
   }
 
   res.sendStatus(204);
+});
+
+// Admin endpoint to populate/refresh the 20 realistic student records and test scenarios
+router.post("/admin/seed-test-data", async (_req, res): Promise<void> => {
+  try {
+    const result = await populateRealisticTestData();
+    res.json({
+      success: true,
+      message: "20 Realistic Student profiles + JKKM ID Cards + Multi-Stage workflows populated successfully!",
+      count: result.count,
+    });
+  } catch (error) {
+    console.error("Failed to seed realistic test data:", error);
+    res.status(500).json({ error: "Failed to seed realistic test data" });
+  }
 });
 
 export default router;

@@ -206,6 +206,16 @@ export default function LiveScannerPage() {
       });
       const data = await res.json();
 
+      if (!res.ok || !data.verified) {
+        setVerifiedStudent(null);
+        toast({
+          title: "Student not found",
+          description: data.message || "Failed to verify student at gate.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (data.isDuplicateScan) {
         toast({
           title: "⚠️ Already Scanned!",
@@ -217,13 +227,13 @@ export default function LiveScannerPage() {
       }
 
       setVerifiedStudent({
-        name: data.student?.name || "John Doe",
-        registerNumber: data.student?.registerNumber || "STU001",
-        department: "Computer Science & Engineering",
+        name: data.student?.name,
+        registerNumber: data.student?.registerNumber,
+        department: data.student?.department || "Computer Science & Engineering",
         hostelRoom: data.student?.hostelRoom || "A-101",
         passType: data.activeLeave?.passType?.replace("_", " ").toUpperCase() || "OUTING PASS",
         status: "APPROVED & VALID",
-        destination: data.activeLeave?.destination || "Town Market",
+        destination: data.activeLeave?.destination || "Campus Movement",
         validUntil: "Today, 6:00 PM",
         actionType: data.actionType || "EXIT",
         confidence: faceConfidence,
@@ -233,20 +243,11 @@ export default function LiveScannerPage() {
         liveScannedPhoto: data.faceComparison?.liveScannedPhoto || data.student?.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
       });
     } catch (e) {
-      setVerifiedStudent({
-        name: "John Doe",
-        registerNumber: "STU001",
-        department: "Computer Science & Engineering",
-        hostelRoom: "A-101",
-        passType: "OUTING PASS",
-        status: "APPROVED & VALID",
-        destination: "Town Market",
-        validUntil: "Today, 6:00 PM",
-        actionType: "EXIT",
-        confidence: faceConfidence,
-        isDuplicateScan: false,
-        enrolledIdPhoto: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400",
-        liveScannedPhoto: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
+      setVerifiedStudent(null);
+      toast({
+        title: "Verification Error",
+        description: "Could not connect to gate verification service.",
+        variant: "destructive",
       });
     }
   };

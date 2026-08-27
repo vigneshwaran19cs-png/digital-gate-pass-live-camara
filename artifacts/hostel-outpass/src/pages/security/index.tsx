@@ -102,15 +102,23 @@ export default function SecurityDashboard() {
           body: JSON.stringify({ barcode: searchInput.trim() }),
         });
         const data = await res.json();
-        setVerificationResult(data);
-        if (data.verified) {
+        if (!res.ok || !data.verified) {
+          setVerificationResult(null);
           toast({
-            title: `${data.actionType === "EXIT" ? "EXIT RECORDED ✓" : "ENTRY RECORDED ✓"}`,
-            description: data.duplicateMessage || `${data.student?.name} ${data.actionType === "EXIT" ? "Exited" : "Entered"} Main Gate via ID Barcode`,
+            title: "Student not found",
+            description: data.message || `No student profile found for barcode / register number "${searchInput.trim()}".`,
+            variant: "destructive",
           });
+          return;
         }
+        setVerificationResult(data);
+        toast({
+          title: `${data.actionType === "EXIT" ? "EXIT RECORDED ✓" : "ENTRY RECORDED ✓"}`,
+          description: data.duplicateMessage || `${data.student?.name} ${data.actionType === "EXIT" ? "Exited" : "Entered"} Main Gate via ID Barcode`,
+        });
       } catch (err) {
-        toast({ title: "Barcode Lookup Failed", variant: "destructive" });
+        setVerificationResult(null);
+        toast({ title: "Student not found", description: "Failed to verify student barcode", variant: "destructive" });
       }
     }
   };
