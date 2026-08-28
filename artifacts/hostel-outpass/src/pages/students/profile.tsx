@@ -30,6 +30,12 @@ export default function StudentProfilePage() {
   const [gateLogs, setGateLogs] = useState<any[]>([]);
 
   useEffect(() => {
+    if (user?.role === "parent") {
+      setLocation("/dashboard");
+    }
+  }, [user?.role, setLocation]);
+
+  useEffect(() => {
     fetch(`http://localhost:5000/api/location/status/${user?.id || 1}`)
       .then((r) => r.json())
       .then((d) => setLocationStatus(d))

@@ -66,24 +66,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginAs = async (role: UserRole) => {
-    const email = seedEmails[role] || "parent@example.com";
-    try {
-      await loginWithCredentials(email, "password");
-    } catch (e) {
-      if (role === ("parent" as any)) {
-        const parentUser = {
-          id: 999,
-          name: "M. Murugan (Parent)",
-          email: "parent@example.com",
-          role: "parent" as any,
-          phone: "9876543210",
-        };
-        setUser(parentUser as any);
-        localStorage.setItem("auth_user", JSON.stringify(parentUser));
-      } else {
-        throw e;
-      }
+    if (role === ("parent" as any)) {
+      const parentUser = {
+        id: 999,
+        name: "M. Murugan (Parent / Guardian)",
+        email: "parent@jkkm.edu.in",
+        role: "parent" as any,
+        phone: "9876543210",
+      };
+      setUser(parentUser as any);
+      localStorage.setItem("auth_user", JSON.stringify(parentUser));
+      return;
     }
+    const email = seedEmails[role] || "john@example.com";
+    await loginWithCredentials(email, "password");
   };
 
   const updateUserProfile = (updatedUser: any) => {

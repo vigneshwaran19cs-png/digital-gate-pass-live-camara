@@ -33,6 +33,14 @@ const ROLE_CONFIG: Record<string, {
 };
 
 function getNavItems(role: string) {
+  if (role === "parent") {
+    return [
+      { icon: Home, label: "Parent Monitoring Hub", href: "/dashboard" },
+      { icon: QrCode, label: "Ward's Digital Outpass", href: "/outpasses" },
+      { icon: Bell, label: "Alerts & Notifications", href: "/notifications" },
+    ];
+  }
+
   const items = [{ icon: Home, label: "Dashboard", href: "/dashboard" }];
   if (role === "student") {
     items.push({ icon: Camera, label: "Face Enrollment", href: "/enrollment" });
