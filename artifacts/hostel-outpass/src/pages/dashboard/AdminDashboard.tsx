@@ -19,9 +19,10 @@ import {
   Settings, Users, GraduationCap, BookOpen, Building2, Crown, Shield,
   ScanLine, Plus, Pencil, Trash2, Search, RefreshCw, CheckCircle2,
   Database, BarChart3, ChevronRight, Building, Hash, Phone, Mail,
-  UserCog, AlertTriangle, X, Image as ImageIcon, Sparkles, Lock, MapPin
+  UserCog, AlertTriangle, X, Image as ImageIcon, Sparkles, Lock, MapPin, Palette
 } from "lucide-react";
 import { CategorizedDepartmentSelect } from "@/components/CategorizedDepartmentSelect";
+import { CollegeBrandingCustomizerModal } from "@/components/CollegeBrandingCustomizerModal";
 import { format } from "date-fns";
 
 const fadeUp = {
@@ -103,6 +104,7 @@ export default function AdminDashboard() {
   const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
   const [confirmClearText, setConfirmClearText] = useState("");
   const [isClearing, setIsClearing] = useState(false);
+  const [showBrandingModal, setShowBrandingModal] = useState(false);
 
   const { data: usersRaw = [], isLoading, refetch: refetchUsers } = useListUsers();
   const users = usersRaw as any[];
@@ -372,7 +374,15 @@ export default function AdminDashboard() {
           <h1 className="text-2xl md:text-3xl font-heading font-bold text-slate-800">System Administration</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage students, staff, departments, and system configuration</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            className="bg-purple-50/80 border-purple-200 text-purple-700 hover:bg-purple-100 font-semibold gap-1.5 shadow-xs"
+            onClick={() => setShowBrandingModal(true)}
+          >
+            <Palette className="w-3.5 h-3.5 text-purple-600" /> College Branding & Font Size
+          </Button>
           <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2 hidden md:flex">
             <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </Button>
@@ -825,6 +835,9 @@ export default function AdminDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* College Branding & Font Customizer Modal */}
+      <CollegeBrandingCustomizerModal open={showBrandingModal} onOpenChange={setShowBrandingModal} />
     </div>
   );
 }

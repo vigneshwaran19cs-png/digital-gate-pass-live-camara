@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { BrandingProvider } from "@/contexts/BrandingContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 import LoginPage from "@/pages/login";
@@ -91,10 +92,12 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
-            <div className="min-h-screen">
-              <Router />
-              <Toaster />
-            </div>
+            <BrandingProvider>
+              <div className="min-h-screen">
+                <Router />
+                <Toaster />
+              </div>
+            </BrandingProvider>
           </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>

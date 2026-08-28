@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranding } from "@/contexts/BrandingContext";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +75,7 @@ function getNavItems(role: string) {
 
 function Sidebar({ onClose }: { onClose?: () => void }) {
   const { user, logout, loginAs } = useAuth();
+  const { branding } = useBranding();
   const [location] = useLocation();
   const roleConf = user ? (ROLE_CONFIG[user.role] ?? ROLE_CONFIG.student) : null;
   const RoleIcon = roleConf?.icon ?? GraduationCap;
@@ -89,12 +91,20 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
       {/* Logo */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/50">
         <div className="flex items-center gap-3">
-          <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${roleConf?.color ?? "from-blue-600 to-indigo-600"} flex items-center justify-center shadow-sm`}>
-            <Shield className="w-5 h-5 text-white" />
-          </div>
+          {branding.logoUrl ? (
+            <img
+              src={branding.logoUrl}
+              alt="Logo"
+              className="w-9 h-9 rounded-xl object-contain bg-white border border-slate-200 p-0.5 shadow-sm"
+            />
+          ) : (
+            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${roleConf?.color ?? "from-blue-600 to-indigo-600"} flex items-center justify-center shadow-sm`}>
+              <Shield className="w-5 h-5 text-white" />
+            </div>
+          )}
           <div>
-            <h1 className="font-heading font-bold text-sm text-slate-800 leading-none">OutPass Pro</h1>
-            <p className="text-[10px] text-slate-400 mt-0.5">Hostel Management</p>
+            <h1 className="font-heading font-bold text-sm text-slate-800 leading-none">{branding.erpTitle || "OutPass Pro"}</h1>
+            <p className="text-[10px] text-slate-400 mt-0.5">{branding.collegeShortName || "JKKM"} Management</p>
           </div>
         </div>
         {onClose && (
