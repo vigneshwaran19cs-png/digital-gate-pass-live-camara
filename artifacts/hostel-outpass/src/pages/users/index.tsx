@@ -7,13 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   GraduationCap, BookOpen, Building2, Crown, Shield, ScanLine, Settings,
   Plus, Pencil, Trash2, Search, RefreshCw, Phone, Mail, Hash, Download,
-  User, UserCog, Filter, AlertTriangle,
+  User, UserCog, Filter, AlertTriangle, Calendar, Clock, FileText, CheckCircle2,
+  QrCode, Sparkles, ExternalLink, Image as ImageIcon, Eye, ArrowRight
 } from "lucide-react";
 
 const fadeUp = {
@@ -31,8 +33,6 @@ const ROLE_TABS = [
   { value: "security", label: "Security", icon: ScanLine, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
   { value: "super_admin", label: "Admin", icon: Settings, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" },
 ];
-
-const YEARS = ["I", "II", "III", "IV"];
 
 function getRoleConf(role: string) {
   return ROLE_TABS.find(r => r.value === role) || ROLE_TABS[0];
@@ -54,12 +54,38 @@ interface UserFormData {
   hostelBlock: string; hostelRoom: string; parentPhone: string; parentName: string;
   parentWhatsapp: string; parentEmail: string; address: string;
   designation: string; password?: string;
+  photoUrl: string; idCardUrl: string; attendancePercentage: string;
 }
 
 const emptyForm: UserFormData = {
   name: "", email: "", phone: "", role: "student", departmentId: "", classId: "",
   registerNumber: "", year: "I", hostelBlock: "", hostelRoom: "", parentPhone: "", parentName: "",
   parentWhatsapp: "", parentEmail: "", address: "", designation: "", password: "",
+  photoUrl: "", idCardUrl: "", attendancePercentage: "87",
+};
+
+interface ManualLeaveFormData {
+  passType: string;
+  leaveType: string;
+  fromDate: string;
+  toDate: string;
+  reason: string;
+  destination: string;
+  status: string;
+  remarks: string;
+  isEmergency: boolean;
+}
+
+const emptyLeaveForm: ManualLeaveFormData = {
+  passType: "hostel_leave",
+  leaveType: "personal_work",
+  fromDate: new Date().toISOString().split("T")[0],
+  toDate: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
+  reason: "Authorized leave recorded by Super Admin",
+  destination: "Native Home Town",
+  status: "fully_approved",
+  remarks: "Direct approval & gate pass issued by Super Admin ERP",
+  isEmergency: false,
 };
 
 export default function UsersPage() {
@@ -74,6 +100,16 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [formData, setFormData] = useState<UserFormData>(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  // Super Admin Master Features
+  const [showManualLeaveModal, setShowManualLeaveModal] = useState(false);
+  const [leaveTargetStudent, setLeaveTargetStudent] = useState<any>(null);
+  const [leaveFormData, setLeaveFormData] = useState<ManualLeaveFormData>(emptyLeaveForm);
+  const [isCreatingLeave, setIsCreatingLeave] = useState(false);
+
+  const [showIdCardModal, setShowIdCardModal] = useState(false);
+  const [idCardStudent, setIdCardStudent] = useState<any>(null);
 
   const { data: usersRaw = [], isLoading, refetch } = useListUsers();
   const users = usersRaw as any[];
@@ -110,11 +146,26 @@ export default function UsersPage() {
       registerNumber: u.registerNumber || "", year: u.year || "I", 
       hostelBlock: u.hostelBlock || "", hostelRoom: u.hostelRoom || "", parentPhone: u.parentPhone || "", 
       parentName: u.parentName || "", parentWhatsapp: u.parentWhatsapp || "", parentEmail: u.parentEmail || "", 
-      address: u.address || "", designation: u.designation || "", password: "" 
+      address: u.address || "", designation: u.designation || "", password: "",
+      photoUrl: u.photoUrl || "", idCardUrl: u.idCardUrl || "", attendancePercentage: u.attendancePercentage?.toString() || "87",
     });
     setShowEditModal(true);
   };
   const openDelete = (u: any) => { setSelectedUser(u); setShowDeleteConfirm(true); };
+
+  const openManualLeave = (student: any) => {
+    setLeaveTargetStudent(student);
+    setLeaveFormData({
+      ...emptyLeaveForm,
+      reason: `Authorized leave for ${student.name}`,
+    });
+    setShowManualLeaveModal(true);
+  };
+
+  const openIdCard = (student: any) => {
+    setIdCardStudent(student);
+    setShowIdCardModal(true);
+  };
 
   const handleAdd = () => {
     setIsSubmitting(true);
@@ -122,7 +173,7 @@ export default function UsersPage() {
       data: {
         name: formData.name,
         email: formData.email,
-        password: formData.password || "password",
+        password: formData.password || "password123",
         role: formData.role as any,
         departmentId: formData.departmentId ? parseInt(formData.departmentId, 10) : undefined,
         classId: formData.role === "student" && formData.classId ? parseInt(formData.classId, 10) : undefined,
@@ -136,6 +187,8 @@ export default function UsersPage() {
         parentEmail: formData.role === "student" ? (formData.parentEmail || undefined) : undefined,
         address: formData.role === "student" ? (formData.address || undefined) : undefined,
         designation: formData.role !== "student" ? (formData.designation || undefined) : undefined,
+        photoUrl: formData.photoUrl || undefined,
+        idCardUrl: formData.idCardUrl || undefined,
       }
     }, {
       onSuccess: () => {
@@ -151,37 +204,48 @@ export default function UsersPage() {
     });
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!selectedUser?.id) return;
     setIsSubmitting(true);
-    updateUserMutation.mutate({
-      id: selectedUser.id,
-      data: {
-        name: formData.name,
-        phone: formData.phone || undefined,
-        departmentId: formData.departmentId ? parseInt(formData.departmentId, 10) : undefined,
-        classId: formData.role === "student" && formData.classId ? parseInt(formData.classId, 10) : undefined,
-        hostelBlock: formData.role === "student" ? (formData.hostelBlock || undefined) : undefined,
-        hostelRoom: formData.role === "student" ? (formData.hostelRoom || undefined) : undefined,
-        parentPhone: formData.role === "student" ? (formData.parentPhone || undefined) : undefined,
-        parentName: formData.role === "student" ? (formData.parentName || undefined) : undefined,
-        parentWhatsapp: formData.role === "student" ? (formData.parentWhatsapp || undefined) : undefined,
-        parentEmail: formData.role === "student" ? (formData.parentEmail || undefined) : undefined,
-        address: formData.role === "student" ? (formData.address || undefined) : undefined,
-        designation: formData.role !== "student" ? (formData.designation || undefined) : undefined,
-      }
-    }, {
-      onSuccess: () => {
-        setIsSubmitting(false);
-        setShowEditModal(false);
+    try {
+      const res = await fetch(`/api/users/${selectedUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || undefined,
+          role: formData.role,
+          departmentId: formData.departmentId ? parseInt(formData.departmentId, 10) : undefined,
+          classId: formData.role === "student" && formData.classId ? parseInt(formData.classId, 10) : undefined,
+          registerNumber: formData.role === "student" ? (formData.registerNumber || undefined) : undefined,
+          hostelBlock: formData.role === "student" ? (formData.hostelBlock || undefined) : undefined,
+          hostelRoom: formData.role === "student" ? (formData.hostelRoom || undefined) : undefined,
+          parentPhone: formData.role === "student" ? (formData.parentPhone || undefined) : undefined,
+          parentName: formData.role === "student" ? (formData.parentName || undefined) : undefined,
+          parentWhatsapp: formData.role === "student" ? (formData.parentWhatsapp || undefined) : undefined,
+          parentEmail: formData.role === "student" ? (formData.parentEmail || undefined) : undefined,
+          address: formData.role === "student" ? (formData.address || undefined) : undefined,
+          designation: formData.role !== "student" ? (formData.designation || undefined) : undefined,
+          photoUrl: formData.photoUrl || undefined,
+          idCardUrl: formData.idCardUrl || undefined,
+          attendancePercentage: formData.attendancePercentage ? parseInt(formData.attendancePercentage, 10) : undefined,
+          password: formData.password ? formData.password : undefined,
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
         toast({ title: `✅ User Updated`, description: `${formData.name}'s record has been saved.` });
+        setShowEditModal(false);
         refetch();
-      },
-      onError: (err: any) => {
-        setIsSubmitting(false);
-        toast({ title: `❌ Error`, description: err?.message || "Failed to update user.", variant: "destructive" });
+      } else {
+        toast({ title: `❌ Error`, description: data.error || "Failed to update user.", variant: "destructive" });
       }
-    });
+    } catch (e: any) {
+      toast({ title: `❌ Error`, description: e.message || "Failed to update user.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDelete = () => {
@@ -193,17 +257,65 @@ export default function UsersPage() {
       onSuccess: () => {
         setIsSubmitting(false);
         setShowDeleteConfirm(false);
-        toast({ title: `User Removed`, description: `${selectedUser?.name} has been removed.`, variant: "destructive" });
+        toast({ title: `🗑️ User Removed`, description: `${selectedUser.name} has been removed from the directory.` });
         refetch();
       },
       onError: (err: any) => {
         setIsSubmitting(false);
-        toast({ title: `❌ Error`, description: err?.message || "Failed to remove user.", variant: "destructive" });
+        toast({ title: `❌ Error`, description: err?.message || "Failed to delete user.", variant: "destructive" });
       }
     });
   };
 
-  const [isSeeding, setIsSeeding] = useState(false);
+  const handleCreateManualLeave = async () => {
+    if (!leaveTargetStudent?.id) return;
+    setIsCreatingLeave(true);
+    try {
+      const res = await fetch("/api/leaves", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: leaveTargetStudent.id,
+          passType: leaveFormData.passType,
+          leaveType: leaveFormData.leaveType,
+          fromDate: leaveFormData.fromDate,
+          toDate: leaveFormData.toDate,
+          reason: leaveFormData.reason,
+          destination: leaveFormData.destination,
+          status: leaveFormData.status,
+          currentStep: leaveFormData.status === "fully_approved" ? "completed" : "warden",
+          wardenRemarks: leaveFormData.remarks,
+          tutorRemarks: leaveFormData.remarks,
+          hodRemarks: leaveFormData.remarks,
+          principalRemarks: leaveFormData.remarks,
+          isEmergency: leaveFormData.isEmergency,
+          parentCallStatus: "confirmed",
+          parentCallNotes: "Authorized and confirmed by Super Admin ERP",
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({
+          title: "✅ Leave & Gate Pass Created",
+          description: leaveFormData.status === "fully_approved" 
+            ? `Direct approved outpass generated for ${leaveTargetStudent.name}!` 
+            : `Leave record created successfully for ${leaveTargetStudent.name}.`,
+        });
+        setShowManualLeaveModal(false);
+        refetch();
+      } else {
+        toast({
+          title: "❌ Failed to Create Leave",
+          description: data.error || "Could not record leave.",
+          variant: "destructive"
+        });
+      }
+    } catch (e: any) {
+      toast({ title: "❌ Error", description: e.message || "Failed to record leave.", variant: "destructive" });
+    } finally {
+      setIsCreatingLeave(false);
+    }
+  };
 
   const handleSeedTestData = async () => {
     setIsSeeding(true);
@@ -245,19 +357,22 @@ export default function UsersPage() {
     toast({ title: "CSV Downloaded ✓" });
   };
 
+  // Calculate days for modal
+  const leaveDaysCalc = Math.max(1, Math.round((new Date(leaveFormData.toDate).getTime() - new Date(leaveFormData.fromDate).getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center">
-              <UserCog className="w-4 h-4 text-slate-600" />
+            <div className="w-8 h-8 rounded-lg bg-indigo-100 border border-indigo-200 flex items-center justify-center">
+              <UserCog className="w-4 h-4 text-indigo-700" />
             </div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">User Management</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-indigo-700">Super Admin Master Control</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold text-slate-800">Directory</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage all students and staff accounts</p>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-slate-800">User & Student Directory</h1>
+          <p className="text-muted-foreground text-sm mt-1">Full control to manage student profiles, images, ID cards, attendance & manual leave entries</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <Button
@@ -285,10 +400,10 @@ export default function UsersPage() {
       {/* Stats Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "Total Users", value: users.length, color: "text-slate-700" },
+          { label: "Total Registered", value: users.length, color: "text-slate-700" },
           { label: "Students", value: users.filter(u => u.role === "student").length, color: "text-blue-600" },
-          { label: "Staff", value: users.filter(u => u.role !== "student").length, color: "text-emerald-600" },
-          { label: "Filtered", value: filtered.length, color: "text-violet-600" },
+          { label: "Faculty & Staff", value: users.filter(u => u.role !== "student").length, color: "text-emerald-600" },
+          { label: "Filtered Records", value: filtered.length, color: "text-violet-600" },
         ].map((s, i) => (
           <motion.div key={s.label} custom={i} variants={fadeUp} initial="hidden" animate="show">
             <div className="glass-card rounded-xl p-4 bg-white shadow-sm border border-slate-100 text-center">
@@ -299,42 +414,53 @@ export default function UsersPage() {
         ))}
       </div>
 
-      {/* Filters */}
-      <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show" className="glass-card rounded-2xl p-4 flex flex-col md:flex-row gap-3">
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search by name, email, register number…" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            className="pl-10 h-10 bg-white"
+            placeholder="Search by name, register number, department, email..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
         <Select value={deptFilter} onValueChange={setDeptFilter}>
-          <SelectTrigger className="w-full md:w-44">
-            <Filter className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Department" />
+          <SelectTrigger className="w-full sm:w-56 h-10 bg-white">
+            <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="All Departments" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Departments</SelectItem>
-            {depList.map((d: any) => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}
+            {depList.map((d: any) => (
+              <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
-      </motion.div>
+      </div>
 
-      {/* Role Tabs */}
-      <motion.div custom={5} variants={fadeUp} initial="hidden" animate="show">
-        <Tabs value={roleTab} onValueChange={setRoleTab} className="space-y-4">
-          <div className="overflow-x-auto pb-1">
-            <TabsList className="glass-card border-border/50 inline-flex w-auto">
-              {ROLE_TABS.map(tab => {
-                const Icon = tab.icon;
-                const count = tab.value === "all" ? users.length : users.filter(u => u.role === tab.value).length;
-                return (
-                  <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5 text-xs whitespace-nowrap">
-                    <Icon className={`w-3.5 h-3.5 ${tab.color}`} />
-                    {tab.label}
-                    <span className="ml-0.5 text-[10px] bg-slate-100 text-slate-500 rounded-full px-1.5 py-0.5">{count}</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </div>
+      {/* Main Tabs and Directory Table */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <Tabs value={roleTab} onValueChange={setRoleTab}>
+          <TabsList className="bg-slate-100/80 p-1 flex flex-wrap h-auto gap-1 rounded-xl mb-4">
+            {ROLE_TABS.map(tab => {
+              const count = tab.value === "all" ? users.length : users.filter(u => u.role === tab.value).length;
+              const Icon = tab.icon;
+              return (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-xs rounded-lg text-xs gap-1.5 px-3 py-1.5"
+                >
+                  <Icon className={`w-3.5 h-3.5 ${tab.color}`} />
+                  <span>{tab.label}</span>
+                  <span className="ml-1 text-[10px] bg-slate-200/80 data-[state=active]:bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full font-mono">
+                    {count}
+                  </span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
 
           {ROLE_TABS.map(tab => (
             <TabsContent key={tab.value} value={tab.value}>
@@ -342,14 +468,14 @@ export default function UsersPage() {
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
                   <div>
                     <h2 className="font-heading font-semibold text-slate-800">{tab.label}</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">{filtered.length} records</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{filtered.length} records in this view</p>
                   </div>
                   <Badge variant="outline" className={`${tab.color} ${tab.border}`}>{filtered.length} users</Badge>
                 </div>
 
                 {isLoading ? (
                   <div className="p-12 text-center text-muted-foreground">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3" /> Loading…
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3" /> Loading directory…
                   </div>
                 ) : filtered.length === 0 ? (
                   <div className="p-12 text-center">
@@ -368,26 +494,28 @@ export default function UsersPage() {
                           key={u.id}
                           initial={{ opacity: 0, x: -8 }}
                           animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.03 }}
-                          className="flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50/50 transition-colors group"
+                          transition={{ delay: i * 0.02 }}
+                          className="flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50/70 transition-colors group"
                         >
+                          {/* Photo Avatar */}
                           {u.photoUrl ? (
                             <img
                               src={u.photoUrl}
                               alt={u.name}
-                              className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs flex-shrink-0"
+                              className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-xs flex-shrink-0 bg-slate-100"
                             />
                           ) : (
-                            <div className={`w-10 h-10 rounded-xl ${rc.bg} border ${rc.border} flex items-center justify-center flex-shrink-0 font-bold text-sm ${rc.color}`}>
+                            <div className={`w-11 h-11 rounded-xl ${rc.bg} border ${rc.border} flex items-center justify-center flex-shrink-0 font-bold text-sm ${rc.color}`}>
                               {u.name?.charAt(0) ?? "?"}
                             </div>
                           )}
+
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                               <span className="font-semibold text-sm text-slate-800">{u.name}</span>
                               <RoleBadge role={u.role} />
                               {u.hostelRoom && (
-                                <span className="text-[10px] bg-cyan-50 border border-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded">
+                                <span className="text-[10px] bg-cyan-50 border border-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded font-mono">
                                   Room {u.hostelRoom}
                                 </span>
                               )}
@@ -402,33 +530,63 @@ export default function UsersPage() {
                                   {u.attendancePercentage}% Att
                                 </span>
                               )}
+                              {u.role === "student" && (
+                                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
+                                  Barcode: {u.registerNumber?.replace(/^7312/, "") || u.registerNumber || "N/A"}
+                                </span>
+                              )}
                             </div>
-                            <div className="flex items-center gap-3 flex-wrap">
+
+                            <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
                               {u.registerNumber && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Hash className="w-2.5 h-2.5" />{u.registerNumber}
+                                <span className="flex items-center gap-1 font-mono">
+                                  <Hash className="w-3 h-3 text-slate-400" />{u.registerNumber}
                                 </span>
                               )}
                               {getDeptName(u.departmentId) && (
-                                <span className="text-xs text-muted-foreground">{getDeptName(u.departmentId)}</span>
+                                <span className="font-medium text-slate-600">{getDeptName(u.departmentId)}</span>
                               )}
                               {u.email && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground truncate max-w-40">
-                                  <Mail className="w-2.5 h-2.5 flex-shrink-0" />{u.email}
+                                <span className="flex items-center gap-1 truncate max-w-48">
+                                  <Mail className="w-3 h-3 flex-shrink-0 text-slate-400" />{u.email}
                                 </span>
                               )}
                               {u.phone && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Phone className="w-2.5 h-2.5" />{u.phone}
+                                <span className="flex items-center gap-1 font-mono">
+                                  <Phone className="w-3 h-3 text-slate-400" />{u.phone}
                                 </span>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                            <Button size="icon" variant="ghost" className="w-7 h-7 hover:bg-blue-50 hover:text-blue-700" onClick={() => openEdit(u)}>
+
+                          {/* Super Admin Quick Actions */}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {u.role === "student" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2.5 text-xs gap-1 border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100"
+                                  onClick={() => openManualLeave(u)}
+                                  title="Add Manual Leave / Direct Pass for Student"
+                                >
+                                  <Plus className="w-3 h-3" /> Manual Leave
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 px-2 text-xs gap-1 hover:bg-slate-100 text-slate-700"
+                                  onClick={() => openIdCard(u)}
+                                  title="View ID Card"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> ID Card
+                                </Button>
+                              </>
+                            )}
+                            <Button size="icon" variant="ghost" className="w-8 h-8 hover:bg-blue-50 hover:text-blue-700" onClick={() => openEdit(u)} title="Edit User">
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>
-                            <Button size="icon" variant="ghost" className="w-7 h-7 hover:bg-rose-50 hover:text-rose-700" onClick={() => openDelete(u)}>
+                            <Button size="icon" variant="ghost" className="w-8 h-8 hover:bg-rose-50 hover:text-rose-700" onClick={() => openDelete(u)} title="Delete User">
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </div>
@@ -443,6 +601,200 @@ export default function UsersPage() {
         </Tabs>
       </motion.div>
 
+      {/* Manual Leave Entry Modal (Super Admin Master Power) */}
+      <Dialog open={showManualLeaveModal} onOpenChange={v => !v && setShowManualLeaveModal(false)}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2 text-blue-700">
+              <FileText className="w-5 h-5 text-blue-600" /> Manual Student Leave Entry
+            </DialogTitle>
+            <DialogDescription>
+              Record or direct-approve leave days for <strong>{leaveTargetStudent?.name}</strong> ({leaveTargetStudent?.registerNumber}).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <div className="p-3 bg-blue-50/60 border border-blue-100 rounded-xl flex items-center gap-3">
+              <img
+                src={leaveTargetStudent?.photoUrl || "/students/vimal_m.jpg"}
+                alt={leaveTargetStudent?.name}
+                className="w-12 h-12 rounded-lg object-cover border border-blue-200"
+              />
+              <div className="text-xs">
+                <div className="font-bold text-slate-800 text-sm">{leaveTargetStudent?.name}</div>
+                <div className="text-slate-600 font-mono">Reg: {leaveTargetStudent?.registerNumber} · Room {leaveTargetStudent?.hostelRoom || "A-101"}</div>
+                <div className="text-emerald-700 font-medium">{leaveTargetStudent?.attendancePercentage || 87}% Attendance</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Pass Type</Label>
+                <Select value={leaveFormData.passType} onValueChange={v => setLeaveFormData(prev => ({ ...prev, passType: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hostel_leave">Hostel Leave (Multi-Day)</SelectItem>
+                    <SelectItem value="outing_pass">Day Outing Pass (Same-Day)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Leave Category</Label>
+                <Select value={leaveFormData.leaveType} onValueChange={v => setLeaveFormData(prev => ({ ...prev, leaveType: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="personal_work">Personal Work</SelectItem>
+                    <SelectItem value="medical_leave">Medical Leave</SelectItem>
+                    <SelectItem value="hospital_visit">Hospital Visit</SelectItem>
+                    <SelectItem value="family_function">Family Function</SelectItem>
+                    <SelectItem value="family_emergency">Family Emergency</SelectItem>
+                    <SelectItem value="shopping">Shopping Outing</SelectItem>
+                    <SelectItem value="hair_cut">Hair Cut / Salon</SelectItem>
+                    <SelectItem value="internship">Internship</SelectItem>
+                    <SelectItem value="project_work">Project Work</SelectItem>
+                    <SelectItem value="semester_holiday">Semester Holiday</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">From Date</Label>
+                <Input
+                  type="date"
+                  className="mt-1"
+                  value={leaveFormData.fromDate}
+                  onChange={e => setLeaveFormData(prev => ({ ...prev, fromDate: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">To Date</Label>
+                <Input
+                  type="date"
+                  className="mt-1"
+                  value={leaveFormData.toDate}
+                  onChange={e => setLeaveFormData(prev => ({ ...prev, toDate: e.target.value }))}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <div className="text-xs bg-slate-100 px-3 py-1.5 rounded-lg flex items-center justify-between text-slate-700 font-medium">
+                  <span>Calculated Duration:</span>
+                  <span className="font-bold text-blue-700">{leaveDaysCalc} Day(s) Leave</span>
+                </div>
+              </div>
+
+              <div className="col-span-2">
+                <Label className="text-xs font-semibold text-slate-700">Reason / Purpose</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="Enter reason for leave"
+                  value={leaveFormData.reason}
+                  onChange={e => setLeaveFormData(prev => ({ ...prev, reason: e.target.value }))}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <Label className="text-xs font-semibold text-slate-700">Destination Address / City</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="e.g. Perambalur / Gobichettipalayam"
+                  value={leaveFormData.destination}
+                  onChange={e => setLeaveFormData(prev => ({ ...prev, destination: e.target.value }))}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <Label className="text-xs font-semibold text-slate-700">Approval Mode</Label>
+                <Select value={leaveFormData.status} onValueChange={v => setLeaveFormData(prev => ({ ...prev, status: v }))}>
+                  <SelectTrigger className="mt-1 font-semibold text-blue-700"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fully_approved">⚡ Direct Approved (Instant Active Gate Pass)</SelectItem>
+                    <SelectItem value="pending">🟡 Pending Tutor & Warden Approval Queue</SelectItem>
+                    <SelectItem value="completed">🟢 Past Completed Leave (Historical Record)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="col-span-2">
+                <Label className="text-xs font-semibold text-slate-700">Admin Authorization Remarks</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="e.g. Authorized by Super Admin ERP"
+                  value={leaveFormData.remarks}
+                  onChange={e => setLeaveFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-3 border-t">
+              <Button variant="outline" className="flex-1" onClick={() => setShowManualLeaveModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={handleCreateManualLeave}
+                disabled={isCreatingLeave || !leaveFormData.reason || !leaveFormData.destination}
+              >
+                {isCreatingLeave ? "Recording Leave…" : "Confirm & Save Leave"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ID Card Viewer Modal */}
+      <Dialog open={showIdCardModal} onOpenChange={v => !v && setShowIdCardModal(false)}>
+        <DialogContent className="max-w-md p-0 overflow-hidden bg-slate-900 border-slate-700 text-white">
+          <div className="bg-gradient-to-b from-blue-900 via-indigo-950 to-slate-900 p-6 space-y-4 text-center">
+            <div className="space-y-1">
+              <div className="text-[10px] tracking-widest uppercase font-bold text-amber-300">
+                J.K.K. MUNIRAJAH COLLEGE OF TECHNOLOGY
+              </div>
+              <div className="text-[9px] text-slate-300">Autonomous · Approved by AICTE, New Delhi</div>
+              <div className="text-xs font-bold text-white bg-blue-800/60 py-0.5 rounded px-2 inline-block mt-1">
+                STUDENT IDENTITY CARD
+              </div>
+            </div>
+
+            <div className="flex justify-center my-2">
+              <img
+                src={idCardStudent?.photoUrl || "/students/vimal_m.jpg"}
+                alt={idCardStudent?.name}
+                className="w-28 h-32 rounded-xl object-cover border-2 border-white shadow-xl bg-white"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-lg font-bold font-heading text-white">{idCardStudent?.name}</div>
+              <div className="text-sm font-mono text-cyan-300 font-semibold">{idCardStudent?.registerNumber}</div>
+              <div className="text-xs text-slate-300">{getDeptName(idCardStudent?.departmentId) || idCardStudent?.department || "Automobile Engineering"}</div>
+            </div>
+
+            <div className="bg-slate-800/80 p-3 rounded-xl text-left text-xs space-y-1 border border-slate-700">
+              <div className="flex justify-between"><span className="text-slate-400">Hostel Room:</span> <span className="font-bold text-white">{idCardStudent?.hostelRoom || "A-101"}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Student Phone:</span> <span className="font-mono text-white">{idCardStudent?.phone || "N/A"}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Parent Phone:</span> <span className="font-mono text-white">{idCardStudent?.parentPhone || "N/A"}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Attendance:</span> <span className="font-bold text-emerald-400">{idCardStudent?.attendancePercentage || 87}%</span></div>
+            </div>
+
+            <div className="bg-white p-3 rounded-xl text-slate-900 flex flex-col items-center">
+              <div className="font-mono text-xs tracking-widest font-bold">
+                ||||| | |||| ||| ||||| || |
+              </div>
+              <div className="text-[11px] font-mono font-bold mt-1">
+                BARCODE: {idCardStudent?.registerNumber?.replace(/^7312/, "") || idCardStudent?.registerNumber}
+              </div>
+            </div>
+
+            <Button variant="outline" className="w-full text-xs text-slate-800 bg-white hover:bg-slate-100" onClick={() => setShowIdCardModal(false)}>
+              Close ID Card
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Modal */}
       <Dialog open={showAddModal} onOpenChange={v => !v && setShowAddModal(false)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -451,7 +803,7 @@ export default function UsersPage() {
             <DialogDescription>Fill in the details to register a new user in the system.</DialogDescription>
           </DialogHeader>
           <UserForm formData={formData} updateForm={(field, value) => setFormData(prev => ({ ...prev, [field]: value }))} />
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-2 border-t">
             <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>
             <Button className="flex-1 bg-slate-800 hover:bg-slate-700 text-white" onClick={handleAdd} disabled={isSubmitting || !formData.name || !formData.email}>
               {isSubmitting ? "Creating…" : "Create User"}
@@ -465,10 +817,10 @@ export default function UsersPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading flex items-center gap-2"><Pencil className="w-5 h-5 text-blue-600" /> Edit — {selectedUser?.name}</DialogTitle>
-            <DialogDescription>Update the user's information in the directory.</DialogDescription>
+            <DialogDescription>Update all student attributes, images, ID card URL, and attendance data.</DialogDescription>
           </DialogHeader>
           <UserForm formData={formData} updateForm={(field, value) => setFormData(prev => ({ ...prev, [field]: value }))} isEdit />
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-2 border-t">
             <Button variant="outline" className="flex-1" onClick={() => setShowEditModal(false)}>Cancel</Button>
             <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleEdit} disabled={isSubmitting}>
               {isSubmitting ? "Saving…" : "Save Changes"}
@@ -486,7 +838,7 @@ export default function UsersPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="p-4 rounded-xl bg-rose-50 border border-rose-100 text-sm text-rose-800">
-            Are you sure you want to remove <strong>{selectedUser?.name}</strong>? This action cannot be undone.
+            Are you sure you want to remove <strong>{selectedUser?.name}</strong>? This will remove all their records from the directory.
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
@@ -515,8 +867,62 @@ function UserForm({ formData, updateForm, isEdit = false }: {
     : [];
 
   const isStudent = formData.role === "student";
+
+  const PRESET_PHOTOS = [
+    { label: "Vimal M", url: "/students/vimal_m.jpg" },
+    { label: "Azhagesan S", url: "/students/azhagesan_s.jpg" },
+    { label: "Chinraj M", url: "/students/chinraj_m.jpg" },
+    { label: "Karthick Rajan", url: "/students/karthick_rajan_s.jpg" },
+    { label: "Kavin Kaarthik", url: "/students/kavin_kaarthik_m.jpg" },
+    { label: "Female Student", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400" },
+  ];
+
   return (
     <div className="space-y-4">
+      {/* Profile Photo & ID Card Management Section */}
+      <div className="p-4 bg-slate-50 border rounded-xl space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+            <ImageIcon className="w-4 h-4 text-blue-600" /> Profile Photo & Image Permissions
+          </Label>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {formData.photoUrl ? (
+            <img
+              src={formData.photoUrl}
+              alt="Preview"
+              className="w-16 h-16 rounded-xl object-cover border-2 border-blue-500 shadow-sm bg-white shrink-0"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-xl border border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400 bg-white shrink-0">
+              No Photo
+            </div>
+          )}
+
+          <div className="flex-1 space-y-1.5">
+            <Input
+              placeholder="Enter Profile Photo URL (e.g. /students/vimal_m.jpg or web URL)"
+              value={formData.photoUrl}
+              onChange={e => updateForm("photoUrl", e.target.value)}
+              className="text-xs"
+            />
+            <div className="flex gap-1.5 flex-wrap">
+              {PRESET_PHOTOS.map(p => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => updateForm("photoUrl", p.url)}
+                  className="text-[10px] px-2 py-0.5 bg-white border border-slate-200 hover:border-blue-400 rounded-md font-medium text-slate-700"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="col-span-2 md:col-span-1">
           <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Role *</Label>
@@ -534,22 +940,27 @@ function UserForm({ formData, updateForm, isEdit = false }: {
             </SelectContent>
           </Select>
         </div>
+
         <div>
           <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Full Name *</Label>
           <Input className="mt-1.5" placeholder="e.g. Rajan Kumar" value={formData.name} onChange={e => updateForm("name", e.target.value)} />
         </div>
+
         <div>
           <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Email Address *</Label>
           <Input className="mt-1.5" type="email" placeholder="e.g. rajan@jkkm.edu.in" value={formData.email} onChange={e => updateForm("email", e.target.value)} />
         </div>
+
         <div>
-          <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{isEdit ? "New Password" : "Password *"}</Label>
+          <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{isEdit ? "Change Password" : "Password *"}</Label>
           <Input className="mt-1.5" type="password" placeholder={isEdit ? "Leave blank to keep unchanged" : "Set user password"} value={formData.password || ""} onChange={e => updateForm("password", e.target.value)} />
         </div>
+
         <div>
           <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Phone Number</Label>
           <Input className="mt-1.5" placeholder="e.g. 9876543210" value={formData.phone} onChange={e => updateForm("phone", e.target.value)} />
         </div>
+
         <div>
           <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Department</Label>
           <Select value={formData.departmentId} onValueChange={v => { updateForm("departmentId", v); updateForm("classId", ""); }}>
@@ -559,6 +970,7 @@ function UserForm({ formData, updateForm, isEdit = false }: {
             </SelectContent>
           </Select>
         </div>
+
         {isStudent ? (
           <>
             <div>
@@ -574,34 +986,65 @@ function UserForm({ formData, updateForm, isEdit = false }: {
                 </SelectContent>
               </Select>
             </div>
+
             <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Register Number</Label>
-              <Input className="mt-1.5" placeholder="e.g. 22CSE001" value={formData.registerNumber} onChange={e => updateForm("registerNumber", e.target.value)} />
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Register Number (Barcode)</Label>
+              <Input className="mt-1.5" placeholder="e.g. 731225ME029" value={formData.registerNumber} onChange={e => updateForm("registerNumber", e.target.value)} />
             </div>
+
+            <div>
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Attendance Percentage (%)</Label>
+              <Input
+                className="mt-1.5"
+                type="number"
+                min="0"
+                max="100"
+                placeholder="e.g. 92"
+                value={formData.attendancePercentage}
+                onChange={e => updateForm("attendancePercentage", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">ID Card Image URL</Label>
+              <Input
+                className="mt-1.5"
+                placeholder="/students/id_card_sheet.jpg"
+                value={formData.idCardUrl}
+                onChange={e => updateForm("idCardUrl", e.target.value)}
+              />
+            </div>
+
             <div>
               <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Hostel Block</Label>
-              <Input className="mt-1.5" placeholder="e.g. A Block" value={formData.hostelBlock} onChange={e => updateForm("hostelBlock", e.target.value)} />
+              <Input className="mt-1.5" placeholder="e.g. Boys Hostel - A Block" value={formData.hostelBlock} onChange={e => updateForm("hostelBlock", e.target.value)} />
             </div>
+
             <div>
               <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Hostel Room</Label>
-              <Input className="mt-1.5" placeholder="e.g. 204" value={formData.hostelRoom} onChange={e => updateForm("hostelRoom", e.target.value)} />
+              <Input className="mt-1.5" placeholder="e.g. A-204 (Bed 1)" value={formData.hostelRoom} onChange={e => updateForm("hostelRoom", e.target.value)} />
             </div>
+
             <div>
               <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Parent / Guardian Name</Label>
               <Input className="mt-1.5" placeholder="Parent/Guardian full name" value={formData.parentName} onChange={e => updateForm("parentName", e.target.value)} />
             </div>
+
             <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Parent / Guardian Phone (SMS)</Label>
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Parent Phone (SMS)</Label>
               <Input className="mt-1.5" placeholder="For SMS notifications" value={formData.parentPhone} onChange={e => updateForm("parentPhone", e.target.value)} />
             </div>
+
             <div>
               <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Parent WhatsApp</Label>
               <Input className="mt-1.5" placeholder="For WhatsApp notifications" value={formData.parentWhatsapp} onChange={e => updateForm("parentWhatsapp", e.target.value)} />
             </div>
+
             <div>
               <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Parent Email (Optional)</Label>
               <Input className="mt-1.5" type="email" placeholder="For email notifications" value={formData.parentEmail} onChange={e => updateForm("parentEmail", e.target.value)} />
             </div>
+
             <div className="col-span-2">
               <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Home Address</Label>
               <Input className="mt-1.5" placeholder="Full residential address" value={formData.address} onChange={e => updateForm("address", e.target.value)} />
@@ -610,7 +1053,7 @@ function UserForm({ formData, updateForm, isEdit = false }: {
         ) : (
           <div>
             <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Designation</Label>
-            <Input className="mt-1.5" placeholder="e.g. Assistant Professor" value={formData.designation} onChange={e => updateForm("designation", e.target.value)} />
+            <Input className="mt-1.5" placeholder="e.g. Assistant Professor / Head of Department" value={formData.designation} onChange={e => updateForm("designation", e.target.value)} />
           </div>
         )}
       </div>

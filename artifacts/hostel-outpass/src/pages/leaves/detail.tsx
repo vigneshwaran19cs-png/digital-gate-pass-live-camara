@@ -1,13 +1,16 @@
 import { useGetLeave, useApproveLeave, useRejectLeave, useRecordParentCall, getGetLeaveQueryKey, useListDepartments, useListLeaves } from "@workspace/api-client-react";
-import { useRoute, Link } from "wouter";
+import { useRoute, useLocation, Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, CheckCircle2, Circle, Clock, PhoneCall, XCircle, FileText, ArrowRight, ShieldCheck, UserCheck } from "lucide-react";
-import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ArrowLeft, CheckCircle2, Circle, Clock, PhoneCall, XCircle, FileText, ArrowRight, ShieldCheck, UserCheck, Trash2, Pencil, Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { StudentProfilePhoto } from "@/components/StudentProfilePhoto";
@@ -28,10 +31,21 @@ const STEP_LABELS: Record<string, string> = {
 
 export default function LeaveDetailPage() {
   const [, params] = useRoute("/leaves/:id");
+  const [, setLocation] = useLocation();
   const id = Number(params?.id);
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const isSuperAdmin = user?.role === "super_admin" || user?.role === "admin";
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFromDate, setEditFromDate] = useState("");
+  const [editToDate, setEditToDate] = useState("");
+  const [editReason, setEditReason] = useState("");
+  const [editDestination, setEditDestination] = useState("");
+  const [editStatus, setEditStatus] = useState("");
+  const [editStep, setEditStep] = useState("");
+  const [isSubmittingSuper, setIsSubmittingSuper] = useState(false);
 
   const { data: departmentsRaw = [] } = useListDepartments();
   const depList = departmentsRaw as any[];
@@ -56,6 +70,75 @@ export default function LeaveDetailPage() {
   const [remarks, setRemarks] = useState("");
   const [callStatus, setCallStatus] = useState<string>("");
   const [callNotes, setCallNotes] = useState("");
+
+  useEffect(() => {
+    if (leave) {
+      setEditFromDate(leave.fromDate ? leave.fromDate.split("T")[0] : "");
+      setEditToDate(leave.toDate ? leave.toDate.split("T")[0] : "");
+      setEditReason(leave.reason || "");
+      setEditDestination(leave.destination || "");
+      setEditStatus(leave.status || "pending");
+      setEditStep(leave.currentStep || "warden");
+    }
+  }, [leave]);
+
+  const handleSuperApprove = async () => {
+    setIsSubmittingSuper(true);
+    try {
+      const res = await fetch(`/api/leaves/${id}/super-approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ remarks: "Instant Super Admin Force Approval" })
+      });
+      if (res.ok) {
+        toast({ title: "⚡ Force Approved", description: "Direct outpass and digital gate pass generated!" });
+        queryClient.invalidateQueries({ queryKey: getGetLeaveQueryKey(id) });
+      } else {
+        toast({ title: "❌ Error", description: "Could not force-approve leave.", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "❌ Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSubmittingSuper(false);
+    }
+  };
+
+  const handleDeleteLeave = async () => {
+    if (!confirm("Permanently delete this leave and gate pass?")) return;
+    try {
+      const res = await fetch(`/api/leaves/${id}?hard=true`, { method: "DELETE" });
+      if (res.ok) {
+        toast({ title: "🗑️ Leave Deleted", description: "Record deleted from system." });
+        setLocation("/leaves");
+      }
+    } catch (err: any) {
+      toast({ title: "❌ Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      const res = await fetch(`/api/leaves/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fromDate: editFromDate,
+          toDate: editToDate,
+          reason: editReason,
+          destination: editDestination,
+          status: editStatus,
+          currentStep: editStep,
+        })
+      });
+      if (res.ok) {
+        toast({ title: "✅ Leave Updated", description: "Changes saved successfully." });
+        setShowEditModal(false);
+        queryClient.invalidateQueries({ queryKey: getGetLeaveQueryKey(id) });
+      }
+    } catch (err: any) {
+      toast({ title: "❌ Error", description: err.message, variant: "destructive" });
+    }
+  };
 
   if (isLoading) return <div className="p-8 text-center">Loading leave details...</div>;
   if (!leave) return <div className="p-8 text-center">Leave not found.</div>;
@@ -315,8 +398,50 @@ export default function LeaveDetailPage() {
             previousLeaves={studentLeaves}
           />
 
+          {/* Super Admin Master Control Card */}
+          {isSuperAdmin && (
+            <Card className="border-2 border-indigo-500/80 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-indigo-600" /> Super Admin Master Controls
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Direct master override to force-approve, edit data, or delete this leave record.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {leave.status !== "fully_approved" && (
+                  <Button
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm"
+                    onClick={handleSuperApprove}
+                    disabled={isSubmittingSuper}
+                  >
+                    <Sparkles className="w-4 h-4" /> ⚡ Force Approve (Instant Gate Pass)
+                  </Button>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50 text-xs gap-1"
+                    onClick={() => setShowEditModal(true)}
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Edit Details
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-rose-300 text-rose-700 hover:bg-rose-50 text-xs gap-1"
+                    onClick={handleDeleteLeave}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete Record
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Role-Specific Approval Action Card */}
-          {canApprove && (
+          {canApprove && !isSuperAdmin && (
             <Card className="border-2 border-blue-500/80 bg-blue-50/40 dark:bg-blue-950/30 shadow-lg">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-bold text-blue-900 dark:text-blue-200 flex items-center gap-2">
@@ -377,6 +502,85 @@ export default function LeaveDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Edit Leave Modal for Super Admin */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2 text-indigo-700">
+              <Pencil className="w-5 h-5" /> Edit Leave Details
+            </DialogTitle>
+            <DialogDescription>
+              Directly override dates, status, remarks, or destination.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">From Date</Label>
+                <Input type="date" className="mt-1" value={editFromDate} onChange={e => setEditFromDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">To Date</Label>
+                <Input type="date" className="mt-1" value={editToDate} onChange={e => setEditToDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">Reason</Label>
+              <Input className="mt-1" value={editReason} onChange={e => setEditReason(e.target.value)} />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">Destination</Label>
+              <Input className="mt-1" value={editDestination} onChange={e => setEditDestination(e.target.value)} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Status</Label>
+                <Select value={editStatus} onValueChange={setEditStatus}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="warden_approved">Warden Approved</SelectItem>
+                    <SelectItem value="tutor_approved">Tutor Approved</SelectItem>
+                    <SelectItem value="hod_approved">HOD Approved</SelectItem>
+                    <SelectItem value="principal_approved">Principal Approved</SelectItem>
+                    <SelectItem value="fully_approved">Fully Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Current Step</Label>
+                <Select value={editStep} onValueChange={setEditStep}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="warden">Warden</SelectItem>
+                    <SelectItem value="tutor">Tutor</SelectItem>
+                    <SelectItem value="hod">HOD</SelectItem>
+                    <SelectItem value="principal">Principal</SelectItem>
+                    <SelectItem value="warden_final">Warden Final</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-3 border-t">
+              <Button variant="outline" className="flex-1" onClick={() => setShowEditModal(false)}>Cancel</Button>
+              <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={handleSaveEdit}>
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -54,7 +54,16 @@ export default function StudentProfilePage() {
   }, [user?.id]);
 
   const totalLeaves = (leaves as any[]).length;
-  const approvedLeaves = (leaves as any[]).filter((l: any) => l.status === "fully_approved").length;
+  const approvedLeaves = (leaves as any[]).filter((l: any) => l.status === "fully_approved" || l.status === "completed").length;
+  const totalLeaveDaysTaken = (leaves as any[])
+    .filter((l: any) => l.status === "fully_approved" || l.status === "completed")
+    .reduce((acc: number, l: any) => {
+      if (!l.fromDate || !l.toDate) return acc + 1;
+      const start = new Date(l.fromDate).getTime();
+      const end = new Date(l.toDate).getTime();
+      const diffDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+      return acc + diffDays;
+    }, 0);
 
   const handleUpdatePhoto = () => {
     if (photoUrlInput.trim()) {
@@ -172,8 +181,8 @@ export default function StudentProfilePage() {
 
             <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl text-center border border-slate-100 dark:border-slate-800">
               <div className="text-xs text-muted-foreground font-medium">Total Leave Days Taken</div>
-              <div className="text-xl font-extrabold text-slate-800 dark:text-slate-100">{totalLeaves} Days</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Academic Session 2026</div>
+              <div className="text-xl font-extrabold text-slate-800 dark:text-slate-100">{totalLeaveDaysTaken} Days</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{approvedLeaves} approved / {totalLeaves} total</div>
             </div>
 
             <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl text-center border border-slate-100 dark:border-slate-800">

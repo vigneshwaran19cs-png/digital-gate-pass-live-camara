@@ -178,4 +178,32 @@ router.post("/outpasses/:id/return", async (req, res): Promise<void> => {
   res.json(await getFullOutpass(updated.id));
 });
 
+router.patch("/outpasses/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const [existing] = await db.select().from(outpassesTable).where(eq(outpassesTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Outpass not found" });
+    return;
+  }
+
+  const updateData: any = { ...req.body };
+  if (updateData.exitTime) updateData.exitTime = new Date(updateData.exitTime);
+  if (updateData.returnTime) updateData.returnTime = new Date(updateData.returnTime);
+
+  await db.update(outpassesTable).set(updateData).where(eq(outpassesTable.id, id));
+  res.json(await getFullOutpass(id));
+});
+
+router.delete("/outpasses/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const [existing] = await db.select().from(outpassesTable).where(eq(outpassesTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Outpass not found" });
+    return;
+  }
+
+  await db.delete(outpassesTable).where(eq(outpassesTable.id, id));
+  res.sendStatus(204);
+});
+
 export default router;

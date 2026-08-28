@@ -138,21 +138,39 @@ router.get("/users", async (req, res): Promise<void> => {
 });
 
 router.post("/users", async (req, res): Promise<void> => {
-  const parsed = CreateUserBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  const { password, ...bodyData } = req.body;
+  if (!bodyData.name || !bodyData.email || !bodyData.role) {
+    res.status(400).json({ error: "Name, email, and role are required" });
     return;
   }
 
-  const { password, ...rest } = parsed.data as any;
-  const [{ id }] = await db.insert(usersTable).values({
-    ...rest,
+  const insertData: any = {
+    name: bodyData.name,
+    email: bodyData.email,
     passwordHash: hashPassword(password || "password123"),
-  }).$returningId();
+    role: bodyData.role,
+    departmentId: bodyData.departmentId ? Number(bodyData.departmentId) : null,
+    classId: bodyData.classId ? Number(bodyData.classId) : null,
+    registerNumber: bodyData.registerNumber || null,
+    hostelBlock: bodyData.hostelBlock || null,
+    hostelRoom: bodyData.hostelRoom || null,
+    phone: bodyData.phone || null,
+    parentName: bodyData.parentName || null,
+    parentPhone: bodyData.parentPhone || null,
+    parentWhatsapp: bodyData.parentWhatsapp || null,
+    parentEmail: bodyData.parentEmail || null,
+    address: bodyData.address || null,
+    designation: bodyData.designation || null,
+    photoUrl: bodyData.photoUrl || null,
+    idCardUrl: bodyData.idCardUrl || null,
+    attendancePercentage: bodyData.attendancePercentage ? Number(bodyData.attendancePercentage) : 87,
+    isFaceEnrolled: bodyData.photoUrl ? "true" : "false",
+  };
 
+  const [{ id }] = await db.insert(usersTable).values(insertData).$returningId();
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
 
-  res.status(201).json(sanitize(user));
+  res.status(201).json(await enrichStudentProfile(user));
 });
 
 router.get("/users/:id", async (req, res): Promise<void> => {
@@ -179,24 +197,37 @@ router.patch("/users/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const parsed = UpdateUserBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-
-  await db.update(usersTable)
-    .set(parsed.data)
-    .where(eq(usersTable.id, params.data.id));
-
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, params.data.id));
-
-  if (!user) {
+  const [existingUser] = await db.select().from(usersTable).where(eq(usersTable.id, params.data.id));
+  if (!existingUser) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
-  res.json(sanitize(user));
+  const updateData: any = { ...req.body };
+  if (updateData.password) {
+    updateData.passwordHash = hashPassword(updateData.password);
+    delete updateData.password;
+  }
+  if (updateData.departmentId !== undefined) {
+    updateData.departmentId = updateData.departmentId ? Number(updateData.departmentId) : null;
+  }
+  if (updateData.classId !== undefined) {
+    updateData.classId = updateData.classId ? Number(updateData.classId) : null;
+  }
+  if (updateData.attendancePercentage !== undefined) {
+    updateData.attendancePercentage = updateData.attendancePercentage ? Number(updateData.attendancePercentage) : 87;
+  }
+  if (updateData.photoUrl) {
+    updateData.isFaceEnrolled = "true";
+  }
+
+  await db.update(usersTable)
+    .set(updateData)
+    .where(eq(usersTable.id, params.data.id));
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, params.data.id));
+
+  res.json(await enrichStudentProfile(user));
 });
 
 router.delete("/users/:id", async (req, res): Promise<void> => {

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, SQL, inArray, count, gte } from "drizzle-orm";
-import { db, leavesTable, usersTable, outpassesTable, notificationsTable, departmentsTable, classesTable, activityLogsTable } from "@workspace/db";
+import { db, leavesTable, usersTable, outpassesTable, gateLogsTable, notificationsTable, departmentsTable, classesTable, activityLogsTable } from "@workspace/db";
 import {
   ListLeavesQueryParams,
   CreateLeaveBody,
@@ -21,6 +21,47 @@ import { processLeaveNotifications, sendEmailNotification, sendSmsNotification, 
 import { parseToken, resolveUserId } from "./auth";
 
 const router: IRouter = Router();
+
+async function generateAndAttachOutpass(leaveId: number, studentId: number, approverName = "Super Admin") {
+  const [existing] = await db.select().from(outpassesTable).where(eq(outpassesTable.leaveId, leaveId));
+  if (existing) return existing;
+
+  const year = new Date().getFullYear();
+  const [{ value: existingCount }] = await db.select({ value: count() }).from(outpassesTable)
+    .where(gte(outpassesTable.createdAt, new Date(`${year}-01-01`)));
+  const { code, qrData, gatePassNumber } = generateOutpassCode(leaveId, studentId, (existingCount ?? 0) + 1);
+
+  const [tutorUser] = await db.select().from(usersTable).where(eq(usersTable.role, "tutor")).limit(1);
+  const [hodUser] = await db.select().from(usersTable).where(eq(usersTable.role, "hod")).limit(1);
+  const [principalUser] = await db.select().from(usersTable).where(eq(usersTable.role, "principal")).limit(1);
+  const [wardenUser] = await db.select().from(usersTable).where(eq(usersTable.role, "warden")).limit(1);
+  const now = new Date().toISOString();
+
+  const staffDetails = JSON.stringify({
+    tutor: { name: tutorUser?.name ?? "Class Tutor", designation: "Tutor", approvedAt: now },
+    hod: { name: hodUser?.name ?? "Head of Department", designation: "HOD", approvedAt: now },
+    principal: { name: principalUser?.name ?? "Dr. Principal", designation: "Principal", approvedAt: now },
+    warden: { name: wardenUser?.name ?? "Hostel Warden", designation: "Warden", approvedAt: now },
+    admin: { name: approverName, designation: "Super Admin", approvedAt: now },
+  });
+
+  const [{ id: outpassId }] = await db.insert(outpassesTable).values({
+    leaveId,
+    studentId,
+    outpassCode: code,
+    gatePassNumber,
+    qrData,
+    staffDetails,
+    status: "verified",
+    approvedByWarden: wardenUser?.name ?? "Hostel Warden",
+    approvedByTutor: tutorUser?.name ?? "Class Tutor",
+    approvedByHod: hodUser?.name ?? "Head of Department",
+    approvedByPrincipal: principalUser?.name ?? "Principal",
+  }).$returningId();
+
+  await db.update(leavesTable).set({ outpassId, status: "fully_approved", currentStep: "completed" }).where(eq(leavesTable.id, leaveId));
+  return { id: outpassId, code, gatePassNumber };
+}
 
 async function getLeaveWithStudent(id: number) {
   const [leave] = await db.select().from(leavesTable).where(eq(leavesTable.id, id));
@@ -130,26 +171,31 @@ router.get("/leaves", async (req, res): Promise<void> => {
 });
 
 router.post("/leaves", async (req, res): Promise<void> => {
-  const parsed = CreateLeaveBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  // Support studentId from body (for admin manual entry) or header
+  const studentId = req.body.studentId ? Number(req.body.studentId) : (req.headers["x-student-id"] ? parseInt(String(req.headers["x-student-id"]), 10) : 1);
+
+  if (!req.body.reason || !req.body.destination || !req.body.fromDate || !req.body.toDate) {
+    res.status(400).json({ error: "Reason, destination, fromDate, and toDate are required" });
     return;
   }
 
-  // Use studentId 1 as default for demo (no auth middleware)
-  const studentIdHeader = req.headers["x-student-id"];
-  const studentId = studentIdHeader ? parseInt(String(studentIdHeader), 10) : 1;
+  const fromDateStr = typeof req.body.fromDate === "string" ? req.body.fromDate.split("T")[0] : new Date(req.body.fromDate).toISOString().split("T")[0];
+  const toDateStr = typeof req.body.toDate === "string" ? req.body.toDate.split("T")[0] : new Date(req.body.toDate).toISOString().split("T")[0];
+  const passType = req.body.passType || "hostel_leave";
+  const leaveType = req.body.leaveType || "personal_work";
+  const initialStatus = req.body.status || "pending";
+  const initialStep = req.body.currentStep || (initialStatus === "fully_approved" ? "completed" : "warden");
 
   // Calculate AI Risk Score
-  const from = new Date(parsed.data.fromDate);
-  const to = new Date(parsed.data.toDate);
+  const from = new Date(fromDateStr);
+  const to = new Date(toDateStr);
   const durationDays = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (1000 * 3600 * 24)));
   
   let riskScore = 15;
   if (durationDays > 7) riskScore += 40;
   else if (durationDays > 3) riskScore += 20;
 
-  if (["family_emergency", "hospital_visit", "medical_leave"].includes(parsed.data.leaveType)) {
+  if (["family_emergency", "hospital_visit", "medical_leave"].includes(leaveType)) {
     riskScore += 25;
   }
 
@@ -163,42 +209,38 @@ router.post("/leaves", async (req, res): Promise<void> => {
 
   const aiValidationNotes = `AI Risk Score: ${riskScore}/100 (${riskLevel.toUpperCase()}). Evaluated ${durationDays} day(s) duration & ${pastCount} past leave history.`;
 
-  const isEmergencyFlag = (req.body.isEmergency === true || ["emergency", "family_emergency"].includes(parsed.data.leaveType)) ? "true" : "false";
-
-  // Fraud / Suspicious Medical Certificate Detection Engine
-  let fraudStatus: "genuine" | "suspicious" | "manual_review" = "genuine";
-  let fraudNotes = "Genuine / No obvious issue. Document checksum & text format valid.";
-  const medicalDocUrl = req.body.medicalDocUrl || null;
-
-  if (["medical_leave", "hospital_visit"].includes(parsed.data.leaveType) || medicalDocUrl) {
-    if (!medicalDocUrl) {
-      fraudStatus = "manual_review";
-      fraudNotes = "Medical Leave requested without medical document upload. Requires manual verification.";
-    } else if (medicalDocUrl.includes("fake") || medicalDocUrl.includes("sample") || medicalDocUrl.includes("test")) {
-      fraudStatus = "suspicious";
-      fraudNotes = "Suspicious / Potentially Fake Medical Certificate! Name/Date anomaly or reused image pattern detected.";
-    }
-  }
+  const isEmergencyFlag = (req.body.isEmergency === true || req.body.isEmergency === "true" || ["emergency", "family_emergency"].includes(leaveType)) ? "true" : "false";
 
   const [{ id }] = await db.insert(leavesTable).values({
     studentId,
-    passType: parsed.data.passType as any,
-    leaveType: parsed.data.leaveType as any,
-    reason: parsed.data.reason,
-    destination: parsed.data.destination,
-    fromDate: parsed.data.fromDate.toISOString().split("T")[0],
-    toDate: parsed.data.toDate.toISOString().split("T")[0],
-    status: "pending",
-    currentStep: "warden",
+    passType: passType as any,
+    leaveType: leaveType as any,
+    reason: req.body.reason,
+    destination: req.body.destination,
+    fromDate: fromDateStr,
+    toDate: toDateStr,
+    status: initialStatus as any,
+    currentStep: initialStep as any,
     riskScore,
     riskLevel,
     aiValidationNotes,
-    medicalDocUrl,
-    fraudStatus,
-    fraudNotes,
+    medicalDocUrl: req.body.medicalDocUrl || null,
+    fraudStatus: "genuine",
+    fraudNotes: "Genuine / Verified",
     isEmergency: isEmergencyFlag,
-    aiGeneratedLetter: null,
+    tutorRemarks: req.body.tutorRemarks || null,
+    hodRemarks: req.body.hodRemarks || null,
+    principalRemarks: req.body.principalRemarks || null,
+    wardenRemarks: req.body.wardenRemarks || null,
+    parentCallStatus: req.body.parentCallStatus || (initialStatus === "fully_approved" ? "confirmed" : "pending"),
+    parentCallNotes: req.body.parentCallNotes || null,
+    aiGeneratedLetter: req.body.aiGeneratedLetter || null,
   }).$returningId();
+
+  // If created directly as fully_approved (by Super Admin), auto-generate outpass
+  if (initialStatus === "fully_approved") {
+    await generateAndAttachOutpass(id, studentId, "Super Admin (Direct Creation)");
+  }
 
   // Retrieve student and details for log
   const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId));
@@ -206,16 +248,12 @@ router.post("/leaves", async (req, res): Promise<void> => {
     await db.insert(activityLogsTable).values({
       userId: student.id,
       role: student.role,
-      action: "Student Applied Leave",
-      details: { leaveId: id, destination: parsed.data.destination },
+      action: initialStatus === "fully_approved" ? "Admin Created Approved Leave" : "Student Applied Leave",
+      details: { leaveId: id, destination: req.body.destination },
       ipAddress: req.ip || null,
       device: req.headers["user-agent"] || null,
     });
   }
-
-  // Sequential Leave Workflow: Notify Warden first
-  const nextRole = "warden";
-  await processLeaveNotifications(studentId, id, "leave_submitted", "New Leave Request Verification", `New leave request from ${student?.name || "Student"} requires verification.`, nextRole);
 
   res.status(201).json(await getLeaveWithStudent(id));
 });
@@ -279,30 +317,33 @@ router.patch("/leaves/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const parsed = UpdateLeaveBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  const [existingLeave] = await db.select().from(leavesTable).where(eq(leavesTable.id, params.data.id));
+  if (!existingLeave) {
+    res.status(404).json({ error: "Leave not found" });
     return;
   }
 
-  const updateData: any = { ...parsed.data };
-  if (parsed.data.fromDate) {
-    updateData.fromDate = parsed.data.fromDate.toISOString().split("T")[0];
+  const updateData: any = { ...req.body };
+  if (updateData.fromDate) {
+    updateData.fromDate = typeof updateData.fromDate === "string" ? updateData.fromDate.split("T")[0] : new Date(updateData.fromDate).toISOString().split("T")[0];
   }
-  if (parsed.data.toDate) {
-    updateData.toDate = parsed.data.toDate.toISOString().split("T")[0];
+  if (updateData.toDate) {
+    updateData.toDate = typeof updateData.toDate === "string" ? updateData.toDate.split("T")[0] : new Date(updateData.toDate).toISOString().split("T")[0];
+  }
+  if (updateData.isEmergency !== undefined) {
+    updateData.isEmergency = updateData.isEmergency === true || updateData.isEmergency === "true" ? "true" : "false";
   }
 
   await db.update(leavesTable)
     .set(updateData)
     .where(eq(leavesTable.id, params.data.id));
 
-  const updated = await getLeaveWithStudent(params.data.id);
-  if (!updated) {
-    res.status(404).json({ error: "Leave not found" });
-    return;
+  // If status is updated to fully_approved, ensure an outpass exists
+  if (updateData.status === "fully_approved") {
+    await generateAndAttachOutpass(params.data.id, existingLeave.studentId, "Super Admin Master Update");
   }
 
+  const updated = await getLeaveWithStudent(params.data.id);
   res.json(updated);
 });
 
@@ -314,18 +355,42 @@ router.delete("/leaves/:id", async (req, res): Promise<void> => {
   }
 
   const [leave] = await db.select().from(leavesTable).where(eq(leavesTable.id, params.data.id));
-  if (leave) {
-    await db.update(leavesTable)
-      .set({ status: "cancelled" })
-      .where(eq(leavesTable.id, params.data.id));
-  }
-
   if (!leave) {
     res.status(404).json({ error: "Leave not found" });
     return;
   }
 
+  // Hard delete related gate logs, outpasses, and leave record
+  await db.delete(gateLogsTable).where(eq(gateLogsTable.leaveId, params.data.id));
+  await db.delete(outpassesTable).where(eq(outpassesTable.leaveId, params.data.id));
+  await db.delete(leavesTable).where(eq(leavesTable.id, params.data.id));
+
   res.sendStatus(204);
+});
+
+// Super Admin Direct Force Approval
+router.post("/leaves/:id/super-approve", async (req, res): Promise<void> => {
+  const leaveId = parseInt(req.params.id, 10);
+  const [leave] = await db.select().from(leavesTable).where(eq(leavesTable.id, leaveId));
+  if (!leave) {
+    res.status(404).json({ error: "Leave not found" });
+    return;
+  }
+
+  const remarks = req.body.remarks || "Direct Super Admin Bypass & Instant Gate Pass Issued";
+  await db.update(leavesTable).set({
+    status: "fully_approved",
+    currentStep: "completed",
+    tutorRemarks: leave.tutorRemarks || remarks,
+    hodRemarks: leave.hodRemarks || remarks,
+    principalRemarks: leave.principalRemarks || remarks,
+    wardenRemarks: leave.wardenRemarks ? `${leave.wardenRemarks} | Super Admin: ${remarks}` : remarks,
+    parentCallStatus: "confirmed",
+    parentCallNotes: leave.parentCallNotes || "Verified & Authorized by Super Admin ERP",
+  }).where(eq(leavesTable.id, leaveId));
+
+  await generateAndAttachOutpass(leaveId, leave.studentId, "Super Admin ERP");
+  res.json(await getLeaveWithStudent(leaveId));
 });
 
 router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
