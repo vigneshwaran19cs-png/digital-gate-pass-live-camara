@@ -19,8 +19,9 @@ import {
   Settings, Users, GraduationCap, BookOpen, Building2, Crown, Shield,
   ScanLine, Plus, Pencil, Trash2, Search, RefreshCw, CheckCircle2,
   Database, BarChart3, ChevronRight, Building, Hash, Phone, Mail,
-  UserCog, AlertTriangle, X,
+  UserCog, AlertTriangle, X, Image as ImageIcon, Sparkles, Lock, MapPin
 } from "lucide-react";
+import { CategorizedDepartmentSelect } from "@/components/CategorizedDepartmentSelect";
 import { format } from "date-fns";
 
 const fadeUp = {
@@ -54,9 +55,6 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-
-
-
 interface UserFormData {
   name: string;
   email: string;
@@ -66,16 +64,26 @@ interface UserFormData {
   classId: string;
   registerNumber: string;
   year: string;
+  hostelBlock: string;
   hostelRoom: string;
   parentPhone: string;
   parentName: string;
+  parentWhatsapp: string;
+  parentEmail: string;
+  address: string;
+  photoUrl: string;
+  idCardUrl: string;
+  attendancePercentage: string;
+  designation: string;
   password?: string;
 }
 
 const emptyForm: UserFormData = {
   name: "", email: "", phone: "", role: "student", departmentId: "", classId: "",
-  registerNumber: "", year: "1st Year", hostelRoom: "", parentPhone: "", parentName: "",
-  password: "",
+  registerNumber: "", year: "1st Year", hostelBlock: "Boys Hostel - Main Block", hostelRoom: "",
+  parentPhone: "", parentName: "", parentWhatsapp: "", parentEmail: "", address: "",
+  photoUrl: "/students/vimal_m.jpg", idCardUrl: "/students/id_card_sheet.jpg", attendancePercentage: "88",
+  designation: "", password: "password123",
 };
 
 export default function AdminDashboard() {
@@ -187,71 +195,110 @@ export default function AdminDashboard() {
       classId: u.classId?.toString() || "",
       registerNumber: u.registerNumber || "",
       year: u.year || "1st Year",
+      hostelBlock: u.hostelBlock || "Boys Hostel - Main Block",
       hostelRoom: u.hostelRoom || "",
       parentPhone: u.parentPhone || "",
       parentName: u.parentName || "",
+      parentWhatsapp: u.parentWhatsapp || "",
+      parentEmail: u.parentEmail || "",
+      address: u.address || "",
+      photoUrl: u.photoUrl || "/students/vimal_m.jpg",
+      idCardUrl: u.idCardUrl || "/students/id_card_sheet.jpg",
+      attendancePercentage: u.attendancePercentage?.toString() || "88",
+      designation: u.designation || "",
       password: ""
     });
     setShowEditModal(true);
   };
   const openDelete = (u: any) => { setSelectedUser(u); setShowDeleteConfirm(true); };
 
-  const handleAddSubmit = () => {
+  const handleAddSubmit = async () => {
     setIsSubmitting(true);
-    createUserMutation.mutate({
-      data: {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password || "password",
-        role: formData.role as any,
-        departmentId: formData.departmentId ? parseInt(formData.departmentId, 10) : undefined,
-        classId: formData.classId ? parseInt(formData.classId, 10) : undefined,
-        registerNumber: formData.registerNumber || undefined,
-        hostelRoom: formData.hostelRoom || undefined,
-        phone: formData.phone || undefined,
-        parentPhone: formData.parentPhone || undefined,
-        parentName: formData.parentName || undefined,
-      }
-    }, {
-      onSuccess: () => {
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password || "password123",
+          role: formData.role,
+          departmentId: formData.departmentId ? parseInt(formData.departmentId, 10) : undefined,
+          classId: formData.role === "student" && formData.classId ? parseInt(formData.classId, 10) : undefined,
+          registerNumber: formData.role === "student" ? (formData.registerNumber || undefined) : undefined,
+          hostelBlock: formData.role === "student" ? (formData.hostelBlock || undefined) : undefined,
+          hostelRoom: formData.role === "student" ? (formData.hostelRoom || undefined) : undefined,
+          phone: formData.phone || undefined,
+          parentPhone: formData.role === "student" ? (formData.parentPhone || undefined) : undefined,
+          parentName: formData.role === "student" ? (formData.parentName || undefined) : undefined,
+          parentWhatsapp: formData.role === "student" ? (formData.parentWhatsapp || undefined) : undefined,
+          parentEmail: formData.role === "student" ? (formData.parentEmail || undefined) : undefined,
+          address: formData.role === "student" ? (formData.address || undefined) : undefined,
+          photoUrl: formData.photoUrl || undefined,
+          idCardUrl: formData.idCardUrl || undefined,
+          attendancePercentage: formData.attendancePercentage ? parseInt(formData.attendancePercentage, 10) : 88,
+          designation: formData.role !== "student" ? (formData.designation || undefined) : undefined,
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
         setIsSubmitting(false);
         setShowAddModal(false);
-        toast({ title: `✅ User Created`, description: `${formData.name} (${formData.role}) has been added to the system.` });
+        toast({ title: `✅ User Created`, description: `${formData.name} (${formData.role}) has been added successfully.` });
         refetch();
-      },
-      onError: (err: any) => {
+      } else {
         setIsSubmitting(false);
-        toast({ title: `❌ Error`, description: err?.message || "Failed to create user.", variant: "destructive" });
+        toast({ title: `❌ Error`, description: data.error || "Failed to create user.", variant: "destructive" });
       }
-    });
+    } catch (err: any) {
+      setIsSubmitting(false);
+      toast({ title: `❌ Error`, description: err?.message || "Failed to create user.", variant: "destructive" });
+    }
   };
 
-  const handleEditSubmit = () => {
+  const handleEditSubmit = async () => {
     if (!selectedUser?.id) return;
     setIsSubmitting(true);
-    updateUserMutation.mutate({
-      id: selectedUser.id,
-      data: {
-        name: formData.name,
-        phone: formData.phone || undefined,
-        parentPhone: formData.parentPhone || undefined,
-        parentName: formData.parentName || undefined,
-        hostelRoom: formData.hostelRoom || undefined,
-        departmentId: formData.departmentId ? parseInt(formData.departmentId, 10) : undefined,
-        classId: formData.classId ? parseInt(formData.classId, 10) : undefined,
-      }
-    }, {
-      onSuccess: () => {
+    try {
+      const res = await fetch(`/api/users/${selectedUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || undefined,
+          role: formData.role,
+          departmentId: formData.departmentId ? parseInt(formData.departmentId, 10) : undefined,
+          classId: formData.role === "student" && formData.classId ? parseInt(formData.classId, 10) : undefined,
+          registerNumber: formData.role === "student" ? (formData.registerNumber || undefined) : undefined,
+          hostelBlock: formData.role === "student" ? (formData.hostelBlock || undefined) : undefined,
+          hostelRoom: formData.role === "student" ? (formData.hostelRoom || undefined) : undefined,
+          parentPhone: formData.role === "student" ? (formData.parentPhone || undefined) : undefined,
+          parentName: formData.role === "student" ? (formData.parentName || undefined) : undefined,
+          parentWhatsapp: formData.role === "student" ? (formData.parentWhatsapp || undefined) : undefined,
+          parentEmail: formData.role === "student" ? (formData.parentEmail || undefined) : undefined,
+          address: formData.role === "student" ? (formData.address || undefined) : undefined,
+          photoUrl: formData.photoUrl || undefined,
+          idCardUrl: formData.idCardUrl || undefined,
+          attendancePercentage: formData.attendancePercentage ? parseInt(formData.attendancePercentage, 10) : undefined,
+          designation: formData.role !== "student" ? (formData.designation || undefined) : undefined,
+          password: formData.password ? formData.password : undefined,
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
         setIsSubmitting(false);
         setShowEditModal(false);
         toast({ title: `✅ User Updated`, description: `${formData.name}'s information has been updated.` });
         refetch();
-      },
-      onError: (err: any) => {
+      } else {
         setIsSubmitting(false);
-        toast({ title: `❌ Error`, description: err?.message || "Failed to update user.", variant: "destructive" });
+        toast({ title: `❌ Error`, description: data.error || "Failed to update user.", variant: "destructive" });
       }
-    });
+    } catch (err: any) {
+      setIsSubmitting(false);
+      toast({ title: `❌ Error`, description: err?.message || "Failed to update user.", variant: "destructive" });
+    }
   };
 
   const handleDelete = () => {
@@ -781,92 +828,294 @@ export default function AdminDashboard() {
   );
 }
 
-function UserForm({ formData, updateForm, isEdit = false }: { formData: UserFormData; updateForm: (field: keyof UserFormData, value: string) => void; isEdit?: boolean }) {
-  const { data: departmentsRaw = [] } = useListDepartments();
+function UserForm({ formData, updateForm, isEdit = false }: {
+  formData: UserFormData;
+  updateForm: (field: keyof UserFormData, value: string) => void;
+  isEdit?: boolean;
+}) {
   const { data: classesRaw = [] } = useListClasses();
-  const depList = departmentsRaw as any[];
   const clsList = classesRaw as any[];
   const filteredClasses = formData.departmentId ? clsList.filter(c => c.departmentId === parseInt(formData.departmentId, 10)) : [];
 
   const isStudent = formData.role === "student";
+
+  const PRESET_PHOTOS = [
+    { label: "Vimal M (Auto)", url: "/students/vimal_m.jpg" },
+    { label: "Azhagesan S (Mech)", url: "/students/azhagesan_s.jpg" },
+    { label: "Chinraj M (Mech)", url: "/students/chinraj_m.jpg" },
+    { label: "Karthick Rajan (Auto)", url: "/students/karthick_rajan_s.jpg" },
+    { label: "Kavin Kaarthik (Auto)", url: "/students/kavin_kaarthik_m.jpg" },
+    { label: "Female Student", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400" },
+  ];
+
+  const applyQuickTemplate = (type: "student_eng" | "student_poly" | "student_pharm" | "faculty") => {
+    if (type === "student_eng") {
+      updateForm("role", "student");
+      updateForm("hostelBlock", "Boys Hostel - Main Block");
+      updateForm("hostelRoom", "A-204");
+      updateForm("attendancePercentage", "92");
+      updateForm("year", "3rd Year");
+    } else if (type === "student_poly") {
+      updateForm("role", "student");
+      updateForm("hostelBlock", "Polytechnic Hostel Block");
+      updateForm("hostelRoom", "P-105");
+      updateForm("attendancePercentage", "89");
+      updateForm("year", "2nd Year");
+    } else if (type === "student_pharm") {
+      updateForm("role", "student");
+      updateForm("hostelBlock", "Pharmacy Hostel Block");
+      updateForm("hostelRoom", "PH-302");
+      updateForm("attendancePercentage", "94");
+      updateForm("year", "4th Year");
+    } else if (type === "faculty") {
+      updateForm("role", "tutor");
+      updateForm("designation", "Assistant Professor");
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
-          <Label>Role *</Label>
-          <Select value={formData.role} onValueChange={v => updateForm("role", v)}>
-            <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {ROLE_OPTIONS.map(r => {
-                const Icon = r.icon;
-                return (
-                  <SelectItem key={r.value} value={r.value}>
-                    <div className="flex items-center gap-2"><Icon className={`w-4 h-4 ${r.color}`} />{r.label}</div>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+      {/* Quick Fill Templates */}
+      {!isEdit && (
+        <div className="p-2.5 bg-blue-50/70 border border-blue-100 rounded-xl flex items-center justify-between flex-wrap gap-2">
+          <div className="text-xs font-semibold text-blue-900 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-blue-600" /> Quick Templates:
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] bg-white border-blue-200 text-blue-800 hover:bg-blue-100"
+              onClick={() => applyQuickTemplate("student_eng")}
+            >
+              🎓 Engineering Student
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] bg-white border-blue-200 text-blue-800 hover:bg-blue-100"
+              onClick={() => applyQuickTemplate("student_pharm")}
+            >
+              💊 Pharmacy Student
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] bg-white border-blue-200 text-blue-800 hover:bg-blue-100"
+              onClick={() => applyQuickTemplate("student_poly")}
+            >
+              🔧 Polytechnic Student
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] bg-white border-blue-200 text-blue-800 hover:bg-blue-100"
+              onClick={() => applyQuickTemplate("faculty")}
+            >
+              👨‍🏫 Faculty / Staff
+            </Button>
+          </div>
         </div>
-        <div>
-          <Label>Full Name *</Label>
-          <Input className="mt-1.5" placeholder="e.g. Rajan Kumar" value={formData.name} onChange={e => updateForm("name", e.target.value)} />
+      )}
+
+      {/* Profile Photo Section */}
+      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+        <Label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+          <ImageIcon className="w-4 h-4 text-blue-600" /> Profile Photo & Live Preview
+        </Label>
+        <div className="flex items-center gap-3">
+          {formData.photoUrl ? (
+            <img
+              src={formData.photoUrl}
+              alt="Avatar Preview"
+              className="w-14 h-14 rounded-xl object-cover border-2 border-blue-500 shadow-sm bg-white shrink-0"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-xl border border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400 bg-white shrink-0">
+              No Photo
+            </div>
+          )}
+          <div className="flex-1 space-y-1">
+            <Input
+              placeholder="Photo URL (e.g. /students/vimal_m.jpg or custom link)"
+              value={formData.photoUrl}
+              onChange={e => updateForm("photoUrl", e.target.value)}
+              className="text-xs h-8"
+            />
+            <div className="flex gap-1 flex-wrap">
+              {PRESET_PHOTOS.map(p => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => updateForm("photoUrl", p.url)}
+                  className="text-[10px] px-2 py-0.5 bg-white border border-slate-200 hover:border-blue-400 rounded-md font-medium text-slate-700"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <div>
-          <Label>Email *</Label>
-          <Input className="mt-1.5" type="email" placeholder="e.g. rajan@jkkm.edu.in" value={formData.email} onChange={e => updateForm("email", e.target.value)} />
+      </div>
+
+      {/* Section 1: Identity & Credentials */}
+      <div className="p-3 bg-slate-50/50 border rounded-xl space-y-3">
+        <div className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+          <UserCog className="w-3.5 h-3.5 text-slate-600" /> 1. User Identity & Account
         </div>
-        <div>
-          <Label>{isEdit ? "New Password" : "Password *"}</Label>
-          <Input className="mt-1.5" type="password" placeholder={isEdit ? "Leave blank to keep unchanged" : "Set user password"} value={formData.password || ""} onChange={e => updateForm("password", e.target.value)} />
-        </div>
-        <div>
-          <Label>Phone Number</Label>
-          <Input className="mt-1.5" placeholder="e.g. 9876543210" value={formData.phone} onChange={e => updateForm("phone", e.target.value)} />
-        </div>
-        <div>
-          <Label>Department</Label>
-          <Select value={formData.departmentId} onValueChange={v => { updateForm("departmentId", v); updateForm("classId", ""); }}>
-            <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select Dept." /></SelectTrigger>
-            <SelectContent>
-              {depList.map(d => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        {isStudent && (
-          <>
-            <div>
-              <Label>Class</Label>
-              <Select value={formData.classId} onValueChange={v => updateForm("classId", v)}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select Class" /></SelectTrigger>
-                <SelectContent>
-                  {filteredClasses.map(c => (
-                    <SelectItem key={c.id} value={c.id.toString()}>
-                      {c.year} Year - Sec {c.section}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs font-semibold text-slate-600">Role *</Label>
+            <Select value={formData.role} onValueChange={v => updateForm("role", v)}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ROLE_OPTIONS.map(r => {
+                  const Icon = r.icon;
+                  return (
+                    <SelectItem key={r.value} value={r.value}>
+                      <div className="flex items-center gap-2"><Icon className={`w-4 h-4 ${r.color}`} />{r.label}</div>
                     </SelectItem>
-                  ))}
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold text-slate-600">Full Name *</Label>
+            <Input className="mt-1" placeholder="e.g. Vimal M" value={formData.name} onChange={e => updateForm("name", e.target.value)} />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold text-slate-600">Email Address *</Label>
+            <Input className="mt-1" type="email" placeholder="e.g. vimal@jkkm.edu.in" value={formData.email} onChange={e => updateForm("email", e.target.value)} />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold text-slate-600">{isEdit ? "Change Password" : "Password *"}</Label>
+            <Input className="mt-1" type="password" placeholder={isEdit ? "Leave blank to keep unchanged" : "Set password"} value={formData.password || ""} onChange={e => updateForm("password", e.target.value)} />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold text-slate-600">Phone Number</Label>
+            <Input className="mt-1" placeholder="e.g. 9876543210" value={formData.phone} onChange={e => updateForm("phone", e.target.value)} />
+          </div>
+
+          {!isStudent && (
+            <div>
+              <Label className="text-xs font-semibold text-slate-600">Designation / Post</Label>
+              <Input className="mt-1" placeholder="e.g. Assistant Professor / Head of Dept" value={formData.designation} onChange={e => updateForm("designation", e.target.value)} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Section 2: College & Categorized Department Selection */}
+      <div className="p-3 bg-white border border-blue-100 rounded-xl space-y-3 shadow-xs">
+        <div className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center gap-1.5">
+          <GraduationCap className="w-3.5 h-3.5 text-blue-600" /> 2. College & Department Selection
+        </div>
+
+        <CategorizedDepartmentSelect
+          value={formData.departmentId}
+          onChange={(deptId) => {
+            updateForm("departmentId", deptId);
+            updateForm("classId", "");
+          }}
+          label="College Institution & Academic Branch"
+        />
+
+        {isStudent && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+            <div>
+              <Label className="text-xs font-semibold text-slate-600">Class & Year Section</Label>
+              <Select value={formData.classId} onValueChange={v => updateForm("classId", v)}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select Class Section" /></SelectTrigger>
+                <SelectContent>
+                  {filteredClasses.length > 0 ? (
+                    filteredClasses.map(c => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.year} Year - Section {c.section}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      {formData.departmentId ? "No classes registered for dept" : "Choose department first"}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
+
             <div>
-              <Label>Register Number</Label>
-              <Input className="mt-1.5" placeholder="e.g. 22CSE001" value={formData.registerNumber} onChange={e => updateForm("registerNumber", e.target.value)} />
+              <Label className="text-xs font-semibold text-slate-600">Register Number (Barcode)</Label>
+              <Input className="mt-1" placeholder="e.g. 731225ME029" value={formData.registerNumber} onChange={e => updateForm("registerNumber", e.target.value)} />
             </div>
+
             <div>
-              <Label>Hostel Room</Label>
-              <Input className="mt-1.5" placeholder="e.g. A-204" value={formData.hostelRoom} onChange={e => updateForm("hostelRoom", e.target.value)} />
+              <Label className="text-xs font-semibold text-slate-600">Attendance Percentage (%)</Label>
+              <Input
+                className="mt-1"
+                type="number"
+                min="0"
+                max="100"
+                placeholder="e.g. 92"
+                value={formData.attendancePercentage}
+                onChange={e => updateForm("attendancePercentage", e.target.value)}
+              />
             </div>
-            <div>
-              <Label>Parent Name</Label>
-              <Input className="mt-1.5" placeholder="Parent/Guardian name" value={formData.parentName} onChange={e => updateForm("parentName", e.target.value)} />
-            </div>
-            <div>
-              <Label>Parent Phone</Label>
-              <Input className="mt-1.5" placeholder="Parent/Guardian phone" value={formData.parentPhone} onChange={e => updateForm("parentPhone", e.target.value)} />
-            </div>
-          </>
+          </div>
         )}
       </div>
+
+      {/* Section 3: Hostel Stay & Parents (If Student) */}
+      {isStudent && (
+        <>
+          <div className="p-3 bg-slate-50/50 border rounded-xl space-y-3">
+            <div className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+              <Building className="w-3.5 h-3.5 text-cyan-600" /> 3. Hostel Stay & Room
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Hostel Block</Label>
+                <Input className="mt-1" placeholder="e.g. Boys Hostel - Main Block" value={formData.hostelBlock} onChange={e => updateForm("hostelBlock", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Hostel Room No.</Label>
+                <Input className="mt-1" placeholder="e.g. A-204 (Bed 1)" value={formData.hostelRoom} onChange={e => updateForm("hostelRoom", e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-50/50 border rounded-xl space-y-3">
+            <div className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5 text-emerald-600" /> 4. Parent / Emergency Contact
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Parent / Guardian Name</Label>
+                <Input className="mt-1" placeholder="Parent full name" value={formData.parentName} onChange={e => updateForm("parentName", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Parent Phone (SMS Alerts)</Label>
+                <Input className="mt-1" placeholder="For SMS notifications" value={formData.parentPhone} onChange={e => updateForm("parentPhone", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Parent WhatsApp</Label>
+                <Input className="mt-1" placeholder="For WhatsApp notifications" value={formData.parentWhatsapp} onChange={e => updateForm("parentWhatsapp", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Home Address</Label>
+                <Input className="mt-1" placeholder="Residential town / city address" value={formData.address} onChange={e => updateForm("address", e.target.value)} />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

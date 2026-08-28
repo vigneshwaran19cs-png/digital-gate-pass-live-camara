@@ -15,8 +15,9 @@ import {
   GraduationCap, BookOpen, Building2, Crown, Shield, ScanLine, Settings,
   Plus, Pencil, Trash2, Search, RefreshCw, Phone, Mail, Hash, Download,
   User, UserCog, Filter, AlertTriangle, Calendar, Clock, FileText, CheckCircle2,
-  QrCode, Sparkles, ExternalLink, Image as ImageIcon, Eye, ArrowRight
+  QrCode, Sparkles, ExternalLink, Image as ImageIcon, Eye, ArrowRight, Building, Lock
 } from "lucide-react";
+import { CategorizedDepartmentSelect } from "@/components/CategorizedDepartmentSelect";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -857,9 +858,7 @@ function UserForm({ formData, updateForm, isEdit = false }: {
   updateForm: (field: keyof UserFormData, value: string) => void;
   isEdit?: boolean;
 }) {
-  const { data: departments = [] } = useListDepartments();
   const { data: classes = [] } = useListClasses();
-  const depList = departments as any[];
   const clsList = classes as any[];
 
   const filteredClasses = formData.departmentId
@@ -869,45 +868,113 @@ function UserForm({ formData, updateForm, isEdit = false }: {
   const isStudent = formData.role === "student";
 
   const PRESET_PHOTOS = [
-    { label: "Vimal M", url: "/students/vimal_m.jpg" },
-    { label: "Azhagesan S", url: "/students/azhagesan_s.jpg" },
-    { label: "Chinraj M", url: "/students/chinraj_m.jpg" },
-    { label: "Karthick Rajan", url: "/students/karthick_rajan_s.jpg" },
-    { label: "Kavin Kaarthik", url: "/students/kavin_kaarthik_m.jpg" },
+    { label: "Vimal M (Auto)", url: "/students/vimal_m.jpg" },
+    { label: "Azhagesan S (Mech)", url: "/students/azhagesan_s.jpg" },
+    { label: "Chinraj M (Mech)", url: "/students/chinraj_m.jpg" },
+    { label: "Karthick Rajan (Auto)", url: "/students/karthick_rajan_s.jpg" },
+    { label: "Kavin Kaarthik (Auto)", url: "/students/kavin_kaarthik_m.jpg" },
     { label: "Female Student", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400" },
   ];
 
+  const applyQuickTemplate = (type: "student_eng" | "student_poly" | "student_pharm" | "faculty") => {
+    if (type === "student_eng") {
+      updateForm("role", "student");
+      updateForm("hostelBlock", "Boys Hostel - Main Block");
+      updateForm("hostelRoom", "A-204");
+      updateForm("attendancePercentage", "92");
+      updateForm("year", "III");
+    } else if (type === "student_poly") {
+      updateForm("role", "student");
+      updateForm("hostelBlock", "Polytechnic Hostel Block");
+      updateForm("hostelRoom", "P-105");
+      updateForm("attendancePercentage", "89");
+      updateForm("year", "II");
+    } else if (type === "student_pharm") {
+      updateForm("role", "student");
+      updateForm("hostelBlock", "Pharmacy Hostel Block");
+      updateForm("hostelRoom", "PH-302");
+      updateForm("attendancePercentage", "94");
+      updateForm("year", "IV");
+    } else if (type === "faculty") {
+      updateForm("role", "tutor");
+      updateForm("designation", "Assistant Professor");
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* Profile Photo & ID Card Management Section */}
-      <div className="p-4 bg-slate-50 border rounded-xl space-y-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-            <ImageIcon className="w-4 h-4 text-blue-600" /> Profile Photo & Image Permissions
-          </Label>
+      {/* Quick Fill Templates */}
+      {!isEdit && (
+        <div className="p-2.5 bg-blue-50/70 border border-blue-100 rounded-xl flex items-center justify-between flex-wrap gap-2">
+          <div className="text-xs font-semibold text-blue-900 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-blue-600" /> Quick Templates:
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] bg-white border-blue-200 text-blue-800 hover:bg-blue-100"
+              onClick={() => applyQuickTemplate("student_eng")}
+            >
+              🎓 Engineering Student
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] bg-white border-blue-200 text-blue-800 hover:bg-blue-100"
+              onClick={() => applyQuickTemplate("student_pharm")}
+            >
+              💊 Pharmacy Student
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] bg-white border-blue-200 text-blue-800 hover:bg-blue-100"
+              onClick={() => applyQuickTemplate("student_poly")}
+            >
+              🔧 Polytechnic Student
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] bg-white border-blue-200 text-blue-800 hover:bg-blue-100"
+              onClick={() => applyQuickTemplate("faculty")}
+            >
+              👨‍🏫 Faculty / Staff
+            </Button>
+          </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-4">
+      {/* Profile Photo Section */}
+      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+        <Label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+          <ImageIcon className="w-4 h-4 text-blue-600" /> Profile Photo & Live Preview
+        </Label>
+        <div className="flex items-center gap-3">
           {formData.photoUrl ? (
             <img
               src={formData.photoUrl}
-              alt="Preview"
-              className="w-16 h-16 rounded-xl object-cover border-2 border-blue-500 shadow-sm bg-white shrink-0"
+              alt="Avatar Preview"
+              className="w-14 h-14 rounded-xl object-cover border-2 border-blue-500 shadow-sm bg-white shrink-0"
             />
           ) : (
-            <div className="w-16 h-16 rounded-xl border border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400 bg-white shrink-0">
+            <div className="w-14 h-14 rounded-xl border border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400 bg-white shrink-0">
               No Photo
             </div>
           )}
-
-          <div className="flex-1 space-y-1.5">
+          <div className="flex-1 space-y-1">
             <Input
-              placeholder="Enter Profile Photo URL (e.g. /students/vimal_m.jpg or web URL)"
+              placeholder="Photo URL (e.g. /students/vimal_m.jpg or web URL)"
               value={formData.photoUrl}
               onChange={e => updateForm("photoUrl", e.target.value)}
-              className="text-xs"
+              className="text-xs h-8"
             />
-            <div className="flex gap-1.5 flex-wrap">
+            <div className="flex gap-1 flex-wrap">
               {PRESET_PHOTOS.map(p => (
                 <button
                   key={p.label}
@@ -923,79 +990,104 @@ function UserForm({ formData, updateForm, isEdit = false }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="col-span-2 md:col-span-1">
-          <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Role *</Label>
-          <Select value={formData.role} onValueChange={v => updateForm("role", v)}>
-            <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {ROLE_TABS.filter(r => r.value !== "all").map(r => {
-                const Icon = r.icon;
-                return (
-                  <SelectItem key={r.value} value={r.value}>
-                    <div className="flex items-center gap-2"><Icon className={`w-4 h-4 ${r.color}`} />{r.label}</div>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+      {/* Section 1: Identity & Credentials */}
+      <div className="p-3 bg-slate-50/50 border rounded-xl space-y-3">
+        <div className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+          <UserCog className="w-3.5 h-3.5 text-slate-600" /> 1. User Identity & Account
         </div>
-
-        <div>
-          <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Full Name *</Label>
-          <Input className="mt-1.5" placeholder="e.g. Rajan Kumar" value={formData.name} onChange={e => updateForm("name", e.target.value)} />
-        </div>
-
-        <div>
-          <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Email Address *</Label>
-          <Input className="mt-1.5" type="email" placeholder="e.g. rajan@jkkm.edu.in" value={formData.email} onChange={e => updateForm("email", e.target.value)} />
-        </div>
-
-        <div>
-          <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{isEdit ? "Change Password" : "Password *"}</Label>
-          <Input className="mt-1.5" type="password" placeholder={isEdit ? "Leave blank to keep unchanged" : "Set user password"} value={formData.password || ""} onChange={e => updateForm("password", e.target.value)} />
-        </div>
-
-        <div>
-          <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Phone Number</Label>
-          <Input className="mt-1.5" placeholder="e.g. 9876543210" value={formData.phone} onChange={e => updateForm("phone", e.target.value)} />
-        </div>
-
-        <div>
-          <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Department</Label>
-          <Select value={formData.departmentId} onValueChange={v => { updateForm("departmentId", v); updateForm("classId", ""); }}>
-            <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select Department" /></SelectTrigger>
-            <SelectContent>
-              {depList.map((d: any) => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {isStudent ? (
-          <>
-            <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Class</Label>
-              <Select value={formData.classId} onValueChange={v => updateForm("classId", v)}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select Class" /></SelectTrigger>
-                <SelectContent>
-                  {filteredClasses.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>
-                      {c.year} Year Section {c.section}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs font-semibold text-slate-600">Role *</Label>
+            <Select value={formData.role} onValueChange={v => updateForm("role", v)}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ROLE_TABS.filter(r => r.value !== "all").map(r => {
+                  const Icon = r.icon;
+                  return (
+                    <SelectItem key={r.value} value={r.value}>
+                      <div className="flex items-center gap-2"><Icon className={`w-4 h-4 ${r.color}`} />{r.label}</div>
                     </SelectItem>
-                  ))}
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold text-slate-600">Full Name *</Label>
+            <Input className="mt-1" placeholder="e.g. Vimal M" value={formData.name} onChange={e => updateForm("name", e.target.value)} />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold text-slate-600">Email Address *</Label>
+            <Input className="mt-1" type="email" placeholder="e.g. vimal@jkkm.edu.in" value={formData.email} onChange={e => updateForm("email", e.target.value)} />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold text-slate-600">{isEdit ? "Change Password" : "Password *"}</Label>
+            <Input className="mt-1" type="password" placeholder={isEdit ? "Leave blank to keep unchanged" : "Set password"} value={formData.password || ""} onChange={e => updateForm("password", e.target.value)} />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold text-slate-600">Phone Number</Label>
+            <Input className="mt-1" placeholder="e.g. 9876543210" value={formData.phone} onChange={e => updateForm("phone", e.target.value)} />
+          </div>
+
+          {!isStudent && (
+            <div>
+              <Label className="text-xs font-semibold text-slate-600">Designation / Post</Label>
+              <Input className="mt-1" placeholder="e.g. Assistant Professor / Head of Dept" value={formData.designation} onChange={e => updateForm("designation", e.target.value)} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Section 2: College & Categorized Department Selection */}
+      <div className="p-3 bg-white border border-blue-100 rounded-xl space-y-3 shadow-xs">
+        <div className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center gap-1.5">
+          <GraduationCap className="w-3.5 h-3.5 text-blue-600" /> 2. College & Department Selection
+        </div>
+
+        <CategorizedDepartmentSelect
+          value={formData.departmentId}
+          onChange={(deptId) => {
+            updateForm("departmentId", deptId);
+            updateForm("classId", "");
+          }}
+          label="College Institution & Academic Branch"
+        />
+
+        {isStudent && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+            <div>
+              <Label className="text-xs font-semibold text-slate-600">Class & Year Section</Label>
+              <Select value={formData.classId} onValueChange={v => updateForm("classId", v)}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select Class Section" /></SelectTrigger>
+                <SelectContent>
+                  {filteredClasses.length > 0 ? (
+                    filteredClasses.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.year} Year - Section {c.section}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      {formData.departmentId ? "No classes registered for dept" : "Choose department first"}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Register Number (Barcode)</Label>
-              <Input className="mt-1.5" placeholder="e.g. 731225ME029" value={formData.registerNumber} onChange={e => updateForm("registerNumber", e.target.value)} />
+              <Label className="text-xs font-semibold text-slate-600">Register Number (Barcode)</Label>
+              <Input className="mt-1" placeholder="e.g. 731225ME029" value={formData.registerNumber} onChange={e => updateForm("registerNumber", e.target.value)} />
             </div>
 
             <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Attendance Percentage (%)</Label>
+              <Label className="text-xs font-semibold text-slate-600">Attendance Percentage (%)</Label>
               <Input
-                className="mt-1.5"
+                className="mt-1"
                 type="number"
                 min="0"
                 max="100"
@@ -1004,59 +1096,54 @@ function UserForm({ formData, updateForm, isEdit = false }: {
                 onChange={e => updateForm("attendancePercentage", e.target.value)}
               />
             </div>
-
-            <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">ID Card Image URL</Label>
-              <Input
-                className="mt-1.5"
-                placeholder="/students/id_card_sheet.jpg"
-                value={formData.idCardUrl}
-                onChange={e => updateForm("idCardUrl", e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Hostel Block</Label>
-              <Input className="mt-1.5" placeholder="e.g. Boys Hostel - A Block" value={formData.hostelBlock} onChange={e => updateForm("hostelBlock", e.target.value)} />
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Hostel Room</Label>
-              <Input className="mt-1.5" placeholder="e.g. A-204 (Bed 1)" value={formData.hostelRoom} onChange={e => updateForm("hostelRoom", e.target.value)} />
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Parent / Guardian Name</Label>
-              <Input className="mt-1.5" placeholder="Parent/Guardian full name" value={formData.parentName} onChange={e => updateForm("parentName", e.target.value)} />
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Parent Phone (SMS)</Label>
-              <Input className="mt-1.5" placeholder="For SMS notifications" value={formData.parentPhone} onChange={e => updateForm("parentPhone", e.target.value)} />
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Parent WhatsApp</Label>
-              <Input className="mt-1.5" placeholder="For WhatsApp notifications" value={formData.parentWhatsapp} onChange={e => updateForm("parentWhatsapp", e.target.value)} />
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Parent Email (Optional)</Label>
-              <Input className="mt-1.5" type="email" placeholder="For email notifications" value={formData.parentEmail} onChange={e => updateForm("parentEmail", e.target.value)} />
-            </div>
-
-            <div className="col-span-2">
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Home Address</Label>
-              <Input className="mt-1.5" placeholder="Full residential address" value={formData.address} onChange={e => updateForm("address", e.target.value)} />
-            </div>
-          </>
-        ) : (
-          <div>
-            <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Designation</Label>
-            <Input className="mt-1.5" placeholder="e.g. Assistant Professor / Head of Department" value={formData.designation} onChange={e => updateForm("designation", e.target.value)} />
           </div>
         )}
       </div>
+
+      {/* Section 3: Hostel Stay & Parents (If Student) */}
+      {isStudent && (
+        <>
+          <div className="p-3 bg-slate-50/50 border rounded-xl space-y-3">
+            <div className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+              <Building className="w-3.5 h-3.5 text-cyan-600" /> 3. Hostel Stay & Room
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Hostel Block</Label>
+                <Input className="mt-1" placeholder="e.g. Boys Hostel - Main Block" value={formData.hostelBlock} onChange={e => updateForm("hostelBlock", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Hostel Room No.</Label>
+                <Input className="mt-1" placeholder="e.g. A-204 (Bed 1)" value={formData.hostelRoom} onChange={e => updateForm("hostelRoom", e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-50/50 border rounded-xl space-y-3">
+            <div className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5 text-emerald-600" /> 4. Parent / Emergency Contact
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Parent / Guardian Name</Label>
+                <Input className="mt-1" placeholder="Parent full name" value={formData.parentName} onChange={e => updateForm("parentName", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Parent Phone (SMS Alerts)</Label>
+                <Input className="mt-1" placeholder="For SMS notifications" value={formData.parentPhone} onChange={e => updateForm("parentPhone", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Parent WhatsApp</Label>
+                <Input className="mt-1" placeholder="For WhatsApp notifications" value={formData.parentWhatsapp} onChange={e => updateForm("parentWhatsapp", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Home Address</Label>
+                <Input className="mt-1" placeholder="Residential town / city address" value={formData.address} onChange={e => updateForm("address", e.target.value)} />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
