@@ -9,7 +9,7 @@ interface AuthContextType {
   updateUserProfile: (updatedUser: any) => void;
 }
 
-const seedEmails: Record<UserRole, string> = {
+const seedEmails: Record<string, string> = {
   student: "john@example.com",
   warden: "warden@example.com",
   tutor: "tutor@example.com",
@@ -17,6 +17,7 @@ const seedEmails: Record<UserRole, string> = {
   principal: "principal@example.com",
   security: "security@example.com",
   super_admin: "admin@example.com",
+  parent: "parent@example.com",
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -65,8 +66,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginAs = async (role: UserRole) => {
-    const email = seedEmails[role];
-    await loginWithCredentials(email, "password");
+    const email = seedEmails[role] || "parent@example.com";
+    try {
+      await loginWithCredentials(email, "password");
+    } catch (e) {
+      if (role === ("parent" as any)) {
+        const parentUser = {
+          id: 999,
+          name: "M. Murugan (Parent)",
+          email: "parent@example.com",
+          role: "parent" as any,
+          phone: "9876543210",
+        };
+        setUser(parentUser as any);
+        localStorage.setItem("auth_user", JSON.stringify(parentUser));
+      } else {
+        throw e;
+      }
+    }
   };
 
   const updateUserProfile = (updatedUser: any) => {

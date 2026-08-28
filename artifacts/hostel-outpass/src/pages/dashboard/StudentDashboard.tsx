@@ -12,6 +12,7 @@ import {
 import { format } from "date-fns";
 import { StudentProfilePhoto } from "@/components/StudentProfilePhoto";
 import { StudentProfileSetupModal } from "@/components/StudentProfileSetupModal";
+import { LiveStudentLocationTracker } from "@/components/LiveStudentLocationTracker";
 import { ForwardingStatusBadge } from "@/components/ForwardingStatusBadge";
 
 const fadeUp = {
@@ -197,6 +198,17 @@ export default function StudentDashboard() {
             </div>
           </div>
         </Link>
+      </motion.div>
+
+      {/* Live GPS Outpass Location Tracker (Student View with Privacy Control) */}
+      <motion.div custom={4.5} variants={fadeUp} initial="hidden" animate="show">
+        <LiveStudentLocationTracker
+          studentId={user?.id || 1}
+          studentName={user?.name || "Student"}
+          studentRegisterNumber={user?.registerNumber || ""}
+          destinationAddress={(user as any)?.address || "Erode / Salem, Tamil Nadu"}
+          isParentView={false}
+        />
       </motion.div>
 
       {/* Recent Leaves */}

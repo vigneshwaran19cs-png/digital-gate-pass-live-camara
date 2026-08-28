@@ -18,6 +18,7 @@ export const usersTable = mysqlTable("users", {
     "warden",
     "security",
     "super_admin",
+    "parent",
   ]).notNull(),
   
   // Common Fields
@@ -44,6 +45,7 @@ export const usersTable = mysqlTable("users", {
   idCardUrl: text("id_card_url"),
   attendancePercentage: int("attendance_percentage").default(87),
   collegeType: varchar("college_type", { length: 100 }).default("Engineering"),
+  isLocationSharingEnabled: mysqlEnum("is_location_sharing_enabled", ["true", "false"]).default("true"),
 
   photoUrl: text("photo_url"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),

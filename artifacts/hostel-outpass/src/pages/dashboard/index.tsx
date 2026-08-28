@@ -7,6 +7,7 @@ import PrincipalDashboard from "./PrincipalDashboard";
 import StudentDashboard from "./StudentDashboard";
 import WardenDashboard from "./WardenDashboard";
 import AdminDashboard from "./AdminDashboard";
+import ParentDashboard from "./ParentDashboard";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -26,6 +27,7 @@ export default function Dashboard() {
     case "principal": return <PrincipalDashboard />;
     case "warden": return <WardenDashboard />;
     case "super_admin": return <AdminDashboard />;
+    case "parent": return <ParentDashboard />;
     case "security": return null;
     default: return <StudentDashboard />;
   }

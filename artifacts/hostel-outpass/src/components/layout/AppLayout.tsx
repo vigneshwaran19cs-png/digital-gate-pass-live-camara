@@ -23,6 +23,7 @@ const ROLE_CONFIG: Record<string, {
   text: string; icon: React.ElementType; badge: string;
 }> = {
   student: { label: "Student", color: "from-blue-600 to-indigo-600", bg: "bg-blue-50", border: "border-blue-100", text: "text-blue-600", icon: GraduationCap, badge: "bg-blue-50 text-blue-700 border-blue-100" },
+  parent: { label: "Parent / Guardian", color: "from-purple-600 to-pink-600", bg: "bg-purple-50", border: "border-purple-100", text: "text-purple-600", icon: Users, badge: "bg-purple-50 text-purple-700 border-purple-100" },
   tutor: { label: "Tutor", color: "from-emerald-600 to-teal-600", bg: "bg-emerald-50", border: "border-emerald-100", text: "text-emerald-600", icon: BookOpen, badge: "bg-emerald-50 text-emerald-700 border-emerald-100" },
   hod: { label: "Head of Dept", color: "from-violet-600 to-indigo-600", bg: "bg-violet-50", border: "border-violet-100", text: "text-violet-600", icon: Building2, badge: "bg-violet-50 text-violet-700 border-violet-100" },
   principal: { label: "Principal", color: "from-amber-600 to-orange-600", bg: "bg-amber-50", border: "border-amber-100", text: "text-amber-600", icon: Crown, badge: "bg-amber-50 text-amber-700 border-amber-100" },

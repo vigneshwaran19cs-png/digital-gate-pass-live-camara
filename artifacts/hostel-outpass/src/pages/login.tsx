@@ -97,6 +97,19 @@ const ROLES = [
     border: "border-slate-100",
     text: "text-slate-600",
   },
+  {
+    id: "parent",
+    label: "Parent / Guardian",
+    subtitle: "Real-time live GPS tracking, outpass approvals & safe home arrival alerts.",
+    featuresCount: 6,
+    features: ["Live GPS Location Tracker", "Safe Home Arrival Confirmation", "Outpass & Leave History", "Warden / Tutor Direct Call", "Attendance % Tracking", "SMS / WhatsApp Notifications"],
+    icon: Building,
+    color: "from-purple-600 to-pink-600",
+    glow: "shadow-purple-500/10",
+    bg: "bg-purple-50",
+    border: "border-purple-100",
+    text: "text-purple-600",
+  },
 ];
 
 const container = {
