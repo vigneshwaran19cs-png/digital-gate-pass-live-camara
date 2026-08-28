@@ -37,6 +37,7 @@ const ROLE_OPTIONS = [
   { value: "warden", label: "Warden", icon: Shield, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100" },
   { value: "security", label: "Security Staff", icon: ScanLine, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
   { value: "super_admin", label: "Super Admin", icon: Settings, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" },
+  { value: "parent", label: "Parent / Guardian", icon: Users, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
 ];
 
 const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];

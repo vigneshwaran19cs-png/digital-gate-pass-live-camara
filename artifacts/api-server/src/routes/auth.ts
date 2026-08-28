@@ -66,7 +66,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   // Auto-register/provision missing users (e.g. real student register numbers like 731223149019)
   if (!user) {
     const lowerQuery = queryTerm.toLowerCase();
-    let role: "student" | "tutor" | "warden" | "hod" | "principal" | "security" | "super_admin" = "student";
+    let role: "student" | "tutor" | "warden" | "hod" | "principal" | "security" | "super_admin" | "parent" = "student";
     let userEmail = queryTerm.includes("@") ? queryTerm : `${queryTerm}@student.jkkm.ac.in`;
     let regNum: string | undefined = queryTerm.includes("@") ? undefined : queryTerm;
 
@@ -76,8 +76,9 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     else if (lowerQuery.includes("principal")) role = "principal";
     else if (lowerQuery.includes("security")) role = "security";
     else if (lowerQuery.includes("admin")) role = "super_admin";
+    else if (lowerQuery.includes("parent")) role = "parent";
 
-    const userName = regNum ? `Student (${regNum})` : `User ${queryTerm.split("@")[0]}`;
+    const userName = regNum ? `Student (${regNum})` : lowerQuery.includes("parent") ? `M. Murugan (Parent)` : `User ${queryTerm.split("@")[0]}`;
 
     try {
       await db.insert(usersTable).values({
@@ -100,6 +101,12 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     } catch (createErr) {
       logger.error({ createErr }, "Failed to auto-create user on login");
     }
+  }
+
+  // If user has parent in email/name but was previously saved as student, auto-correct to parent
+  if (user && (user.email?.toLowerCase().includes("parent") || user.name?.toLowerCase().includes("parent")) && user.role !== "parent") {
+    await db.update(usersTable).set({ role: "parent" as any }).where(eq(usersTable.id, user.id));
+    user.role = "parent";
   }
 
   const isValidPassword =

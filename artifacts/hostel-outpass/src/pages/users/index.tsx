@@ -33,6 +33,7 @@ const ROLE_TABS = [
   { value: "principal", label: "Principal", icon: Crown, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
   { value: "security", label: "Security", icon: ScanLine, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
   { value: "super_admin", label: "Admin", icon: Settings, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" },
+  { value: "parent", label: "Parents", icon: Users, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
 ];
 
 function getRoleConf(role: string) {
