@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useListLeaves, useGetStudentsOutside, getListLeavesQueryKey } from "@workspace/api-client-react";
@@ -6,34 +7,41 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import {
   GraduationCap, Clock, CheckCircle2, QrCode, PlusCircle,
-  FileText, Calendar, MapPin, ChevronRight, ArrowRight,
+  FileText, Calendar, MapPin, ChevronRight, ArrowRight, Pencil, AlertCircle, Sparkles
 } from "lucide-react";
 import { format } from "date-fns";
 import { StudentProfilePhoto } from "@/components/StudentProfilePhoto";
+import { StudentProfileSetupModal } from "@/components/StudentProfileSetupModal";
+import { ForwardingStatusBadge } from "@/components/ForwardingStatusBadge";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
   show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, type: "spring" as const, stiffness: 400, damping: 32 } }),
 };
 
-import { ForwardingStatusBadge } from "@/components/ForwardingStatusBadge";
-
 function StatusBadge({ status, currentStep, isEmergency }: { status: string; currentStep?: string; isEmergency?: boolean }) {
   return <ForwardingStatusBadge status={status} currentStep={currentStep} isEmergency={isEmergency} />;
 }
 
-const STEP_LABELS: Record<string, string> = {
-  warden: "Waiting: Warden Initial",
-  tutor: "Waiting: Tutor Verification",
-  hod: "Waiting: HOD Approval",
-  principal: "Waiting: Principal Approval",
-  warden_final: "Waiting: Warden Final Approval",
-  completed: "Outpass Ready",
-  rejected: "Rejected",
-};
-
 export default function StudentDashboard() {
   const { user } = useAuth();
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
+  // Check if profile has any missing vital fields
+  const isProfileIncomplete = (
+    !user?.registerNumber ||
+    !user?.departmentId ||
+    !(user as any)?.parentPhone ||
+    !(user as any)?.hostelRoom
+  );
+
+  useEffect(() => {
+    // Auto-prompt modal if critical profile data is missing
+    if (isProfileIncomplete) {
+      setShowProfileModal(true);
+    }
+  }, [isProfileIncomplete]);
+
   const { data: leavesData } = useListLeaves(
     { studentId: user?.id },
     { query: { queryKey: getListLeavesQueryKey({ studentId: user?.id }) } }
@@ -54,6 +62,31 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Profile Incomplete Banner */}
+      {isProfileIncomplete && (
+        <div className="p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-400/80 rounded-2xl flex items-center justify-between flex-wrap gap-3 shadow-sm animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg shrink-0">
+              ⚠️
+            </div>
+            <div>
+              <div className="font-bold text-amber-950 text-sm">Action Required: Complete Your Student Profile</div>
+              <div className="text-xs text-amber-900">
+                Please fill in your Department, Hostel Room, and Parent Phone to enable automated leave approvals & SMS alerts.
+              </div>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs gap-1.5 shadow-sm"
+            onClick={() => setShowProfileModal(true)}
+          >
+            <Pencil className="w-3.5 h-3.5" /> Fill Full Details Now
+          </Button>
+        </div>
+      )}
+
+      {/* Header Profile Card */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-4">
           <StudentProfilePhoto photoUrl={user?.photoUrl} name={user?.name} size="lg" className="shrink-0 shadow-sm" />
@@ -65,24 +98,43 @@ export default function StudentDashboard() {
               <span className="text-xs font-bold uppercase tracking-widest text-blue-600">Student Portal</span>
             </div>
             <h1 className="text-2xl font-heading font-bold">Welcome, {user?.name?.split(" ")[0]}</h1>
-            <p className="text-muted-foreground text-xs font-mono mt-0.5">Reg No: {user?.registerNumber || "STU001"} · III Year CSE A</p>
+            <p className="text-muted-foreground text-xs font-mono mt-0.5">
+              Reg No: <span className="font-bold text-slate-800 dark:text-slate-200">{user?.registerNumber || "Not Set"}</span> · Room <span className="font-bold text-slate-800 dark:text-slate-200">{(user as any)?.hostelRoom || "Not Set"}</span>
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 w-full sm:w-auto justify-around">
-          <div className="text-center px-2">
-            <div className="text-[10px] uppercase font-bold text-slate-500">Attendance</div>
-            <div className="text-lg font-extrabold text-emerald-600">{(user as any)?.attendancePercentage || 87}%</div>
-            <div className="text-[9px] text-muted-foreground">174 Days Present</div>
-          </div>
-          <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
-          <div className="text-center px-2">
-            <div className="text-[10px] uppercase font-bold text-slate-500">Leave Taken</div>
-            <div className="text-lg font-extrabold text-slate-800 dark:text-slate-200">{(leaves as any[]).length} Days</div>
-            <div className="text-[9px] text-muted-foreground">Academic Year 2026</div>
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100 text-xs font-semibold"
+            onClick={() => setShowProfileModal(true)}
+          >
+            <Pencil className="w-3.5 h-3.5" /> Edit / Update My Details
+          </Button>
+
+          <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="text-center px-2">
+              <div className="text-[10px] uppercase font-bold text-slate-500">Attendance</div>
+              <div className="text-lg font-extrabold text-emerald-600">{(user as any)?.attendancePercentage || 87}%</div>
+              <div className="text-[9px] text-muted-foreground">Present</div>
+            </div>
+            <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
+            <div className="text-center px-2">
+              <div className="text-[10px] uppercase font-bold text-slate-500">Leave Taken</div>
+              <div className="text-lg font-extrabold text-slate-800 dark:text-slate-200">{(leaves as any[]).length} Days</div>
+              <div className="text-[9px] text-muted-foreground">Academic Year</div>
+            </div>
           </div>
         </div>
       </motion.div>
+
+      {/* Self-Service Profile Setup Modal */}
+      <StudentProfileSetupModal
+        open={showProfileModal}
+        onOpenChange={setShowProfileModal}
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s, i) => {

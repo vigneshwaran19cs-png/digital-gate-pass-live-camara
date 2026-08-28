@@ -6,6 +6,7 @@ interface AuthContextType {
   loginAs: (role: UserRole) => Promise<void>;
   loginWithCredentials: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUserProfile: (updatedUser: any) => void;
 }
 
 const seedEmails: Record<UserRole, string> = {
@@ -68,6 +69,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loginWithCredentials(email, "password");
   };
 
+  const updateUserProfile = (updatedUser: any) => {
+    setUser(prev => ({ ...(prev || {}), ...updatedUser }));
+    try {
+      const currentSaved = JSON.parse(localStorage.getItem("auth_user") || "{}");
+      localStorage.setItem("auth_user", JSON.stringify({ ...currentSaved, ...updatedUser }));
+    } catch (e) {}
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem("auth_user");
@@ -76,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginAs, loginWithCredentials, logout }}>
+    <AuthContext.Provider value={{ user, loginAs, loginWithCredentials, logout, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -9,11 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   User, GraduationCap, Phone, MapPin, Calendar, Clock,
-  ShieldCheck, FileText, QrCode, ArrowLeft, Battery, AlertTriangle, UserCheck, Upload, Image as ImageIcon
+  ShieldCheck, FileText, QrCode, ArrowLeft, Battery, AlertTriangle, UserCheck, Upload, Image as ImageIcon, Pencil
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useListLeaves } from "@workspace/api-client-react";
 import { StudentProfilePhoto } from "@/components/StudentProfilePhoto";
+import { StudentProfileSetupModal } from "@/components/StudentProfileSetupModal";
 import { formatDateTime } from "@/lib/dateUtils";
 
 export default function StudentProfilePage() {
@@ -25,6 +26,7 @@ export default function StudentProfilePage() {
   const [photoUrlInput, setPhotoUrlInput] = useState(user?.photoUrl || "");
   const [currentPhoto, setCurrentPhoto] = useState(user?.photoUrl || null);
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [gateLogs, setGateLogs] = useState<any[]>([]);
 
   useEffect(() => {
@@ -164,12 +166,24 @@ export default function StudentProfilePage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditProfileOpen(true)}
+                className="border-blue-200 bg-blue-50/60 text-blue-700 hover:bg-blue-100 gap-2"
+              >
+                <Pencil className="w-4 h-4" /> Edit Profile Details
+              </Button>
               <Button onClick={() => setLocation("/apply")} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
                 <FileText className="w-4 h-4" /> Apply Leave
               </Button>
             </div>
           </div>
+
+          <StudentProfileSetupModal
+            open={isEditProfileOpen}
+            onOpenChange={setIsEditProfileOpen}
+          />
 
           {/* Attendance Stats & Leave Days */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t">
