@@ -18,15 +18,12 @@ interface CollegeBrandingCustomizerModalProps {
 
 const PRESET_LOGOS = [
   { label: "JKKM Seal", url: "/jkkm_campus.png" },
-  { label: "Tech Shield", url: "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200" },
-  { label: "University Monogram", url: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=200" },
+  { label: "Institution Crest", url: "/favicon.svg" },
 ];
 
 const PRESET_BANNERS = [
   { label: "JKKM Campus Gate", url: "/jkkm_campus.png" },
-  { label: "Modern Academic Campus", url: "https://images.unsplash.com/photo-1562774053-701939374585?w=1200" },
-  { label: "University Library & Tower", url: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1200" },
-  { label: "Campus Green Courtyard", url: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1200" },
+  { label: "Academic Campus View", url: "/jkkm_campus.png" },
 ];
 
 const THEME_ACCENTS = [

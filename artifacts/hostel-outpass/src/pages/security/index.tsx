@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ScanLine, Search, UserCheck, UserX, Activity, Shield, Clock,
   User, Building, Home, QrCode, RefreshCw, CheckCircle2, XCircle,
-  MapPin, Calendar, Hash, AlertTriangle, Camera, Barcode, Check
+  MapPin, Calendar, Hash, AlertTriangle, Camera, Barcode, Check, Info
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { QRScanner } from "@/components/QRScanner";
@@ -49,6 +49,7 @@ export default function SecurityDashboard() {
   const [searchType, setSearchType] = useState<"barcode" | "outpass" | "register">("barcode");
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [verificationResult, setVerificationResult] = useState<any | null>(null);
+  const [dayScholarNotice, setDayScholarNotice] = useState<any | null>(null);
 
   const handleScanSuccess = (code: string) => {
     let outpassCode = code;
@@ -93,6 +94,8 @@ export default function SecurityDashboard() {
     e.preventDefault();
     if (!searchInput.trim()) return;
     setActiveSearch(searchInput.trim());
+    setDayScholarNotice(null);
+    setVerificationResult(null);
 
     if (searchType === "barcode") {
       try {
@@ -103,12 +106,19 @@ export default function SecurityDashboard() {
         });
         const data = await res.json();
         if (!res.ok || !data.verified) {
-          setVerificationResult(null);
-          toast({
-            title: "Student not found",
-            description: data.message || `No student profile found for barcode / register number "${searchInput.trim()}".`,
-            variant: "destructive",
-          });
+          if (data.isDayScholar) {
+            setDayScholarNotice(data);
+            toast({
+              title: "🚌 Day Scholar Identified",
+              description: data.message || "Day Scholar – Hostel Gate Pass Not Applicable",
+            });
+          } else {
+            toast({
+              title: "Student not found",
+              description: data.message || `No student profile found for barcode / register number "${searchInput.trim()}".`,
+              variant: "destructive",
+            });
+          }
           return;
         }
         setVerificationResult(data);
@@ -296,6 +306,39 @@ export default function SecurityDashboard() {
               <Check className="w-4 h-4" /> Scan & Verify
             </Button>
           </form>
+
+          {/* Day Scholar Notice Card */}
+          {dayScholarNotice && (
+            <div className="mt-4 p-5 border-2 border-purple-400 bg-purple-50/80 dark:bg-purple-950/30 rounded-2xl space-y-3 shadow-md animate-in fade-in">
+              <div className="flex items-center justify-between border-b pb-3 border-purple-200 dark:border-purple-900/40">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-purple-600 text-white flex items-center justify-center text-2xl font-bold shadow-sm">
+                    🚌
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-lg text-purple-950 dark:text-purple-100">
+                        {dayScholarNotice.student?.name || "Day Scholar Student"}
+                      </h3>
+                      <Badge className="bg-purple-600 text-white font-bold">
+                        🚌 Day Scholar
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-purple-800/80 dark:text-purple-300 font-mono mt-0.5">
+                      Reg: {dayScholarNotice.student?.registerNumber || searchInput} · Non-Resident
+                    </div>
+                  </div>
+                </div>
+                <Badge variant="outline" className="border-purple-400 text-purple-800 bg-purple-100 dark:bg-purple-900/50 font-bold text-xs">
+                  Hostel Gate Pass Not Applicable
+                </Badge>
+              </div>
+              <div className="p-3 bg-purple-100/70 dark:bg-purple-900/40 rounded-xl text-purple-950 dark:text-purple-200 text-xs font-semibold flex items-center gap-2">
+                <Info className="w-4 h-4 text-purple-600 shrink-0" />
+                <span>{dayScholarNotice.message || "Day Scholar – Hostel Gate Pass Not Applicable"}</span>
+              </div>
+            </div>
+          )}
 
           {/* Barcode Verification Result Details (Requirement 14 & 17 & 19) */}
           {verificationResult && (

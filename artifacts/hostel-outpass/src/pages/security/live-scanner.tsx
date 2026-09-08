@@ -239,8 +239,8 @@ export default function LiveScannerPage() {
         confidence: faceConfidence,
         isDuplicateScan: data.isDuplicateScan || false,
         duplicateMessage: data.duplicateMessage,
-        enrolledIdPhoto: data.faceComparison?.enrolledIdPhoto || data.student?.idCardUrl || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400",
-        liveScannedPhoto: data.faceComparison?.liveScannedPhoto || data.student?.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
+        enrolledIdPhoto: data.faceComparison?.enrolledIdPhoto || data.student?.idCardUrl || "/students/vimal_m.jpg",
+        liveScannedPhoto: data.faceComparison?.liveScannedPhoto || data.student?.photoUrl || "/students/vimal_m.jpg",
       });
     } catch (e) {
       setVerifiedStudent(null);
@@ -249,6 +249,59 @@ export default function LiveScannerPage() {
         description: "Could not connect to gate verification service.",
         variant: "destructive",
       });
+    }
+  };
+
+  const executeBarcodeVerification = async () => {
+    if (!manualCode.trim()) {
+      toast({ title: "Please enter Register No or Barcode", variant: "destructive" });
+      return;
+    }
+    try {
+      const res = await fetch("http://localhost:5000/api/gate/verify-barcode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ barcode: manualCode.trim(), registerNumber: manualCode.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Verification Failed", description: data.message || "Student not found.", variant: "destructive" });
+        return;
+      }
+      const isDayScholar = data.student?.studentType === "DAY_SCHOLAR" || data.isDayScholar;
+      const photo = data.student?.photoUrl || data.student?.profilePhoto || (data.student?.registerNumber ? `/students/${data.student.registerNumber}.jpg` : "/students/vimal_m.jpg");
+
+      setVerifiedStudent({
+        name: data.student?.name,
+        registerNumber: data.student?.registerNumber,
+        barcode: data.student?.barcode || data.student?.registerNumber,
+        department: data.student?.department || "Engineering",
+        classInfo: data.student?.classInfo || "3rd Year",
+        studentType: isDayScholar ? "DAY_SCHOLAR" : "HOSTELLER",
+        isDayScholar,
+        hostelRoom: isDayScholar ? "N/A" : (data.student?.hostelRoom || "A-101"),
+        hostelBlock: isDayScholar ? "Day Scholar" : (data.student?.hostelBlock || "Boys Hostel - A Block"),
+        passType: data.activeLeave?.passType?.replace("_", " ").toUpperCase() || "OUTING PASS",
+        status: isDayScholar ? "DAY SCHOLAR (PASS N/A)" : (data.activeLeave ? "APPROVED & VALID" : "NO ACTIVE LEAVE"),
+        leaveReason: data.activeLeave?.reason || "Campus Movement",
+        destination: data.activeLeave?.destination || "Local",
+        actionType: data.actionType || "EXIT",
+        confidence: 100,
+        isDuplicateScan: data.isDuplicateScan || false,
+        duplicateMessage: data.duplicateMessage,
+        enrolledIdPhoto: photo,
+        liveScannedPhoto: photo,
+        lastExit: data.lastExit,
+        lastEntry: data.lastEntry,
+        entryExitHistory: data.entryExitHistory || [],
+      });
+
+      toast({
+        title: isDayScholar ? "ℹ️ Day Scholar Identified" : "✅ Student Barcode Verified",
+        description: data.message || `Identified ${data.student?.name} (${data.student?.registerNumber})`,
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
 
@@ -263,7 +316,7 @@ export default function LiveScannerPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12">
+    <div className="max-w-5xl mx-auto space-y-6 pb-12">
       <Button variant="ghost" onClick={() => setLocation("/dashboard")} className="mb-2">
         <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
       </Button>
@@ -276,8 +329,8 @@ export default function LiveScannerPage() {
             </div>
             <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">{detectorEngine}</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold">Live Camera Gate Scanner</h1>
-          <p className="text-muted-foreground text-sm mt-1">Real-time 3D facial landmark mesh · Instant auto-verification</p>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold">Gate Barcode & Face Scanner</h1>
+          <p className="text-muted-foreground text-sm mt-1">Primary ID Card Barcode Scan · Secondary Facial Landmark Verification</p>
         </div>
       </div>
 
@@ -288,26 +341,26 @@ export default function LiveScannerPage() {
             <CardTitle className="text-lg flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <ScanLine className="w-5 h-5 text-emerald-600 animate-pulse" />
-                Live Camera Feed
+                Gate Camera / Barcode Scanner
               </span>
               <Badge className={scanState === "REJECTED" ? "bg-rose-600 text-white" : scanState === "FACE_DETECTED" ? "bg-emerald-600 text-white animate-pulse" : "bg-slate-800 text-white"}>
-                {scanState === "AWAITING_FACE" ? "Awaiting Face..." : scanState === "FACE_DETECTED" ? `Real Face Confirmed (${detectionConfidence}%)` : scanState === "REJECTED" ? "Object / Hand Rejected ❌" : "Verified ✓"}
+                {scanState === "AWAITING_FACE" ? "Awaiting Scan / Face" : scanState === "FACE_DETECTED" ? `Face Detected (${detectionConfidence}%)` : scanState === "REJECTED" ? "Object Rejected ❌" : "Verified ✓"}
               </Badge>
             </CardTitle>
-            <CardDescription>Stand in front of camera showing your face</CardDescription>
+            <CardDescription>Scan ID card barcode or face for gate clearance</CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4">
             {/* Live Video Frame */}
-            <div className="bg-slate-950 rounded-2xl overflow-hidden min-h-[300px] flex items-center justify-center relative border-2 border-emerald-500/30 shadow-lg">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover min-h-[300px]" />
+            <div className="bg-slate-950 rounded-2xl overflow-hidden min-h-[260px] flex items-center justify-center relative border-2 border-emerald-500/30 shadow-lg">
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover min-h-[260px]" />
               
               {/* Target Reticle / Face Box Overlay */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className={`w-52 h-52 rounded-3xl border-4 border-dashed ${scanState === "REJECTED" ? "border-rose-500 bg-rose-500/10 scale-95" : scanState === "FACE_DETECTED" ? "border-emerald-400 scale-105 bg-emerald-500/10" : "border-emerald-500/70"} transition-all duration-300 flex items-center justify-center`}>
+                <div className={`w-48 h-48 rounded-3xl border-4 border-dashed ${scanState === "REJECTED" ? "border-rose-500 bg-rose-500/10 scale-95" : scanState === "FACE_DETECTED" ? "border-emerald-400 scale-105 bg-emerald-500/10" : "border-emerald-500/70"} transition-all duration-300 flex items-center justify-center`}>
                   {scanState === "FACE_DETECTED" && (
                     <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="bg-emerald-600/90 text-white text-xs px-3 py-1 rounded-full font-bold shadow-lg flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 animate-spin" /> Verifying Real Face ({detectionConfidence}%)
+                      <Sparkles className="w-3.5 h-3.5 animate-spin" /> Face Identified ({detectionConfidence}%)
                     </motion.div>
                   )}
                   {scanState === "REJECTED" && (
@@ -317,7 +370,7 @@ export default function LiveScannerPage() {
                   )}
                   {scanState === "AWAITING_FACE" && (
                     <div className="bg-slate-900/80 text-slate-300 text-[11px] px-3 py-1 rounded-full font-medium">
-                      Position Face Here
+                      Position Face / Card
                     </div>
                   )}
                 </div>
@@ -326,8 +379,8 @@ export default function LiveScannerPage() {
               {!cameraActive && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-slate-900/90 text-white">
                   <User className="w-12 h-12 text-emerald-400 mb-2 animate-bounce" />
-                  <p className="font-semibold text-sm">MediaPipe Gate Camera Active</p>
-                  <p className="text-xs text-slate-300 max-w-xs mt-1">Student stands in front of camera for automatic verification.</p>
+                  <p className="font-semibold text-sm">Gate Camera & Barcode Reader Active</p>
+                  <p className="text-xs text-slate-300 max-w-xs mt-1">Scan barcode or stand in front of camera for verification.</p>
                 </div>
               )}
             </div>
@@ -346,18 +399,24 @@ export default function LiveScannerPage() {
               </Button>
             )}
 
-            <div className="pt-2 border-t space-y-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Manual Code Entry</label>
+            {/* Barcode & Manual ID Entry */}
+            <div className="pt-3 border-t space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <ScanLine className="w-4 h-4 text-blue-600" /> ID Card Barcode / Register Number
+              </label>
               <div className="flex gap-2">
                 <Input
-                  placeholder="e.g. OP-2026-0001"
+                  placeholder="e.g. 25ME020 or 731225AU001"
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") executeBarcodeVerification(); }}
+                  className="font-mono uppercase font-bold"
                 />
-                <Button onClick={() => executeBackendVerification(1, 98)} variant="secondary">
-                  Verify Code
+                <Button onClick={executeBarcodeVerification} className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shrink-0">
+                  <UserCheck className="w-4 h-4" /> Verify Barcode
                 </Button>
               </div>
+              <p className="text-[11px] text-muted-foreground">Scan physical barcode with handheld scanner or enter Register Number.</p>
             </div>
           </CardContent>
         </Card>
@@ -367,13 +426,37 @@ export default function LiveScannerPage() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-blue-600" />
-              Automated Gate Pass Result
+              Gate Verification Result
             </CardTitle>
-            <CardDescription>Student identity & outpass approval status</CardDescription>
+            <CardDescription>Student identity, actual ID-card photo & gate status</CardDescription>
           </CardHeader>
           <CardContent>
             {verifiedStudent ? (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
+                {/* Day Scholar Notice */}
+                {verifiedStudent.isDayScholar ? (
+                  <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex items-start gap-2.5 text-xs">
+                    <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold text-sm">DAY SCHOLAR — HOSTEL PASS NOT APPLICABLE</div>
+                      <div className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">
+                        This student is a Day Scholar. Hostel Gate Pass is not required or applicable.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-emerald-900 dark:text-emerald-100 text-base">IDENTITY VERIFIED ✓</h3>
+                        <Badge className="bg-emerald-600 text-white text-[10px]">Hosteller Outpass Approved</Badge>
+                      </div>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">Student identity matches ID card records. Authorized for gate action.</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Duplicate Scan Warning */}
                 {verifiedStudent.isDuplicateScan && (
                   <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-2 text-xs">
@@ -385,74 +468,83 @@ export default function LiveScannerPage() {
                   </div>
                 )}
 
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-emerald-900 text-base">AUTOMATICALLY VERIFIED ✓</h3>
-                      <Badge className="bg-emerald-600 text-white text-[10px]">{verifiedStudent.confidence}% MediaPipe AI</Badge>
+                {/* Student Identity Banner with Actual Photo */}
+                <div className="flex items-center gap-3.5 p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border">
+                  <div className="w-20 h-24 rounded-xl overflow-hidden shrink-0 border-2 border-blue-600 shadow-md bg-white">
+                    <img
+                      src={verifiedStudent.enrolledIdPhoto}
+                      alt={verifiedStudent.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // fallback
+                        (e.target as any).src = "/students/vimal_m.jpg";
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <div className="font-bold text-base text-slate-900 dark:text-slate-100 truncate">{verifiedStudent.name}</div>
+                    <div className="text-xs font-mono font-bold text-blue-600">{verifiedStudent.registerNumber}</div>
+                    <div className="text-xs text-slate-600 dark:text-slate-300 truncate">{verifiedStudent.department}</div>
+                    <div className="flex gap-1.5 flex-wrap pt-0.5">
+                      <Badge variant={verifiedStudent.isDayScholar ? "secondary" : "default"} className="text-[10px]">
+                        {verifiedStudent.isDayScholar ? "Day Scholar" : "Hosteller"}
+                      </Badge>
+                      {!verifiedStudent.isDayScholar && (
+                        <Badge variant="outline" className="text-[10px]">
+                          Room {verifiedStudent.hostelRoom}
+                        </Badge>
+                      )}
                     </div>
-                    <p className="text-xs text-emerald-700 mt-0.5">Real face recognized. Student is authorized for gate action.</p>
                   </div>
                 </div>
 
-                {/* Side-by-Side Face Comparison Box */}
-                <div className="p-3 bg-slate-50 rounded-xl border space-y-2">
-                  <div className="text-xs font-bold text-slate-700 uppercase tracking-wider text-center">Face Biometric Comparison</div>
-                  <div className="grid grid-cols-2 gap-3 text-center">
-                    <div className="space-y-1">
-                      <div className="w-20 h-20 rounded-xl overflow-hidden mx-auto border-2 border-emerald-500 shadow-sm">
-                        <img src={verifiedStudent.liveScannedPhoto} alt="Live Camera Scan" className="w-full h-full object-cover" />
+                {/* Gate & Outpass Details */}
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between p-2 bg-background rounded-lg border">
+                    <span className="text-muted-foreground">Status / Leave Type:</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100">{verifiedStudent.status} ({verifiedStudent.passType})</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-background rounded-lg border">
+                    <span className="text-muted-foreground">Reason / Destination:</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[200px]">{verifiedStudent.leaveReason || verifiedStudent.destination}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-2 bg-background rounded-lg border">
+                      <div className="text-[10px] text-muted-foreground">Last Exit</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">
+                        {verifiedStudent.lastExit?.date ? new Date(verifiedStudent.lastExit.date).toLocaleDateString("en-GB") + " " + new Date(verifiedStudent.lastExit.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "None Recorded"}
                       </div>
-                      <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-800 border-emerald-200">Live Camera Scan</Badge>
                     </div>
-
-                    <div className="space-y-1">
-                      <div className="w-20 h-20 rounded-xl overflow-hidden mx-auto border-2 border-blue-500 shadow-sm">
-                        <img src={verifiedStudent.enrolledIdPhoto} alt="Enrolled ID Photo" className="w-full h-full object-cover" />
+                    <div className="p-2 bg-background rounded-lg border">
+                      <div className="text-[10px] text-muted-foreground">Last Entry</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">
+                        {verifiedStudent.lastEntry?.date ? new Date(verifiedStudent.lastEntry.date).toLocaleDateString("en-GB") + " " + new Date(verifiedStudent.lastEntry.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "None Recorded"}
                       </div>
-                      <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-800 border-blue-200">Enrolled ID Card</Badge>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 p-3 bg-muted/40 rounded-xl border">
-                  <div>
-                    <div className="font-bold text-base text-slate-900">{verifiedStudent.name}</div>
-                    <div className="text-xs text-muted-foreground font-mono">{verifiedStudent.registerNumber} · Room {verifiedStudent.hostelRoom}</div>
-                    <Badge variant="secondary" className="mt-1 text-xs">{verifiedStudent.department}</Badge>
+                {/* Gate Action Buttons */}
+                {!verifiedStudent.isDayScholar ? (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <Button onClick={() => handleRecordGateAction("EXIT")} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+                      <UserCheck className="w-4 h-4" /> Record Exit Gate
+                    </Button>
+                    <Button onClick={() => handleRecordGateAction("ENTRY")} variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
+                      <UserCheck className="w-4 h-4 text-blue-600" /> Record Entry Gate
+                    </Button>
                   </div>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between p-2.5 bg-background rounded-lg border">
-                    <span className="text-muted-foreground">Pass Type:</span>
-                    <span className="font-semibold text-slate-900">{verifiedStudent.passType}</span>
+                ) : (
+                  <div className="text-center p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs text-slate-500">
+                    Hostel gate logs not required for Day Scholar students.
                   </div>
-                  <div className="flex justify-between p-2.5 bg-background rounded-lg border">
-                    <span className="text-muted-foreground">Destination:</span>
-                    <span className="font-semibold text-slate-900">{verifiedStudent.destination}</span>
-                  </div>
-                  <div className="flex justify-between p-2.5 bg-background rounded-lg border">
-                    <span className="text-muted-foreground">Gate Action:</span>
-                    <Badge variant="outline" className="font-bold text-emerald-700 border-emerald-200 bg-emerald-50">{verifiedStudent.actionType}</Badge>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <Button onClick={() => handleRecordGateAction("EXIT")} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
-                    <UserCheck className="w-4 h-4" /> Record Exit Gate
-                  </Button>
-                  <Button onClick={() => handleRecordGateAction("ENTRY")} variant="outline" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
-                    <UserCheck className="w-4 h-4 text-blue-600" /> Record Entry Gate
-                  </Button>
-                </div>
+                )}
               </motion.div>
             ) : (
               <div className="min-h-[250px] flex flex-col items-center justify-center text-center p-6 border-2 border-dashed rounded-xl text-muted-foreground">
                 <ScanLine className="w-12 h-12 mb-3 text-emerald-400 animate-pulse" />
-                <h4 className="font-semibold text-slate-700">Auto-Scanning Gate Camera</h4>
-                <p className="text-xs max-w-xs mt-1">Student stands in front of camera ➔ System detects face landmarks & auto-verifies outpass in real time.</p>
+                <h4 className="font-semibold text-slate-700 dark:text-slate-200">Gate Verification Ready</h4>
+                <p className="text-xs max-w-xs mt-1">Scan student ID card barcode or position face in camera for automatic gate clearance.</p>
               </div>
             )}
           </CardContent>

@@ -11,7 +11,7 @@ import {
 import {
   Home, FileText, QrCode, Shield, Users, BarChart3, Bell,
   LogOut, Sun, Moon, GraduationCap, BookOpen, Building2, Crown,
-  ScanLine, Settings, Menu, X, ChevronRight, Camera, CheckCircle2,
+  ScanLine, Settings, Menu, X, ChevronRight, Camera, CheckCircle2, CreditCard
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useState } from "react";
@@ -33,7 +33,10 @@ const ROLE_CONFIG: Record<string, {
   super_admin: { label: "Super Admin", color: "from-slate-500 to-slate-700", bg: "bg-slate-50", border: "border-slate-100", text: "text-slate-600", icon: Settings, badge: "bg-slate-50 text-slate-700 border-slate-100" },
 };
 
-function getNavItems(role: string) {
+function getNavItems(user: any) {
+  const role = user?.role;
+  const isDayScholar = user?.studentType === "DAY_SCHOLAR" || (user?.hostelBlock && user.hostelBlock.toLowerCase().includes("day"));
+
   if (role === "parent") {
     return [
       { icon: Home, label: "Parent Monitoring Hub", href: "/dashboard" },
@@ -44,16 +47,18 @@ function getNavItems(role: string) {
 
   const items = [{ icon: Home, label: "Dashboard", href: "/dashboard" }];
   if (role === "student") {
-    items.push({ icon: Camera, label: "Face Enrollment", href: "/enrollment" });
+    if (!isDayScholar) {
+      items.push({ icon: Camera, label: "Face Enrollment", href: "/enrollment" });
+    }
     items.push({ icon: GraduationCap, label: "My Profile", href: "/profile" });
   }
   if (["student", "warden", "tutor", "hod", "principal"].includes(role))
-    items.push({ icon: FileText, label: "Leaves", href: "/leaves" });
-  if (role === "student")
+    items.push({ icon: FileText, label: isDayScholar ? "Leave Notices" : "Leaves", href: "/leaves" });
+  if (role === "student" && !isDayScholar)
     items.push({ icon: FileText, label: "Emergency Leave", href: "/leaves/emergency" });
   if (["tutor", "warden", "hod", "principal", "super_admin"].includes(role))
     items.push({ icon: CheckCircle2, label: "Bulk Approval", href: "/leaves/bulk-approve" });
-  if (["student", "security", "warden"].includes(role))
+  if ((role === "student" && !isDayScholar) || ["security", "warden"].includes(role))
     items.push({ icon: QrCode, label: "Outpasses", href: "/outpasses" });
   if (["security", "warden"].includes(role))
     items.push({ icon: ScanLine, label: "Live Camera Scanner", href: "/security/scanner" });
@@ -62,7 +67,8 @@ function getNavItems(role: string) {
   if (["warden", "super_admin"].includes(role))
     items.push({ icon: Building2, label: "Hostel Blocks", href: "/admin/hostels" });
   if (role === "super_admin") {
-    items.push({ icon: Users, label: "Users", href: "/users" });
+    items.push({ icon: CreditCard, label: "ID Card Data Upload", href: "/admin/id-card-upload" });
+    items.push({ icon: Users, label: "Users & Students", href: "/users" });
     items.push({ icon: Building2, label: "Departments", href: "/admin/departments" });
     items.push({ icon: BookOpen, label: "Classes", href: "/admin/classes" });
     items.push({ icon: Bell, label: "Notification Logs", href: "/admin/notification-logs" });
@@ -79,7 +85,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   const [location] = useLocation();
   const roleConf = user ? (ROLE_CONFIG[user.role] ?? ROLE_CONFIG.student) : null;
   const RoleIcon = roleConf?.icon ?? GraduationCap;
-  const navItems = user ? getNavItems(user.role) : [];
+  const navItems = user ? getNavItems(user) : [];
 
   return (
     <div className="flex flex-col h-full bg-[#f8fafc] text-slate-800 overflow-hidden">

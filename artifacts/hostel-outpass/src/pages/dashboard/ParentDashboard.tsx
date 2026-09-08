@@ -45,6 +45,8 @@ export default function ParentDashboard() {
   const pendingLeaves = (leaves as any[]).filter((l: any) => !["fully_approved", "rejected", "completed"].includes(l.status));
   const activeOutpasses = (leaves as any[]).filter((l: any) => l.outpassId);
 
+  const isCurrentDayScholar = currentStudent?.studentType === "DAY_SCHOLAR" || currentStudent?.isDayScholar;
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* Parent Welcome Header */}
@@ -68,7 +70,7 @@ export default function ParentDashboard() {
               Welcome, {user?.name || currentStudent?.parentName || "Parent / Guardian"}
             </h1>
             <p className="text-xs text-blue-200/80">
-              Live Monitoring & Safe Transit Portal for your ward: <span className="font-bold text-white">{currentStudent?.name}</span>
+              Live Monitoring & Academic Records Portal for your ward: <span className="font-bold text-white">{currentStudent?.name}</span>
             </p>
           </div>
         </div>
@@ -87,7 +89,7 @@ export default function ParentDashboard() {
               <SelectContent>
                 {studentUsers.map((s: any) => (
                   <SelectItem key={s.id} value={s.id.toString()}>
-                    {s.name} ({s.registerNumber || `STU${s.id}`})
+                    {s.name} ({s.registerNumber || `STU${s.id}`}) — {s.studentType === "DAY_SCHOLAR" ? "🚌 Day Scholar" : "🏠 Hosteller"}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -114,6 +116,9 @@ export default function ParentDashboard() {
                     <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-mono">
                       {currentStudent?.registerNumber || "STU001"}
                     </Badge>
+                    <Badge className={isCurrentDayScholar ? "bg-purple-50 text-purple-700 border-purple-200 text-xs font-bold" : "bg-blue-50 text-blue-700 border-blue-200 text-xs font-bold"}>
+                      {isCurrentDayScholar ? "🚌 Day Scholar" : "🏠 Hosteller"}
+                    </Badge>
                     <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
                       {currentStudent?.attendancePercentage || 92}% Attendance
                     </Badge>
@@ -122,12 +127,14 @@ export default function ParentDashboard() {
                   <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                     <span className="flex items-center gap-1">
                       <GraduationCap className="w-3.5 h-3.5 text-blue-600" />
-                      III Year - Mechanical / Automobile Engg
+                      III Year - Computer Science & Engineering
                     </span>
                     <span>•</span>
                     <span className="flex items-center gap-1">
                       <Building className="w-3.5 h-3.5 text-indigo-600" />
-                      {currentStudent?.hostelBlock || "Boys Hostel - Main Block"} ({currentStudent?.hostelRoom || "Room A-204"})
+                      {isCurrentDayScholar
+                        ? "Day Scholar (Commuting from Home)"
+                        : `${currentStudent?.hostelBlock || "Boys Hostel - Main Block"} (${currentStudent?.hostelRoom || "Room A-204"})`}
                     </span>
                   </div>
                 </div>
@@ -137,11 +144,13 @@ export default function ParentDashboard() {
               <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 w-full sm:w-auto justify-between sm:justify-end">
                 <div className="text-right">
                   <div className="text-[10px] uppercase font-bold text-slate-500">Current Status</div>
-                  <div className="text-sm font-extrabold text-emerald-600 flex items-center gap-1.5 justify-end">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                    En Route (Traveling Home)
+                  <div className={`text-sm font-extrabold flex items-center gap-1.5 justify-end ${isCurrentDayScholar ? "text-purple-700" : "text-emerald-600"}`}>
+                    <span className={`w-2 h-2 rounded-full ${isCurrentDayScholar ? "bg-purple-500" : "bg-emerald-500 animate-ping"}`} />
+                    {isCurrentDayScholar ? "Day Scholar Active" : "Inside Hostel / Campus"}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">Outpass Verified at Main Gate</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {isCurrentDayScholar ? "Daily Class Attendance Recorded" : "Hostel Resident"}
+                  </div>
                 </div>
               </div>
             </div>
@@ -149,16 +158,18 @@ export default function ParentDashboard() {
         </Card>
       </motion.div>
 
-      {/* Live GPS Location & Safe Tracking Map */}
-      <motion.div custom={2} variants={fadeUp} initial="hidden" animate="show">
-        <LiveStudentLocationTracker
-          studentId={currentStudent?.id || 1}
-          studentName={currentStudent?.name || "Student"}
-          studentRegisterNumber={currentStudent?.registerNumber || ""}
-          destinationAddress={currentStudent?.address || "Salem / Erode Main Road, Tamil Nadu"}
-          isParentView={true}
-        />
-      </motion.div>
+      {/* Live GPS Location & Safe Tracking Map (Hostellers only) */}
+      {!isCurrentDayScholar && (
+        <motion.div custom={2} variants={fadeUp} initial="hidden" animate="show">
+          <LiveStudentLocationTracker
+            studentId={currentStudent?.id || 1}
+            studentName={currentStudent?.name || "Student"}
+            studentRegisterNumber={currentStudent?.registerNumber || ""}
+            destinationAddress={currentStudent?.address || "Salem / Erode Main Road, Tamil Nadu"}
+            isParentView={true}
+          />
+        </motion.div>
+      )}
 
       {/* Ward's Leave Requests & Approval Timeline */}
       <motion.div custom={3} variants={fadeUp} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -167,10 +178,13 @@ export default function ParentDashboard() {
             <CardHeader className="p-4 border-b flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-600" /> Ward's Leave History & Outpass Approvals
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  {isCurrentDayScholar ? "Ward's Leave Notices & Attendance Records" : "Ward's Leave History & Outpass Approvals"}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  All official leave letters & tutor/warden verification logs
+                  {isCurrentDayScholar
+                    ? "Official leave intimacy logs sent to Tutor & HOD"
+                    : "All official leave letters & tutor/warden verification logs"}
                 </CardDescription>
               </div>
               <Badge variant="outline" className="text-xs">
@@ -179,47 +193,52 @@ export default function ParentDashboard() {
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               {(leaves as any[]).length > 0 ? (
-                (leaves as any[]).slice(0, 3).map((l: any) => (
-                  <div
-                    key={l.id}
-                    className="p-3.5 rounded-xl border border-slate-200/80 hover:border-blue-300 bg-white dark:bg-slate-900/60 shadow-xs space-y-2 transition-all"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <span>{l.reason || "Festival & Home Visit"}</span>
-                        {l.leaveType && (
-                          <Badge variant="secondary" className="text-[10px] capitalize">
-                            {l.leaveType.replace("_", " ")}
-                          </Badge>
-                        )}
+                (leaves as any[]).slice(0, 3).map((l: any) => {
+                  const isDayScholarLeave = l.status === "info_submitted" || isCurrentDayScholar;
+                  return (
+                    <div
+                      key={l.id}
+                      className="p-3.5 rounded-xl border border-slate-200/80 hover:border-blue-300 bg-white dark:bg-slate-900/60 shadow-xs space-y-2 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="font-semibold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                          <span>{l.reason || "Festival & Home Visit"}</span>
+                          {l.leaveType && (
+                            <Badge variant="secondary" className="text-[10px] capitalize">
+                              {l.leaveType.replace("_", " ")}
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge className={
+                          isDayScholarLeave
+                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                            : l.status === "fully_approved" || l.status === "completed"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
+                        }>
+                          {isDayScholarLeave ? "Info Submitted ✓" : l.status === "fully_approved" ? "Outpass Ready ✓" : l.status.replace("_", " ")}
+                        </Badge>
                       </div>
-                      <Badge className={
-                        l.status === "fully_approved" || l.status === "completed"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-amber-50 text-amber-700 border-amber-200"
-                      }>
-                        {l.status === "fully_approved" ? "Outpass Ready ✓" : l.status.replace("_", " ")}
-                      </Badge>
-                    </div>
 
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                      <span className="flex items-center gap-1 font-mono">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        From: {l.fromDate ? format(new Date(l.fromDate), "dd MMM yyyy") : "N/A"}
-                      </span>
-                      <span>→</span>
-                      <span className="flex items-center gap-1 font-mono">
-                        To: {l.toDate ? format(new Date(l.toDate), "dd MMM yyyy") : "N/A"}
-                      </span>
-                    </div>
-
-                    {l.tutorRemarks && (
-                      <div className="text-[11px] bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg text-slate-600 dark:text-slate-300 border">
-                        <span className="font-bold text-slate-700 dark:text-slate-200">Tutor Verified:</span> "{l.tutorRemarks}"
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1 font-mono">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          From: {l.fromDate ? format(new Date(l.fromDate), "dd MMM yyyy") : "N/A"}
+                        </span>
+                        <span>→</span>
+                        <span className="flex items-center gap-1 font-mono">
+                          To: {l.toDate ? format(new Date(l.toDate), "dd MMM yyyy") : "N/A"}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                ))
+
+                      {l.tutorRemarks && (
+                        <div className="text-[11px] bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg text-slate-600 dark:text-slate-300 border">
+                          <span className="font-bold text-slate-700 dark:text-slate-200">Tutor Verified:</span> "{l.tutorRemarks}"
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
                 <div className="text-center py-8 text-xs text-muted-foreground">
                   No active or past leave requests for this student.

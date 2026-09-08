@@ -46,7 +46,7 @@ export default function LeavesPage() {
   const [editStatus, setEditStatus] = useState("");
   const [editStep, setEditStep] = useState("");
 
-  const isSuperAdmin = user?.role === "super_admin" || user?.role === "admin";
+  const isSuperAdmin = user?.role === "super_admin" || (user?.role as string) === "admin";
 
   const { data: leavesRaw = [], isLoading, refetch } = useListLeaves(
     user?.role === "student" ? { studentId: user.id } : {}
@@ -77,6 +77,7 @@ export default function LeavesPage() {
     if (statusFilter === "emergency") matchesStatus = l.isEmergency === "true" || l.leaveType === "family_emergency";
     else if (statusFilter === "pending") matchesStatus = l.status === "pending" || l.status === "warden_approved" || l.status === "tutor_approved" || l.status === "hod_approved" || l.status === "principal_approved";
     else if (statusFilter === "approved") matchesStatus = l.status === "fully_approved";
+    else if (statusFilter === "day_scholar") matchesStatus = l.status === "info_submitted" || l.student?.studentType === "DAY_SCHOLAR";
     else if (statusFilter === "rejected") matchesStatus = l.status === "rejected";
 
     return matchesSearch && matchesStatus;
@@ -84,6 +85,8 @@ export default function LeavesPage() {
 
   // Role Forwarding Map Helper
   const getForwardingTarget = (leave: any) => {
+    const isDayScholar = leave.status === "info_submitted" || leave.currentStep === "info_submitted" || leave.student?.studentType === "DAY_SCHOLAR";
+    if (isDayScholar) return "Recorded (Tutor, HOD & Parent Notified)";
     const isEmerg = leave.isEmergency === "true" || leave.leaveType === "family_emergency" || leave.leaveType === "emergency";
     if (leave.status === "fully_approved" || leave.currentStep === "completed") return "Approved & Digital Gate Pass Ready";
     if (leave.status === "rejected") return "Rejected";
@@ -260,14 +263,24 @@ export default function LeavesPage() {
 
           {user?.role === "student" && (
             <>
-              <Link href="/leaves/emergency">
-                <Button variant="destructive" className="gap-1.5 bg-red-600 hover:bg-red-700 font-semibold shadow-sm">
-                  🔴 Emergency Leave
-                </Button>
-              </Link>
-              <Link href="/apply">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">Apply Standard Leave</Button>
-              </Link>
+              {(user as any)?.studentType === "DAY_SCHOLAR" || (user as any)?.isDayScholar ? (
+                <Link href="/apply">
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5 shadow-sm">
+                    🚌 Submit Day Scholar Leave Notice
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/leaves/emergency">
+                    <Button variant="destructive" className="gap-1.5 bg-red-600 hover:bg-red-700 font-semibold shadow-sm">
+                      🔴 Emergency Leave
+                    </Button>
+                  </Link>
+                  <Link href="/apply">
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">Apply Standard Leave</Button>
+                  </Link>
+                </>
+              )}
             </>
           )}
         </div>
@@ -295,6 +308,7 @@ export default function LeavesPage() {
             <SelectItem value="pending">Pending Approval</SelectItem>
             <SelectItem value="approved">Fully Approved</SelectItem>
             <SelectItem value="emergency">🔴 Emergency Leaves</SelectItem>
+            <SelectItem value="day_scholar">🚌 Day Scholar Notices</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
@@ -316,20 +330,30 @@ export default function LeavesPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredLeaves.map((leave) => {
-            const isEmergency = leave.isEmergency === "true" || leave.leaveType === "family_emergency" || leave.leaveType === "emergency";
+            const isDayScholarLeave = leave.status === "info_submitted" || leave.currentStep === "info_submitted" || leave.student?.studentType === "DAY_SCHOLAR" || (leave.student as any)?.isDayScholar;
+            const isEmergency = !isDayScholarLeave && (leave.isEmergency === "true" || leave.leaveType === "family_emergency" || leave.leaveType === "emergency");
             const forwardedRole = getForwardingTarget(leave);
 
             return (
               <Link key={leave.id} href={`/leaves/${leave.id}`}>
                 <Card
                   className={`hover:shadow-xl cursor-pointer transition-all duration-200 h-full flex flex-col overflow-hidden relative group bg-white ${
-                    isEmergency
+                    isDayScholarLeave
+                      ? "border-2 border-purple-300 bg-purple-50/20 shadow-purple-100"
+                      : isEmergency
                       ? "border-2 border-red-500/80 bg-red-50/20 shadow-red-100"
                       : "hover:border-blue-300 border-slate-200"
                   }`}
                 >
-                  {/* Top Emergency Indicator Banner */}
-                  {isEmergency && (
+                  {/* Top Day Scholar or Emergency Indicator Banner */}
+                  {isDayScholarLeave ? (
+                    <div className="bg-purple-700 text-white text-[11px] font-extrabold px-3 py-1 flex items-center justify-between tracking-wider uppercase">
+                      <span className="flex items-center gap-1.5">
+                        🚌 DAY SCHOLAR LEAVE NOTICE
+                      </span>
+                      <span className="text-[10px] opacity-90">Info Only · No Gate Pass</span>
+                    </div>
+                  ) : isEmergency ? (
                     <div className="bg-red-600 text-white text-[11px] font-extrabold px-3 py-1 flex items-center justify-between tracking-wider uppercase">
                       <span className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-white animate-ping" />
@@ -337,7 +361,7 @@ export default function LeavesPage() {
                       </span>
                       <span className="text-[10px] opacity-90">Warden → Principal</span>
                     </div>
-                  )}
+                  ) : null}
 
                   <CardHeader className="pb-3 pt-3.5">
                     <div className="flex justify-between items-start gap-2">
@@ -352,7 +376,9 @@ export default function LeavesPage() {
 
                       <Badge
                         className={
-                          leave.status === "fully_approved"
+                          isDayScholarLeave
+                            ? "bg-purple-100 text-purple-800 border-purple-200"
+                            : leave.status === "fully_approved"
                             ? "bg-emerald-100 text-emerald-800 border-emerald-200"
                             : leave.status === "rejected"
                             ? "bg-rose-100 text-rose-800 border-rose-200"
@@ -361,7 +387,7 @@ export default function LeavesPage() {
                             : "bg-amber-100 text-amber-800 border-amber-200"
                         }
                       >
-                        {leave.status.replace("_", " ")}
+                        {isDayScholarLeave ? "Info Submitted" : leave.status.replace("_", " ")}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -381,7 +407,7 @@ export default function LeavesPage() {
                             {leave.student.name}
                           </div>
                           <div className="text-[11px] text-muted-foreground font-mono truncate">
-                            Reg: {leave.student.registerNumber || "STU-REG"} · Room {leave.student.hostelRoom || "A-101"}
+                            Reg: {leave.student.registerNumber || "STU-REG"} · {leave.student.studentType === "DAY_SCHOLAR" || (leave.student as any)?.isDayScholar ? "🚌 Day Scholar" : `Room ${leave.student.hostelRoom || "A-101"}`}
                           </div>
                         </div>
                       </div>
@@ -407,7 +433,9 @@ export default function LeavesPage() {
                     {/* Leave Forwarding Status Box */}
                     <div
                       className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-semibold ${
-                        isEmergency
+                        isDayScholarLeave
+                          ? "bg-purple-50/70 text-purple-900 border-purple-100"
+                          : isEmergency
                           ? "bg-red-100/70 text-red-950 border-red-200"
                           : "bg-blue-50/70 text-blue-900 border-blue-100"
                       }`}
@@ -425,7 +453,11 @@ export default function LeavesPage() {
                       <div className="text-right">
                         <div className="text-[10px] opacity-75 uppercase font-bold">Role Status</div>
                         <div className="text-[11px] font-bold">
-                          {leave.status === "fully_approved" ? "Final Pass Ready" : `Pending ${leave.currentStep}`}
+                          {isDayScholarLeave
+                            ? "Recorded"
+                            : leave.status === "fully_approved"
+                            ? "Final Pass Ready"
+                            : `Pending ${leave.currentStep}`}
                         </div>
                       </div>
                     </div>
@@ -433,7 +465,7 @@ export default function LeavesPage() {
                     {/* Super Admin Quick Actions Bar */}
                     {isSuperAdmin && (
                       <div className="flex items-center justify-between pt-2 border-t gap-1.5">
-                        {leave.status !== "fully_approved" && (
+                        {!isDayScholarLeave && leave.status !== "fully_approved" && (
                           <Button
                             size="sm"
                             className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white gap-1 flex-1 shadow-xs"

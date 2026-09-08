@@ -266,7 +266,7 @@ async function runSeed() {
         classId: cseClassIII_A,
         hostelBlock: "Boys Hostel - A Block",
         hostelRoom: "A-201 (Bed 1)",
-        photoUrl: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400",
+        photoUrl: "/students/731223104001.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 95,
         isFaceEnrolled: "true" as const,
@@ -285,7 +285,7 @@ async function runSeed() {
         classId: cseClassIII_A,
         hostelBlock: "Girls Hostel - Kaveri Block",
         hostelRoom: "G-102 (Bed 2)",
-        photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
+        photoUrl: "/students/731223104002.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 92,
         isFaceEnrolled: "true" as const,
@@ -304,7 +304,7 @@ async function runSeed() {
         classId: cseClassIII_A,
         hostelBlock: "Boys Hostel - A Block",
         hostelRoom: "A-202 (Bed 2)",
-        photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
+        photoUrl: "/students/731223104003.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 87,
         isFaceEnrolled: "true" as const,
@@ -323,7 +323,7 @@ async function runSeed() {
         classId: aidsClassII_A,
         hostelBlock: "Girls Hostel - Kaveri Block",
         hostelRoom: "G-104 (Bed 1)",
-        photoUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400",
+        photoUrl: "/students/731224104004.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 96,
         isFaceEnrolled: "true" as const,
@@ -342,7 +342,7 @@ async function runSeed() {
         classId: aidsClassII_A,
         hostelBlock: "Boys Hostel - B Block",
         hostelRoom: "B-101 (Bed 2)",
-        photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400",
+        photoUrl: "/students/731224104005.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 84,
         isFaceEnrolled: "true" as const,
@@ -361,7 +361,7 @@ async function runSeed() {
         classId: eceClassIII_A,
         hostelBlock: "Boys Hostel - B Block",
         hostelRoom: "B-102 (Bed 1)",
-        photoUrl: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400",
+        photoUrl: "/students/731223106006.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 76,
         isFaceEnrolled: "true" as const,
@@ -380,7 +380,7 @@ async function runSeed() {
         classId: eceClassIII_A,
         hostelBlock: "Girls Hostel - Kaveri Block",
         hostelRoom: "G-201 (Bed 2)",
-        photoUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400",
+        photoUrl: "/students/731223106007.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 93,
         isFaceEnrolled: "true" as const,
@@ -399,7 +399,7 @@ async function runSeed() {
         classId: eeeClassII_A,
         hostelBlock: "Boys Hostel - C Block",
         hostelRoom: "C-101 (Bed 1)",
-        photoUrl: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=400",
+        photoUrl: "/students/731224105008.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 81,
         isFaceEnrolled: "true" as const,
@@ -418,7 +418,7 @@ async function runSeed() {
         classId: eeeClassII_A,
         hostelBlock: "Girls Hostel - Kaveri Block",
         hostelRoom: "G-203 (Bed 1)",
-        photoUrl: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400",
+        photoUrl: "/students/731224105009.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 88,
         isFaceEnrolled: "true" as const,
@@ -437,7 +437,7 @@ async function runSeed() {
         classId: civilClassIV_A,
         hostelBlock: "Boys Hostel - C Block",
         hostelRoom: "C-102 (Bed 2)",
-        photoUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400",
+        photoUrl: "/students/731222103010.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 90,
         isFaceEnrolled: "true" as const,
@@ -456,7 +456,7 @@ async function runSeed() {
         classId: civilClassIV_A,
         hostelBlock: "Girls Hostel - Kaveri Block",
         hostelRoom: "G-301 (Bed 1)",
-        photoUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400",
+        photoUrl: "/students/731222103011.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 85,
         isFaceEnrolled: "true" as const,
@@ -475,7 +475,7 @@ async function runSeed() {
         classId: mechClassI_A,
         hostelBlock: "Boys Hostel - B Block",
         hostelRoom: "B-201 (Bed 2)",
-        photoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400",
+        photoUrl: "/students/731224114012.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 86,
         isFaceEnrolled: "true" as const,
@@ -494,7 +494,7 @@ async function runSeed() {
         classId: cseClassIII_A,
         hostelBlock: "Girls Hostel - Kaveri Block",
         hostelRoom: "G-304 (Bed 2)",
-        photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
+        photoUrl: "/students/731224104013.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 94,
         isFaceEnrolled: "true" as const,
@@ -513,7 +513,7 @@ async function runSeed() {
         classId: autoClassI_A,
         hostelBlock: "Boys Hostel - A Block",
         hostelRoom: "A-106 (Bed 1)",
-        photoUrl: "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=400",
+        photoUrl: "/students/731224102014.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 74,
         isFaceEnrolled: "true" as const,
@@ -532,7 +532,7 @@ async function runSeed() {
         classId: aidsClassII_A,
         hostelBlock: "Girls Hostel - Kaveri Block",
         hostelRoom: "G-401 (Bed 1)",
-        photoUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400",
+        photoUrl: "/students/731223104015.jpg",
         idCardUrl: "/students/id_card_sheet.jpg",
         attendancePercentage: 95,
         isFaceEnrolled: "true" as const,
@@ -543,9 +543,16 @@ async function runSeed() {
 
     for (const stu of studentsData) {
       const [existing] = await db.select().from(usersTable).where(eq(usersTable.registerNumber, stu.registerNumber));
+      const studentType = (stu as any).studentType || (stu.registerNumber.endsWith("008") || stu.registerNumber.endsWith("009") ? "DAY_SCHOLAR" : "HOSTELLER");
+      const isDayScholar = studentType === "DAY_SCHOLAR" ? "true" : "false";
+      const barcode = stu.registerNumber;
+
       if (existing) {
         await db.update(usersTable).set({
           ...stu,
+          studentType,
+          isDayScholar: isDayScholar as any,
+          barcode,
           passwordHash: hashPassword("password123"),
           role: "student",
         }).where(eq(usersTable.id, existing.id));
@@ -553,6 +560,9 @@ async function runSeed() {
       } else {
         const [{ insertId }] = await db.insert(usersTable).values({
           ...stu,
+          studentType,
+          isDayScholar: isDayScholar as any,
+          barcode,
           passwordHash: hashPassword("password123"),
           role: "student",
         });
@@ -819,9 +829,30 @@ async function runSeed() {
       });
     }
 
+    // Scenario 9: GOKULNATH T - Day Scholar Leave Information Notice (Self-Recorded)
+    const gokulId = studentUserIds["731224105008"];
+    if (gokulId) {
+      await db.insert(leavesTable).values({
+        studentId: gokulId,
+        passType: "day_scholar_leave",
+        leaveType: "fever_cold",
+        reason: "High fever and medical rest advised by family physician for 2 days.",
+        destination: "Home - Ammapet, Salem",
+        fromDate: todayStr,
+        toDate: tomorrowStr,
+        status: "info_submitted",
+        currentStep: "info_submitted",
+        parentCallStatus: "confirmed",
+        parentCallNotes: "Parent T. Thangaraj automatically notified via WhatsApp & SMS. Medical prescription attached.",
+        tutorRemarks: "Day Scholar leave intimation received and noted for attendance registry.",
+        riskScore: 5,
+        riskLevel: "low",
+      });
+    }
+
     console.log("🎉 Realistic Test Dataset Population Complete!");
     console.log("----------------------------------------------------------------");
-    console.log("20 Students, Staff accounts, Leaves & Gate Logs successfully populated in MySQL.");
+    console.log("20 Students (Hostellers & Day Scholars), Staff accounts, Leaves & Gate Logs successfully populated in MySQL.");
     console.log("----------------------------------------------------------------");
     process.exit(0);
   } catch (error) {

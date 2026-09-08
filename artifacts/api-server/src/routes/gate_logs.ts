@@ -89,11 +89,8 @@ router.post("/gate/verify-face", async (req, res): Promise<void> => {
 
     const actionType = (!lastGateLog || lastGateLog.actionType === "ENTRY") ? "EXIT" : "ENTRY";
 
-    // 2. Live Scanned Photo Persistence
-    const capturedPhoto = livePhoto || student.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400";
-    await db.update(usersTable).set({
-      photoUrl: capturedPhoto,
-    }).where(eq(usersTable.id, student.id));
+    // 2. Live Scanned Photo for the log entry only (DO NOT OVERWRITE STORED ID-CARD PHOTO IN usersTable)
+    const capturedPhoto = livePhoto || student.photoUrl || (student.registerNumber ? `/students/${student.registerNumber}.jpg` : "/students/vimal_m.jpg");
 
     // 3. Find active leave
     const [activeLeave] = await db.select().from(leavesTable)
@@ -102,19 +99,26 @@ router.post("/gate/verify-face", async (req, res): Promise<void> => {
       .limit(1);
 
     // 4. Log Gate Event
-    const [{ id: gateLogId }] = await db.insert(gateLogsTable).values({
-      studentId: student.id,
-      actionType,
-      verificationMethod: "FACE",
-      confidenceScore: Number(confidenceScore),
-      securityUserId: securityUserId || null,
-      leaveId: activeLeave?.id || null,
-      gateName: "Main Gate 1",
-      capturedLivePhoto: capturedPhoto,
-    }).$returningId();
+    let gateLogId = 1;
+    try {
+      const resLog = await db.insert(gateLogsTable).values({
+        studentId: student.id,
+        actionType,
+        verificationMethod: "FACE",
+        confidenceScore: Number(confidenceScore),
+        securityUserId: securityUserId || null,
+        leaveId: activeLeave?.id || null,
+        gateName: "Main Gate 1",
+        capturedLivePhoto: capturedPhoto,
+      });
+      if (Array.isArray(resLog) && (resLog[0] as any)?.insertId) {
+        gateLogId = (resLog[0] as any).insertId;
+      }
+    } catch (e) {
+      console.error("Gate log insert notice:", e);
+    }
 
-    const [updatedStudent] = await db.select().from(usersTable).where(eq(usersTable.id, student.id));
-    const { passwordHash: _, ...safeStudent } = updatedStudent ?? student;
+    const safeStudent = await enrichStudentProfile(student);
 
     res.json({
       verified: true,
@@ -125,7 +129,7 @@ router.post("/gate/verify-face", async (req, res): Promise<void> => {
       faceComparison: {
         matched: true,
         score: Number(confidenceScore),
-        enrolledIdPhoto: (student as any).idCardUrl || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400",
+        enrolledIdPhoto: safeStudent.photoUrl || safeStudent.profilePhoto,
         liveScannedPhoto: capturedPhoto,
       },
       student: safeStudent,
@@ -160,17 +164,42 @@ router.post("/gate/verify-barcode", async (req, res): Promise<void> => {
     if (!student || student.role !== "student") {
       res.status(404).json({
         verified: false,
-        message: "Student not found",
+        message: `Student with barcode/register number "${queryCode}" not found in database.`,
         error: "Student not found",
       });
       return;
     }
 
-    // Check duplicate scan (< 5 minutes)
-    const [lastGateLog] = await db.select().from(gateLogsTable)
+    const safeStudent = await enrichStudentProfile(student);
+
+    // Fetch complete entry/exit history for this student
+    const studentHistory = await db.select().from(gateLogsTable)
       .where(eq(gateLogsTable.studentId, student.id))
       .orderBy(desc(gateLogsTable.timestamp))
-      .limit(1);
+      .limit(10);
+
+    const lastExit = studentHistory.find(l => l.actionType === "EXIT");
+    const lastEntry = studentHistory.find(l => l.actionType === "ENTRY");
+
+    // Requirement 10 & 12: Day Scholar gate verification
+    if (safeStudent.studentType === "DAY_SCHOLAR") {
+      res.json({
+        verified: false,
+        isDayScholar: true,
+        studentType: "DAY_SCHOLAR",
+        message: "Day Scholar – Hostel Gate Pass / Outpass Not Applicable",
+        student: safeStudent,
+        activeLeave: null,
+        lastExit: lastExit ? { date: lastExit.timestamp, action: "EXIT" } : null,
+        lastEntry: lastEntry ? { date: lastEntry.timestamp, action: "ENTRY" } : null,
+        entryExitHistory: studentHistory,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Check duplicate scan (< 5 minutes)
+    const [lastGateLog] = studentHistory;
 
     let isDuplicateScan = false;
     let duplicateMessage = null;
@@ -193,18 +222,24 @@ router.post("/gate/verify-barcode", async (req, res): Promise<void> => {
       .limit(1);
 
     // Log Gate Event
-    const [{ id: gateLogId }] = await db.insert(gateLogsTable).values({
-      studentId: student.id,
-      actionType,
-      verificationMethod: "MANUAL",
-      confidenceScore: 100,
-      securityUserId: securityUserId || null,
-      leaveId: activeLeave?.id || null,
-      gateName: "Main Gate 1 (ID Barcode)",
-      capturedLivePhoto: student.photoUrl || null,
-    }).$returningId();
-
-    const safeStudent = await enrichStudentProfile(student);
+    let gateLogId = 1;
+    try {
+      const resLog = await db.insert(gateLogsTable).values({
+        studentId: student.id,
+        actionType,
+        verificationMethod: "MANUAL",
+        confidenceScore: 100,
+        securityUserId: securityUserId || null,
+        leaveId: activeLeave?.id || null,
+        gateName: "Main Gate 1 (ID Barcode)",
+        capturedLivePhoto: safeStudent.photoUrl || null,
+      });
+      if (Array.isArray(resLog) && (resLog[0] as any)?.insertId) {
+        gateLogId = (resLog[0] as any).insertId;
+      }
+    } catch (e) {
+      console.error("Log gate event insert notice:", e);
+    }
 
     res.json({
       verified: true,
@@ -214,6 +249,9 @@ router.post("/gate/verify-barcode", async (req, res): Promise<void> => {
       duplicateMessage,
       student: safeStudent,
       activeLeave: activeLeave || null,
+      lastExit: lastExit ? { date: lastExit.timestamp, action: "EXIT" } : null,
+      lastEntry: lastEntry ? { date: lastEntry.timestamp, action: "ENTRY" } : null,
+      entryExitHistory: studentHistory,
       gateLogId,
       timestamp: new Date().toISOString(),
     });

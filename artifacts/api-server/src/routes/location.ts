@@ -15,7 +15,7 @@ router.get("/location/status/:studentId", async (req, res): Promise<void> => {
       .orderBy(desc(locationLogsTable.timestamp))
       .limit(1);
 
-    const isLocationSharingEnabled = student?.isLocationSharingEnabled !== "false";
+    const isLocationSharingEnabled = (student as any)?.isLocationSharingEnabled !== "false";
 
     res.json({
       ...(latest || {
@@ -52,7 +52,7 @@ router.post("/location/toggle-sharing", async (req, res): Promise<void> => {
 
     const val = isLocationSharingEnabled ? "true" : "false";
     await db.update(usersTable)
-      .set({ isLocationSharingEnabled: val })
+      .set({ isLocationSharingEnabled: val } as any)
       .where(eq(usersTable.id, studentId));
 
     res.json({

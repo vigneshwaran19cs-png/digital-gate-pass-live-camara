@@ -179,12 +179,16 @@ router.post("/leaves", async (req, res): Promise<void> => {
     return;
   }
 
+  // Check if student is Day Scholar
+  const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId));
+  const isDayScholar = (student as any)?.studentType === "DAY_SCHOLAR" || (student?.hostelBlock && student.hostelBlock.toLowerCase().includes("day"));
+
   const fromDateStr = typeof req.body.fromDate === "string" ? req.body.fromDate.split("T")[0] : new Date(req.body.fromDate).toISOString().split("T")[0];
   const toDateStr = typeof req.body.toDate === "string" ? req.body.toDate.split("T")[0] : new Date(req.body.toDate).toISOString().split("T")[0];
-  const passType = req.body.passType || "hostel_leave";
+  const passType = isDayScholar ? "outing_pass" : (req.body.passType || "hostel_leave");
   const leaveType = req.body.leaveType || "personal_work";
-  const initialStatus = req.body.status || "pending";
-  const initialStep = req.body.currentStep || (initialStatus === "fully_approved" ? "completed" : "warden");
+  const initialStatus = isDayScholar ? "info_submitted" : (req.body.status || "pending");
+  const initialStep = isDayScholar ? "info_submitted" : (req.body.currentStep || (initialStatus === "fully_approved" ? "completed" : "warden"));
 
   // Calculate AI Risk Score
   const from = new Date(fromDateStr);
@@ -207,7 +211,9 @@ router.post("/leaves", async (req, res): Promise<void> => {
   if (riskScore >= 60) riskLevel = "high";
   else if (riskScore >= 35) riskLevel = "medium";
 
-  const aiValidationNotes = `AI Risk Score: ${riskScore}/100 (${riskLevel.toUpperCase()}). Evaluated ${durationDays} day(s) duration & ${pastCount} past leave history.`;
+  const aiValidationNotes = isDayScholar
+    ? `Day Scholar Informational Leave: Recorded directly. Parent and Academic staff notified.`
+    : `AI Risk Score: ${riskScore}/100 (${riskLevel.toUpperCase()}). Evaluated ${durationDays} day(s) duration & ${pastCount} past leave history.`;
 
   const isEmergencyFlag = (req.body.isEmergency === true || req.body.isEmergency === "true" || ["emergency", "family_emergency"].includes(leaveType)) ? "true" : "false";
 
@@ -221,35 +227,49 @@ router.post("/leaves", async (req, res): Promise<void> => {
     toDate: toDateStr,
     status: initialStatus as any,
     currentStep: initialStep as any,
-    riskScore,
-    riskLevel,
+    riskScore: isDayScholar ? 0 : riskScore,
+    riskLevel: isDayScholar ? "low" : riskLevel,
     aiValidationNotes,
     medicalDocUrl: req.body.medicalDocUrl || null,
     fraudStatus: "genuine",
-    fraudNotes: "Genuine / Verified",
+    fraudNotes: isDayScholar ? "Day Scholar Notice" : "Genuine / Verified",
     isEmergency: isEmergencyFlag,
-    tutorRemarks: req.body.tutorRemarks || null,
-    hodRemarks: req.body.hodRemarks || null,
+    tutorRemarks: isDayScholar ? "Day Scholar Leave Information Received" : (req.body.tutorRemarks || null),
+    hodRemarks: isDayScholar ? "Day Scholar Leave Information Received" : (req.body.hodRemarks || null),
     principalRemarks: req.body.principalRemarks || null,
-    wardenRemarks: req.body.wardenRemarks || null,
-    parentCallStatus: req.body.parentCallStatus || (initialStatus === "fully_approved" ? "confirmed" : "pending"),
-    parentCallNotes: req.body.parentCallNotes || null,
+    wardenRemarks: isDayScholar ? "N/A - Day Scholar" : (req.body.wardenRemarks || null),
+    parentCallStatus: isDayScholar ? "confirmed" : (req.body.parentCallStatus || (initialStatus === "fully_approved" ? "confirmed" : "pending")),
+    parentCallNotes: isDayScholar ? "Parent automatically notified via SMS/WhatsApp/In-app" : (req.body.parentCallNotes || null),
     aiGeneratedLetter: req.body.aiGeneratedLetter || null,
   }).$returningId();
 
-  // If created directly as fully_approved (by Super Admin), auto-generate outpass
-  if (initialStatus === "fully_approved") {
+  // If Day Scholar: Send notifications immediately to Parent, Student, and Staff
+  if (isDayScholar && student) {
+    const parentMsg = `Your ward ${student.name} (${student.registerNumber || "Student"}) has submitted a leave information request from ${fromDateStr} to ${toDateStr}. Reason: ${req.body.reason}.`;
+    if (student.parentEmail) {
+      await sendEmailNotification(student.id, id, student.parentEmail, "Day Scholar Leave Information", parentMsg);
+    }
+    if (student.parentPhone) {
+      await sendSmsNotification(student.id, id, student.parentPhone, parentMsg);
+    }
+    if (student.parentWhatsapp) {
+      await sendWhatsAppNotification(student.id, id, student.parentWhatsapp, parentMsg);
+    }
+    await createNotification(student.id, "leave_applied", "Leave Information Submitted", `Your leave notice from ${fromDateStr} to ${toDateStr} has been recorded and parent/staff notified.`, id);
+  }
+
+  // If created directly as fully_approved (by Super Admin for Hostellers), auto-generate outpass
+  if (initialStatus === "fully_approved" && !isDayScholar) {
     await generateAndAttachOutpass(id, studentId, "Super Admin (Direct Creation)");
   }
 
   // Retrieve student and details for log
-  const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId));
   if (student) {
     await db.insert(activityLogsTable).values({
       userId: student.id,
       role: student.role,
-      action: initialStatus === "fully_approved" ? "Admin Created Approved Leave" : "Student Applied Leave",
-      details: { leaveId: id, destination: req.body.destination },
+      action: isDayScholar ? "Day Scholar Submitted Leave Information" : (initialStatus === "fully_approved" ? "Admin Created Approved Leave" : "Student Applied Leave"),
+      details: { leaveId: id, destination: req.body.destination, studentType: (student as any)?.studentType || "HOSTELLER" },
       ipAddress: req.ip || null,
       device: req.headers["user-agent"] || null,
     });

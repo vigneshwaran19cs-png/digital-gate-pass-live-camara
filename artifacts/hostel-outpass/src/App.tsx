@@ -27,6 +27,7 @@ import EnrollmentPage from "@/pages/enrollment";
 import StudentProfilePage from "@/pages/students/profile";
 import EmergencyLeavePage from "@/pages/leaves/emergency";
 import BulkApprovePage from "@/pages/leaves/bulk-approve";
+import StudentIdCardUploadPage from "@/pages/admin/id-card-upload";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ function Router() {
       <ProtectedRoute path="/security/scanner" component={LiveScannerPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <ProtectedRoute path="/users" component={UsersPage} />
+      <ProtectedRoute path="/admin/id-card-upload" component={StudentIdCardUploadPage} />
       <ProtectedRoute path="/notifications" component={NotificationsPage} />
       <ProtectedRoute path="/admin/notification-logs" component={NotificationLogsPage} />
       <ProtectedRoute path="/admin/departments" component={AdminDepartmentsPage} />

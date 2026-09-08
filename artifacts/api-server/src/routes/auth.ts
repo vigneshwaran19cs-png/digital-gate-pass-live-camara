@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, or } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { enrichStudentProfile } from "../lib/student_utils";
 
 const router: IRouter = Router();
 
@@ -45,7 +46,8 @@ function resolveUserId(req: import("express").Request): number | null {
 export { parseToken, resolveUserId };
 
 router.post("/auth/login", async (req, res): Promise<void> => {
-  const { email, password } = req.body;
+  const email = req.body.email || req.body.identifier || req.body.registerNumber || req.body.username;
+  const password = req.body.password;
   if (!email || !password) {
     res.status(400).json({ error: "Email or Student ID and password required" });
     return;
@@ -104,9 +106,9 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   }
 
   // If user has parent in email/name but was previously saved as student, auto-correct to parent
-  if (user && (user.email?.toLowerCase().includes("parent") || user.name?.toLowerCase().includes("parent")) && user.role !== "parent") {
+  if (user && (user.email?.toLowerCase().includes("parent") || user.name?.toLowerCase().includes("parent")) && (user.role as string) !== "parent") {
     await db.update(usersTable).set({ role: "parent" as any }).where(eq(usersTable.id, user.id));
-    user.role = "parent";
+    (user as any).role = "parent";
   }
 
   const isValidPassword =
@@ -125,8 +127,22 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   logger.info({ userId: user.id, role: user.role, email: user.email }, "Login successful");
   const token = makeToken(user.id, user.role);
-  const { passwordHash: _, ...safeUser } = user;
-  res.json({ token, user: safeUser });
+  
+  let responseUser: any;
+  if (user.role === "student") {
+    responseUser = await enrichStudentProfile(user);
+  } else {
+    const { passwordHash: _, ...safeUser } = user;
+    let photo = safeUser.photoUrl;
+    if (photo && photo.includes("unsplash")) photo = "/students/vimal_m.jpg";
+    responseUser = {
+      ...safeUser,
+      photoUrl: photo,
+      profilePhoto: photo,
+    };
+  }
+  
+  res.json({ token, user: responseUser });
 });
 
 router.post("/auth/logout", async (_req, res): Promise<void> => {
@@ -134,27 +150,33 @@ router.post("/auth/logout", async (_req, res): Promise<void> => {
 });
 
 router.get("/auth/me", async (req, res): Promise<void> => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
+  const userId = resolveUserId(req);
+  if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
-  const token = authHeader.slice(7);
-  const parsed = parseToken(token);
-  if (!parsed) {
-    res.status(401).json({ error: "Invalid token" });
-    return;
-  }
-
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, parsed.userId));
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
-  const { passwordHash: _, ...safeUser } = user;
-  res.json(safeUser);
+  let responseUser: any;
+  if (user.role === "student") {
+    responseUser = await enrichStudentProfile(user);
+  } else {
+    const { passwordHash: _, ...safeUser } = user;
+    let photo = safeUser.photoUrl;
+    if (photo && photo.includes("unsplash")) photo = "/students/vimal_m.jpg";
+    responseUser = {
+      ...safeUser,
+      photoUrl: photo,
+      profilePhoto: photo,
+    };
+  }
+  
+  res.json(responseUser);
 });
 
 export default router;

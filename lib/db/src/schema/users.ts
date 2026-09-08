@@ -27,9 +27,12 @@ export const usersTable = mysqlTable("users", {
 
   // Student Fields
   registerNumber: varchar("register_number", { length: 100 }),
+  studentType: mysqlEnum("student_type", ["HOSTELLER", "DAY_SCHOLAR"]).default("HOSTELLER"),
+  barcode: varchar("barcode", { length: 100 }),
   classId: int("class_id").references(() => classesTable.id),
   hostelBlock: varchar("hostel_block", { length: 50 }),
   hostelRoom: varchar("hostel_room", { length: 50 }),
+  bedNumber: varchar("bed_number", { length: 50 }),
   parentName: varchar("parent_name", { length: 255 }),
   parentPhone: varchar("parent_phone", { length: 20 }),
   parentWhatsapp: varchar("parent_whatsapp", { length: 20 }),

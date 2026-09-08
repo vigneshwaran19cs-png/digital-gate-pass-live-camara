@@ -30,7 +30,7 @@ export default function StudentProfilePage() {
   const [gateLogs, setGateLogs] = useState<any[]>([]);
 
   useEffect(() => {
-    if (user?.role === "parent") {
+    if ((user?.role as string) === "parent") {
       setLocation("/dashboard");
     }
   }, [user?.role, setLocation]);
@@ -82,6 +82,12 @@ export default function StudentProfilePage() {
     }
   };
 
+  const isDayScholar = (user as any)?.studentType === "DAY_SCHOLAR" || ((user as any)?.hostelBlock && (user as any).hostelBlock.toLowerCase().includes("day"));
+  const attPercentage = (user as any)?.attendancePercentage || 87;
+  const presentDays = Math.round((attPercentage / 100) * 200);
+  const absentDays = 200 - presentDays;
+  const leaveDays = Math.max(2, Math.round(absentDays * 0.45));
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
       <Button variant="ghost" onClick={() => setLocation("/dashboard")} className="mb-2">
@@ -98,6 +104,8 @@ export default function StudentProfilePage() {
                 <StudentProfilePhoto
                   photoUrl={currentPhoto || user?.photoUrl}
                   name={user?.name || "Student"}
+                  registerNumber={user?.registerNumber}
+                  barcode={(user as any)?.barcode}
                   size="xl"
                   className="w-24 h-24 rounded-2xl bg-white p-1 shadow-lg border-2 border-white shrink-0 overflow-hidden"
                 />
@@ -125,7 +133,7 @@ export default function StudentProfilePage() {
                       <div className="space-y-2">
                         <label className="text-xs font-semibold">Image URL / Preset</label>
                         <Input
-                          placeholder="https://images.unsplash.com/..."
+                          placeholder="/students/vimal_m.jpg"
                           value={photoUrlInput}
                           onChange={(e) => setPhotoUrlInput(e.target.value)}
                         />
@@ -133,24 +141,24 @@ export default function StudentProfilePage() {
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           type="button"
-                          onClick={() => setPhotoUrlInput("https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400")}
+                          onClick={() => setPhotoUrlInput("/students/vimal_m.jpg")}
                           className="p-1 border rounded-lg hover:border-blue-500 overflow-hidden"
                         >
-                          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400" className="w-full h-12 object-cover rounded" />
+                          <img src="/students/vimal_m.jpg" className="w-full h-12 object-cover rounded" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => setPhotoUrlInput("https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400")}
+                          onClick={() => setPhotoUrlInput("/students/vimal_m.jpg")}
                           className="p-1 border rounded-lg hover:border-blue-500 overflow-hidden"
                         >
-                          <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400" className="w-full h-12 object-cover rounded" />
+                          <img src="/students/vimal_m.jpg" className="w-full h-12 object-cover rounded" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => setPhotoUrlInput("https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400")}
+                          onClick={() => setPhotoUrlInput("/students/vimal_m.jpg")}
                           className="p-1 border rounded-lg hover:border-blue-500 overflow-hidden"
                         >
-                          <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400" className="w-full h-12 object-cover rounded" />
+                          <img src="/students/vimal_m.jpg" className="w-full h-12 object-cover rounded" />
                         </button>
                       </div>
                       <Button onClick={handleUpdatePhoto} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
@@ -162,12 +170,23 @@ export default function StudentProfilePage() {
               </div>
 
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl font-heading font-bold">{user?.name || "John Doe"}</h1>
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Face Enrolled ✓</Badge>
+                  {isDayScholar ? (
+                    <Badge className="bg-purple-100 text-purple-800 border-purple-200 font-semibold gap-1">
+                      🚌 Day Scholar
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-blue-100 text-blue-800 border-blue-200 font-semibold gap-1">
+                      🏠 Hosteller
+                    </Badge>
+                  )}
+                  {!isDayScholar && (
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Face Enrolled ✓</Badge>
+                  )}
                 </div>
                 <div className="text-sm text-muted-foreground font-mono">
-                  ID: {user?.registerNumber || "STU001"} · Class: III Year CSE A
+                  ID: {user?.registerNumber || "STU001"} · Barcode: {(user as any)?.barcode || user?.registerNumber || "N/A"}
                 </div>
               </div>
             </div>
@@ -176,12 +195,12 @@ export default function StudentProfilePage() {
               <Button
                 variant="outline"
                 onClick={() => setIsEditProfileOpen(true)}
-                className="border-blue-200 bg-blue-50/60 text-blue-700 hover:bg-blue-100 gap-2"
+                className="border-blue-200 bg-blue-50/60 text-blue-700 hover:bg-blue-100 gap-2 text-xs"
               >
                 <Pencil className="w-4 h-4" /> Edit Profile Details
               </Button>
-              <Button onClick={() => setLocation("/apply")} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
-                <FileText className="w-4 h-4" /> Apply Leave
+              <Button onClick={() => setLocation("/apply")} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 text-xs">
+                <FileText className="w-4 h-4" /> {isDayScholar ? "Submit Leave Notice" : "Apply Leave"}
               </Button>
             </div>
           </div>
@@ -191,30 +210,30 @@ export default function StudentProfilePage() {
             onOpenChange={setIsEditProfileOpen}
           />
 
-          {/* Attendance Stats & Leave Days */}
+          {/* Attendance Stats & Performance Breakdown */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t">
             <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl text-center border border-slate-100 dark:border-slate-800">
               <div className="text-xs text-muted-foreground font-medium">Attendance Percentage</div>
-              <div className="text-xl font-extrabold text-emerald-600">{(user as any)?.attendancePercentage || 87}%</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">174 / 200 Days</div>
+              <div className="text-xl font-extrabold text-emerald-600">{attPercentage}%</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{presentDays} Present / 200 Days</div>
             </div>
 
             <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl text-center border border-slate-100 dark:border-slate-800">
-              <div className="text-xs text-muted-foreground font-medium">Total Leave Days Taken</div>
-              <div className="text-xl font-extrabold text-slate-800 dark:text-slate-100">{totalLeaveDaysTaken} Days</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">{approvedLeaves} approved / {totalLeaves} total</div>
+              <div className="text-xs text-muted-foreground font-medium">{isDayScholar ? "Absent / Leave Days" : "Total Leave Days"}</div>
+              <div className="text-xl font-extrabold text-slate-800 dark:text-slate-100">{isDayScholar ? `${absentDays} Days` : `${totalLeaveDaysTaken} Days`}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{leaves.length} recorded leaves</div>
             </div>
 
             <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl text-center border border-slate-100 dark:border-slate-800">
-              <div className="text-xs text-muted-foreground font-medium">Approved Gate Passes</div>
-              <div className="text-xl font-extrabold text-blue-600">{approvedLeaves}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Fully Verified</div>
+              <div className="text-xs text-muted-foreground font-medium">{isDayScholar ? "Student Classification" : "Approved Gate Passes"}</div>
+              <div className="text-xl font-extrabold text-blue-600">{isDayScholar ? "Day Scholar" : approvedLeaves}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{isDayScholar ? "Non-Hostel Commuter" : "Fully Verified"}</div>
             </div>
 
             <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl text-center border border-slate-100 dark:border-slate-800">
-              <div className="text-xs text-muted-foreground font-medium">Current Location Status</div>
-              <div className="text-sm font-bold text-indigo-600 truncate mt-1">{locationStatus?.status || "Inside Hostel"}</div>
-              <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">Active Student</div>
+              <div className="text-xs text-muted-foreground font-medium">Campus Status</div>
+              <div className="text-sm font-bold text-indigo-600 truncate mt-1">{isDayScholar ? "Day Commuter" : (locationStatus?.status || "Inside Hostel")}</div>
+              <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">Enrolled Student</div>
             </div>
           </div>
         </CardContent>
@@ -224,8 +243,10 @@ export default function StudentProfilePage() {
       <Tabs defaultValue="details" className="space-y-4">
         <TabsList className="glass-card">
           <TabsTrigger value="details">Academic & Parent Details</TabsTrigger>
-          <TabsTrigger value="history">Leave History ({totalLeaves})</TabsTrigger>
-          <TabsTrigger value="gate">Gate Entry / Exit Audit Logs</TabsTrigger>
+          <TabsTrigger value="history">Leave & Absence History ({totalLeaves})</TabsTrigger>
+          {!isDayScholar && (
+            <TabsTrigger value="gate">Hostel Gate Audit Logs</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="details" className="space-y-4">
@@ -234,15 +255,26 @@ export default function StudentProfilePage() {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <GraduationCap className="w-4 h-4 text-blue-600" />
-                  Academic Information
+                  Academic & Residential Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">College Stream:</span><span className="font-semibold">{(user as any)?.collegeType || "Engineering & Technology"}</span></div>
                 <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Department:</span><span className="font-semibold">Computer Science & Engineering</span></div>
-                <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Hostel Block:</span><span className="font-semibold">Kaveri Boys Hostel (Block A)</span></div>
-                <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Room Number:</span><span className="font-semibold">A-101</span></div>
-                <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Attendance Percentage:</span><span className="font-bold text-emerald-600">87%</span></div>
+                <div className="flex justify-between py-1.5 border-b">
+                  <span className="text-muted-foreground">Student Type:</span>
+                  <span className="font-bold text-slate-900">{isDayScholar ? "🚌 Day Scholar" : "🏠 Hosteller"}</span>
+                </div>
+                {!isDayScholar ? (
+                  <>
+                    <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Hostel Block:</span><span className="font-semibold">{(user as any)?.hostelBlock || "Kaveri Boys Hostel (Block A)"}</span></div>
+                    <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Room Number:</span><span className="font-semibold">{(user as any)?.hostelRoom || "A-101"}</span></div>
+                    <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Bed Number:</span><span className="font-semibold">{(user as any)?.bedNumber || "Bed-1"}</span></div>
+                  </>
+                ) : (
+                  <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Hostel Pass Status:</span><span className="font-semibold text-purple-700 italic">Not Applicable (Day Scholar)</span></div>
+                )}
+                <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Attendance Percentage:</span><span className="font-bold text-emerald-600">{attPercentage}%</span></div>
               </CardContent>
             </Card>
 
@@ -254,10 +286,10 @@ export default function StudentProfilePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Parent Name:</span><span className="font-semibold">Jane Doe</span></div>
-                <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Parent Contact:</span><span className="font-semibold">+91 0987654321</span></div>
+                <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Parent Name:</span><span className="font-semibold">{(user as any)?.parentName || "Jane Doe"}</span></div>
+                <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Parent Contact:</span><span className="font-semibold font-mono">{(user as any)?.parentPhone || "+91 0987654321"}</span></div>
                 <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">WhatsApp Alerts:</span><span className="font-semibold text-emerald-600">Enabled ✓</span></div>
-                <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Assigned Tutor:</span><span className="font-semibold">Dr. Smith (CSE)</span></div>
+                <div className="flex justify-between py-1.5 border-b"><span className="text-muted-foreground">Assigned Tutor:</span><span className="font-semibold">Dr. S. Ramesh (CSE)</span></div>
               </CardContent>
             </Card>
           </div>

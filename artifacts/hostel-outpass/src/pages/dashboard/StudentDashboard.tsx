@@ -27,13 +27,14 @@ function StatusBadge({ status, currentStep, isEmergency }: { status: string; cur
 export default function StudentDashboard() {
   const { user } = useAuth();
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const isDayScholar = (user as any)?.studentType === "DAY_SCHOLAR" || (user as any)?.isDayScholar;
 
   // Check if profile has any missing vital fields
   const isProfileIncomplete = (
     !user?.registerNumber ||
     !user?.departmentId ||
     !(user as any)?.parentPhone ||
-    !(user as any)?.hostelRoom
+    (!isDayScholar && !(user as any)?.hostelRoom)
   );
 
   useEffect(() => {
@@ -49,12 +50,17 @@ export default function StudentDashboard() {
   );
 
   const leaves = (leavesData as any)?.leaves ?? (leavesData as any) ?? [];
-  const pending = (leaves as any[]).filter((l: any) => !["fully_approved", "rejected"].includes(l.status)).length;
+  const pending = (leaves as any[]).filter((l: any) => !["fully_approved", "rejected", "info_submitted"].includes(l.status)).length;
   const approved = (leaves as any[]).filter((l: any) => l.status === "fully_approved").length;
-  const rejected = (leaves as any[]).filter((l: any) => l.status === "rejected").length;
+  const recordedNotices = (leaves as any[]).filter((l: any) => l.status === "info_submitted").length;
   const activeOutpass = (leaves as any[]).filter((l: any) => l.outpassId).length;
 
-  const stats = [
+  const stats = isDayScholar ? [
+    { label: "Attendance Record", value: `${(user as any)?.attendancePercentage || 87}%`, icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
+    { label: "Present Days", value: (user as any)?.attendancePresentDays || 174, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
+    { label: "Leave Days", value: (user as any)?.attendanceLeaveDays || (leaves as any[]).length, icon: Clock, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
+    { label: "Total Leave Notices", value: recordedNotices || (leaves as any[]).length, icon: FileText, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" },
+  ] : [
     { label: "Pending Requests", value: pending, icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
     { label: "Approved Leaves", value: approved, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
     { label: "Active Outpasses", value: activeOutpass, icon: QrCode, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
@@ -73,7 +79,7 @@ export default function StudentDashboard() {
             <div>
               <div className="font-bold text-amber-950 text-sm">Action Required: Complete Your Student Profile</div>
               <div className="text-xs text-amber-900">
-                Please fill in your Department, Hostel Room, and Parent Phone to enable automated leave approvals & SMS alerts.
+                Please fill in your Department and Parent Phone to enable automated notifications & SMS alerts.
               </div>
             </div>
           </div>
@@ -90,17 +96,30 @@ export default function StudentDashboard() {
       {/* Header Profile Card */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-4">
-          <StudentProfilePhoto photoUrl={user?.photoUrl} name={user?.name} size="lg" className="shrink-0 shadow-sm" />
+          <StudentProfilePhoto
+            photoUrl={user?.photoUrl}
+            name={user?.name}
+            registerNumber={user?.registerNumber}
+            barcode={(user as any)?.barcode}
+            size="lg"
+            className="shrink-0 shadow-sm"
+          />
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-6 h-6 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center">
-                <GraduationCap className="w-3.5 h-3.5 text-blue-600" />
+              <div className={`w-6 h-6 rounded-md ${isDayScholar ? "bg-purple-50 border border-purple-100" : "bg-blue-50 border border-blue-100"} flex items-center justify-center`}>
+                <GraduationCap className={`w-3.5 h-3.5 ${isDayScholar ? "text-purple-600" : "text-blue-600"}`} />
               </div>
-              <span className="text-xs font-bold uppercase tracking-widest text-blue-600">Student Portal</span>
+              <span className={`text-xs font-bold uppercase tracking-widest ${isDayScholar ? "text-purple-600" : "text-blue-600"}`}>
+                {isDayScholar ? "Day Scholar Portal" : "Hostel Student Portal"}
+              </span>
+              <Badge className={isDayScholar ? "bg-purple-600 text-white text-[10px]" : "bg-blue-600 text-white text-[10px]"}>
+                {isDayScholar ? "🚌 Day Scholar" : "🏠 Hosteller"}
+              </Badge>
             </div>
             <h1 className="text-2xl font-heading font-bold">Welcome, {user?.name?.split(" ")[0]}</h1>
             <p className="text-muted-foreground text-xs font-mono mt-0.5">
-              Reg No: <span className="font-bold text-slate-800 dark:text-slate-200">{user?.registerNumber || "Not Set"}</span> · Room <span className="font-bold text-slate-800 dark:text-slate-200">{(user as any)?.hostelRoom || "Not Set"}</span>
+              Reg No: <span className="font-bold text-slate-800 dark:text-slate-200">{user?.registerNumber || "Not Set"}</span>
+              {!isDayScholar && <> · Room <span className="font-bold text-slate-800 dark:text-slate-200">{(user as any)?.hostelRoom || "Not Set"}</span></>}
             </p>
           </div>
         </div>
@@ -119,11 +138,11 @@ export default function StudentDashboard() {
             <div className="text-center px-2">
               <div className="text-[10px] uppercase font-bold text-slate-500">Attendance</div>
               <div className="text-lg font-extrabold text-emerald-600">{(user as any)?.attendancePercentage || 87}%</div>
-              <div className="text-[9px] text-muted-foreground">Present</div>
+              <div className="text-[9px] text-muted-foreground">Overall</div>
             </div>
             <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
             <div className="text-center px-2">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Leave Taken</div>
+              <div className="text-[10px] uppercase font-bold text-slate-500">{isDayScholar ? "Leave Notices" : "Leave Taken"}</div>
               <div className="text-lg font-extrabold text-slate-800 dark:text-slate-200">{(leaves as any[]).length} Days</div>
               <div className="text-[9px] text-muted-foreground">Academic Year</div>
             </div>
@@ -157,59 +176,71 @@ export default function StudentDashboard() {
       {/* Quick Actions */}
       <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show" className="grid sm:grid-cols-2 gap-4">
         <Link href="/apply">
-          <div className="glass-card rounded-2xl p-5 border border-blue-100 bg-blue-50/20 cursor-pointer hover:border-blue-300 transition-colors group">
+          <div className={`glass-card rounded-2xl p-5 border ${isDayScholar ? "border-purple-200 bg-purple-50/30 hover:border-purple-300" : "border-blue-100 bg-blue-50/20 hover:border-blue-300"} cursor-pointer transition-colors group`}>
             <div className="flex items-center justify-between">
               <div>
-                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-3">
-                  <PlusCircle className="w-5 h-5 text-blue-600" />
+                <div className={`w-10 h-10 rounded-xl ${isDayScholar ? "bg-purple-50 border border-purple-100" : "bg-blue-50 border border-blue-100"} flex items-center justify-center mb-3`}>
+                  <PlusCircle className={`w-5 h-5 ${isDayScholar ? "text-purple-600" : "text-blue-600"}`} />
                 </div>
-                <h3 className="font-heading font-semibold text-slate-800">Apply for Leave</h3>
-                <p className="text-xs text-muted-foreground mt-1">Submit standard leave or outing request</p>
+                <h3 className="font-heading font-semibold text-slate-800">
+                  {isDayScholar ? "Submit Leave Notice" : "Apply for Leave"}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isDayScholar
+                    ? "Intimate Tutor, HOD & Parent for attendance records"
+                    : "Submit standard leave or outing request"}
+                </p>
               </div>
-              <ArrowRight className="w-5 h-5 text-blue-600/50 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+              <ArrowRight className={`w-5 h-5 ${isDayScholar ? "text-purple-600/50 group-hover:text-purple-600" : "text-blue-600/50 group-hover:text-blue-600"} group-hover:translate-x-1 transition-all`} />
             </div>
           </div>
         </Link>
-        <Link href="/leaves/emergency">
-          <div className="glass-card rounded-2xl p-5 border border-rose-100 bg-rose-50/20 cursor-pointer hover:border-rose-300 transition-colors group">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center mb-3">
-                  <PlusCircle className="w-5 h-5 text-rose-600" />
+        {!isDayScholar && (
+          <Link href="/leaves/emergency">
+            <div className="glass-card rounded-2xl p-5 border border-rose-100 bg-rose-50/20 cursor-pointer hover:border-rose-300 transition-colors group">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center mb-3">
+                    <PlusCircle className="w-5 h-5 text-rose-600" />
+                  </div>
+                  <h3 className="font-heading font-semibold text-slate-800">Apply Emergency Leave</h3>
+                  <p className="text-xs text-muted-foreground mt-1">Urgent Warden & Principal priority routing</p>
                 </div>
-                <h3 className="font-heading font-semibold text-slate-800">Apply Emergency Leave</h3>
-                <p className="text-xs text-muted-foreground mt-1">Urgent Warden & Principal priority routing</p>
+                <ArrowRight className="w-5 h-5 text-rose-600/50 group-hover:text-rose-600 group-hover:translate-x-1 transition-all" />
               </div>
-              <ArrowRight className="w-5 h-5 text-rose-600/50 group-hover:text-rose-600 group-hover:translate-x-1 transition-all" />
             </div>
-          </div>
-        </Link>
-        <Link href="/outpasses">
-          <div className="glass-card rounded-2xl p-5 border border-emerald-100 bg-emerald-50/20 cursor-pointer hover:border-emerald-300 transition-colors group">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-3">
-                  <QrCode className="w-5 h-5 text-emerald-600" />
+          </Link>
+        )}
+        {!isDayScholar && (
+          <Link href="/outpasses">
+            <div className="glass-card rounded-2xl p-5 border border-emerald-100 bg-emerald-50/20 cursor-pointer hover:border-emerald-300 transition-colors group">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-3">
+                    <QrCode className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <h3 className="font-heading font-semibold text-slate-800">My Outpasses</h3>
+                  <p className="text-xs text-muted-foreground mt-1">View & show your digital outpass</p>
                 </div>
-                <h3 className="font-heading font-semibold text-slate-800">My Outpasses</h3>
-                <p className="text-xs text-muted-foreground mt-1">View & show your digital outpass</p>
+                <ArrowRight className="w-5 h-5 text-emerald-600/50 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
               </div>
-              <ArrowRight className="w-5 h-5 text-emerald-600/50 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
             </div>
-          </div>
-        </Link>
+          </Link>
+        )}
       </motion.div>
 
-      {/* Live GPS Outpass Location Tracker (Student View with Privacy Control) */}
-      <motion.div custom={4.5} variants={fadeUp} initial="hidden" animate="show">
-        <LiveStudentLocationTracker
-          studentId={user?.id || 1}
-          studentName={user?.name || "Student"}
-          studentRegisterNumber={user?.registerNumber || ""}
-          destinationAddress={(user as any)?.address || "Erode / Salem, Tamil Nadu"}
-          isParentView={false}
-        />
-      </motion.div>
+      {/* Live GPS Outpass Location Tracker (Hostellers Only) */}
+      {!isDayScholar && (
+        <motion.div custom={4.5} variants={fadeUp} initial="hidden" animate="show">
+          <LiveStudentLocationTracker
+            studentId={user?.id || 1}
+            studentName={user?.name || "Student"}
+            studentRegisterNumber={user?.registerNumber || ""}
+            destinationAddress={(user as any)?.address || "Erode / Salem, Tamil Nadu"}
+            isParentView={false}
+          />
+        </motion.div>
+      )}
 
       {/* Recent Leaves */}
       <motion.div custom={5} variants={fadeUp} initial="hidden" animate="show" className="glass-card rounded-2xl overflow-hidden bg-white shadow-sm">

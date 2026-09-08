@@ -37,7 +37,7 @@ export default function LeaveDetailPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const isSuperAdmin = user?.role === "super_admin" || user?.role === "admin";
+  const isSuperAdmin = user?.role === "super_admin" || (user?.role as string) === "admin";
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFromDate, setEditFromDate] = useState("");
   const [editToDate, setEditToDate] = useState("");
@@ -143,11 +143,12 @@ export default function LeaveDetailPage() {
   if (isLoading) return <div className="p-8 text-center">Loading leave details...</div>;
   if (!leave) return <div className="p-8 text-center">Leave not found.</div>;
 
-  const isEmergency = (leave as any).isEmergency === "true" || leave.leaveType === "family_emergency" || leave.leaveType === "emergency";
+  const isDayScholarLeave = (leave.status as string) === "info_submitted" || (leave.currentStep as string) === "info_submitted" || (leave.student as any)?.studentType === "DAY_SCHOLAR" || (leave.student as any)?.isDayScholar;
+  const isEmergency = !isDayScholarLeave && ((leave as any).isEmergency === "true" || leave.leaveType === "family_emergency" || leave.leaveType === "emergency");
   const activeSteps = isEmergency ? EMERGENCY_STEPS : NORMAL_STEPS;
   const currentStepIndex = activeSteps.indexOf(leave.currentStep);
 
-  const canApprove = (
+  const canApprove = !isDayScholarLeave && (
     (user?.role === "warden" && (leave.currentStep === "warden" || leave.currentStep === "warden_final")) ||
     (user?.role === "tutor" && leave.currentStep === "tutor" && !isEmergency) ||
     (user?.role === "hod" && leave.currentStep === "hod" && !isEmergency) ||
@@ -155,6 +156,7 @@ export default function LeaveDetailPage() {
   );
 
   const getForwardingTargetRole = () => {
+    if (isDayScholarLeave) return "Recorded (Tutor, HOD & Parent Notified)";
     if (leave.status === "fully_approved" || leave.currentStep === "completed") return "Gate Pass Generated";
     if (leave.status === "rejected") return "Rejected";
     if (isEmergency) {
@@ -214,8 +216,26 @@ export default function LeaveDetailPage() {
         <Link href="/leaves"><ArrowLeft className="w-4 h-4 mr-2" /> Back to Leaves</Link>
       </Button>
 
+      {/* Day Scholar Notice Banner */}
+      {isDayScholarLeave && (
+        <div className="bg-gradient-to-r from-purple-700 to-indigo-800 text-white p-4 rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-white text-purple-700 flex items-center justify-center font-bold text-lg shrink-0">
+              🚌
+            </div>
+            <div>
+              <div className="font-extrabold text-sm tracking-wider uppercase">DAY SCHOLAR LEAVE NOTICE (INFORMATION ONLY)</div>
+              <div className="text-xs text-purple-100">Workflow: Student → Info Submitted → Tutor/HOD Informed → Parent Notified → Recorded</div>
+            </div>
+          </div>
+          <Badge className="bg-purple-200 text-purple-900 font-bold border-none px-3 py-1 text-xs">
+            Hostel Gate Pass Not Applicable
+          </Badge>
+        </div>
+      )}
+
       {/* Emergency Header Banner (Requirement 3) */}
-      {isEmergency && (
+      {!isDayScholarLeave && isEmergency && (
         <div className="bg-red-600 text-white p-3.5 rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-white text-red-600 flex items-center justify-center font-bold text-lg animate-pulse shrink-0">
@@ -235,25 +255,30 @@ export default function LeaveDetailPage() {
       {/* Leave Forwarding Status Banner (Requirement 5 & 6) */}
       <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-4 rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-widest text-indigo-300">LEAVE FORWARDING STATUS</div>
+          <div className="text-[11px] font-bold uppercase tracking-widest text-indigo-300">
+            {isDayScholarLeave ? "DAY SCHOLAR STATUS" : "LEAVE FORWARDING STATUS"}
+          </div>
           <div className="text-lg font-extrabold flex items-center gap-2 mt-0.5">
-            Leave Forwarded To: <span className="text-amber-300 underline font-mono">{getForwardingTargetRole()}</span>
+            {isDayScholarLeave ? "Status:" : "Leave Forwarded To:"}{" "}
+            <span className="text-amber-300 underline font-mono">{getForwardingTargetRole()}</span>
           </div>
           <div className="text-xs text-slate-300 mt-1">
-            Submitted on {formatDateTime(leave.createdAt)} · Pass Type: <span className="capitalize">{leave.passType?.replace("_", " ")}</span>
+            Submitted on {formatDateTime(leave.createdAt)} · Type: <span className="capitalize">{isDayScholarLeave ? "Day Scholar Notice" : leave.passType?.replace("_", " ")}</span>
           </div>
         </div>
 
         <Badge
           className={`px-3 py-1 text-xs font-bold ${
-            leave.status === "fully_approved"
+            isDayScholarLeave
+              ? "bg-purple-600 text-white"
+              : leave.status === "fully_approved"
               ? "bg-emerald-500 text-white"
               : leave.status === "rejected"
               ? "bg-red-600 text-white"
               : "bg-amber-500 text-slate-900"
           }`}
         >
-          {leave.status.replace("_", " ")}
+          {isDayScholarLeave ? "Info Submitted" : leave.status.replace("_", " ")}
         </Badge>
       </div>
 
@@ -263,7 +288,7 @@ export default function LeaveDetailPage() {
           <Card className="glass-card shadow-md">
             <CardHeader className="border-b pb-3">
               <CardTitle className="text-xl font-heading flex items-center justify-between">
-                <span>{leave.leaveType?.replace("_", " ")} Request</span>
+                <span>{leave.leaveType?.replace("_", " ")} {isDayScholarLeave ? "Notice" : "Request"}</span>
                 {leave.outpassId && (
                   <Button variant="outline" size="sm" asChild className="text-blue-600 border-blue-200">
                     <Link href={`/outpasses/${leave.outpassId}`}>View Digital Gate Pass</Link>
@@ -277,6 +302,7 @@ export default function LeaveDetailPage() {
                   <StudentProfilePhoto
                     photoUrl={leave.student.photoUrl}
                     name={leave.student.name}
+                    registerNumber={leave.student.registerNumber}
                     size="lg"
                     className="shrink-0"
                   />
@@ -327,62 +353,97 @@ export default function LeaveDetailPage() {
           </Card>
 
           {/* Dynamic Approvals & Staff Signature Section (Requirement 9 & 10) */}
-          <Card className="glass-card shadow-md">
-            <CardHeader className="border-b pb-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-blue-600" /> Dynamic Staff Approval & Digital Signatures
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {/* Warden */}
-                <div className="p-3 border rounded-xl bg-slate-50 dark:bg-slate-900 text-center">
-                  <div className="text-[10px] uppercase font-bold text-slate-500">Warden</div>
-                  <div className="font-bold text-xs text-blue-900 dark:text-blue-300 mt-1">Mr. Hostel Warden</div>
-                  <div className="text-[10px] text-emerald-600 font-semibold mt-1">Verified ✓</div>
-                  <div className="text-[9px] text-muted-foreground mt-0.5">{formatDateTime(leave.createdAt)}</div>
+          {isDayScholarLeave ? (
+            <Card className="glass-card shadow-md border-purple-200 dark:border-purple-900/40">
+              <CardHeader className="border-b pb-3 bg-purple-50/50 dark:bg-purple-950/20">
+                <CardTitle className="text-base font-bold flex items-center gap-2 text-purple-900 dark:text-purple-300">
+                  <ShieldCheck className="w-4 h-4 text-purple-600" /> Day Scholar Notification & Record Log
+                </CardTitle>
+                <CardDescription className="text-xs text-purple-700/80 dark:text-purple-300/80">
+                  Information notice recorded automatically — no hostel warden approval or digital gate pass needed.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 border border-purple-100 dark:border-purple-900/30 rounded-xl bg-purple-50/40 dark:bg-purple-950/30 text-center">
+                    <div className="text-[10px] uppercase font-bold text-purple-600">Student Submission</div>
+                    <div className="font-bold text-xs text-purple-950 dark:text-purple-200 mt-1">{leave.student?.name || "Student"}</div>
+                    <div className="text-[10px] text-emerald-600 font-semibold mt-1">Submitted ✓</div>
+                    <div className="text-[9px] text-muted-foreground mt-0.5">{formatDateTime(leave.createdAt)}</div>
+                  </div>
+                  <div className="p-3 border border-purple-100 dark:border-purple-900/30 rounded-xl bg-purple-50/40 dark:bg-purple-950/30 text-center">
+                    <div className="text-[10px] uppercase font-bold text-purple-600">Tutor & HOD</div>
+                    <div className="font-bold text-xs text-purple-950 dark:text-purple-200 mt-1">Academic Department</div>
+                    <div className="text-[10px] text-emerald-600 font-semibold mt-1">Intimated ✓</div>
+                    <div className="text-[9px] text-muted-foreground mt-0.5">Attendance Noted</div>
+                  </div>
+                  <div className="p-3 border border-purple-100 dark:border-purple-900/30 rounded-xl bg-purple-50/40 dark:bg-purple-950/30 text-center">
+                    <div className="text-[10px] uppercase font-bold text-purple-600">Parent / Guardian</div>
+                    <div className="font-bold text-xs text-purple-950 dark:text-purple-200 mt-1 font-mono">{leave.student?.parentPhone || "+91 9876543210"}</div>
+                    <div className="text-[10px] text-emerald-600 font-semibold mt-1">SMS & WhatsApp Sent ✓</div>
+                    <div className="text-[9px] text-muted-foreground mt-0.5">{formatDateTime(leave.createdAt)}</div>
+                  </div>
                 </div>
-
-                {/* Tutor (Hidden for Emergency Leave) */}
-                {!isEmergency ? (
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="glass-card shadow-md">
+              <CardHeader className="border-b pb-3">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-blue-600" /> Dynamic Staff Approval & Digital Signatures
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* Warden */}
                   <div className="p-3 border rounded-xl bg-slate-50 dark:bg-slate-900 text-center">
-                    <div className="text-[10px] uppercase font-bold text-slate-500">Tutor</div>
-                    <div className="font-bold text-xs text-blue-900 dark:text-blue-300 mt-1">Dr. S. Ramesh</div>
+                    <div className="text-[10px] uppercase font-bold text-slate-500">Warden</div>
+                    <div className="font-bold text-xs text-blue-900 dark:text-blue-300 mt-1">Mr. Hostel Warden</div>
+                    <div className="text-[10px] text-emerald-600 font-semibold mt-1">Verified ✓</div>
+                    <div className="text-[9px] text-muted-foreground mt-0.5">{formatDateTime(leave.createdAt)}</div>
+                  </div>
+
+                  {/* Tutor (Hidden for Emergency Leave) */}
+                  {!isEmergency ? (
+                    <div className="p-3 border rounded-xl bg-slate-50 dark:bg-slate-900 text-center">
+                      <div className="text-[10px] uppercase font-bold text-slate-500">Tutor</div>
+                      <div className="font-bold text-xs text-blue-900 dark:text-blue-300 mt-1">Dr. S. Ramesh</div>
+                      <div className="text-[10px] text-emerald-600 font-semibold mt-1">Approved ✓</div>
+                      <div className="text-[9px] text-muted-foreground mt-0.5">{formatDateTime((leave as any).updatedAt || leave.createdAt)}</div>
+                    </div>
+                  ) : (
+                    <div className="p-3 border rounded-xl bg-slate-100 dark:bg-slate-800 text-center opacity-40">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Tutor</div>
+                      <div className="text-[10px] text-slate-400 italic mt-2">Not Required (Emergency)</div>
+                    </div>
+                  )}
+
+                  {/* HOD (Hidden for Emergency Leave) */}
+                  {!isEmergency ? (
+                    <div className="p-3 border rounded-xl bg-slate-50 dark:bg-slate-900 text-center">
+                      <div className="text-[10px] uppercase font-bold text-slate-500">HOD</div>
+                      <div className="font-bold text-xs text-blue-900 dark:text-blue-300 mt-1">Prof. K. Vignesh</div>
+                      <div className="text-[10px] text-emerald-600 font-semibold mt-1">Approved ✓</div>
+                      <div className="text-[9px] text-muted-foreground mt-0.5">{formatDateTime((leave as any).updatedAt || leave.createdAt)}</div>
+                    </div>
+                  ) : (
+                    <div className="p-3 border rounded-xl bg-slate-100 dark:bg-slate-800 text-center opacity-40">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">HOD</div>
+                      <div className="text-[10px] text-slate-400 italic mt-2">Not Required (Emergency)</div>
+                    </div>
+                  )}
+
+                  {/* Principal */}
+                  <div className="p-3 border rounded-xl bg-slate-50 dark:bg-slate-900 text-center">
+                    <div className="text-[10px] uppercase font-bold text-slate-500">Principal</div>
+                    <div className="font-bold text-xs text-blue-900 dark:text-blue-300 mt-1">Dr. M. Principal</div>
                     <div className="text-[10px] text-emerald-600 font-semibold mt-1">Approved ✓</div>
                     <div className="text-[9px] text-muted-foreground mt-0.5">{formatDateTime((leave as any).updatedAt || leave.createdAt)}</div>
                   </div>
-                ) : (
-                  <div className="p-3 border rounded-xl bg-slate-100 dark:bg-slate-800 text-center opacity-40">
-                    <div className="text-[10px] uppercase font-bold text-slate-400">Tutor</div>
-                    <div className="text-[10px] text-slate-400 italic mt-2">Not Required (Emergency)</div>
-                  </div>
-                )}
-
-                {/* HOD (Hidden for Emergency Leave) */}
-                {!isEmergency ? (
-                  <div className="p-3 border rounded-xl bg-slate-50 dark:bg-slate-900 text-center">
-                    <div className="text-[10px] uppercase font-bold text-slate-500">HOD</div>
-                    <div className="font-bold text-xs text-blue-900 dark:text-blue-300 mt-1">Prof. K. Vignesh</div>
-                    <div className="text-[10px] text-emerald-600 font-semibold mt-1">Approved ✓</div>
-                    <div className="text-[9px] text-muted-foreground mt-0.5">{formatDateTime((leave as any).updatedAt || leave.createdAt)}</div>
-                  </div>
-                ) : (
-                  <div className="p-3 border rounded-xl bg-slate-100 dark:bg-slate-800 text-center opacity-40">
-                    <div className="text-[10px] uppercase font-bold text-slate-400">HOD</div>
-                    <div className="text-[10px] text-slate-400 italic mt-2">Not Required (Emergency)</div>
-                  </div>
-                )}
-
-                {/* Principal */}
-                <div className="p-3 border rounded-xl bg-slate-50 dark:bg-slate-900 text-center">
-                  <div className="text-[10px] uppercase font-bold text-slate-500">Principal</div>
-                  <div className="font-bold text-xs text-blue-900 dark:text-blue-300 mt-1">Dr. M. Principal</div>
-                  <div className="text-[10px] text-emerald-600 font-semibold mt-1">Approved ✓</div>
-                  <div className="text-[9px] text-muted-foreground mt-0.5">{formatDateTime((leave as any).updatedAt || leave.createdAt)}</div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right Side Column: Student Side Panel & Approval Actions */}
@@ -406,11 +467,13 @@ export default function LeaveDetailPage() {
                   <ShieldCheck className="w-5 h-5 text-indigo-600" /> Super Admin Master Controls
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Direct master override to force-approve, edit data, or delete this leave record.
+                  {isDayScholarLeave
+                    ? "Day Scholar Informational Notice: Direct edit or deletion control."
+                    : "Direct master override to force-approve, edit data, or delete this leave record."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {leave.status !== "fully_approved" && (
+                {!isDayScholarLeave && leave.status !== "fully_approved" && (
                   <Button
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm"
                     onClick={handleSuperApprove}

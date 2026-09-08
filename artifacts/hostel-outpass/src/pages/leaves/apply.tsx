@@ -44,11 +44,60 @@ const OUTING_CATEGORIES = [
   { value: "other", label: "Other Reason", icon: FileText, color: "bg-gray-100 text-gray-800 border-gray-200", desc: "Type your own reason" },
 ];
 
-function generateLetter(passType: PassType, category: string, destination: string, fromDate: string, toDate: string, studentName = "Student", customReason = ""): string {
+function generateLetter(passType: PassType, category: string, destination: string, fromDate: string, toDate: string, studentName = "Student", customReason = "", isDayScholar = false): string {
   const cat = passType === "leave" ? LEAVE_CATEGORIES.find(c => c.value === category) : OUTING_CATEGORIES.find(c => c.value === category);
   const catLabel = cat?.label || category;
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+
+  if (isDayScholar) {
+    const daysText = fromDate && toDate ? `from ${fromDate} to ${toDate}` : "for the specified period";
+    const reasonParagraphMap: Record<string, string> = {
+      semester_holiday: `I will not be able to attend regular college classes during this period due to semester holiday break.`,
+      study_holiday: `As the examination period is approaching, I will be studying from home to prepare for the upcoming examinations.`,
+      diwali_holiday: `I will be unable to attend classes due to Diwali festive celebrations with my family.`,
+      pongal_holiday: `I will be unable to attend classes due to Pongal festive celebrations in my hometown.`,
+      christmas_holiday: `I will be unable to attend classes due to Christmas vacation with my family.`,
+      ramzan_holiday: `I will be observing Eid/Ramzan holidays with my family during this period.`,
+      family_function: `There is an important family function requiring my presence at home, so I will be absent from college classes.`,
+      marriage_function: `There is an important marriage ceremony in my family which requires my compulsory attendance.`,
+      family_emergency: `Due to an unforeseen family emergency, I will not be able to attend college classes during this period.`,
+      medical_leave: `I am currently unwell and undergoing medical treatment / advised bed rest at home.`,
+      hospital_visit: `I have a scheduled medical consultation/hospital visit and will miss classes on the specified date(s).`,
+      internship: `I have been selected for an off-campus internship / industry training program during this period.`,
+      project_work: `I am attending external project-related academic activities outside college during this period.`,
+      other: customReason ? `${customReason}` : `I have personal reasons necessitating my leave from classes during this period.`,
+    };
+    const reasonParagraph = reasonParagraphMap[category] || reasonParagraphMap["other"];
+
+    return `Date: ${dateStr}
+
+To,
+The Class Tutor & Head of the Department,
+JKKM College of Technology,
+Komarapalayam.
+
+Respected Sir/Madam,
+
+Subject: Leave Information Notice - Day Scholar Student
+
+I, ${studentName}, a Day Scholar student of JKKM College of Technology, hereby submit this leave notice for ${daysText}.
+
+${reasonParagraph}
+
+Destination / Address: ${destination}
+Leave Period: ${fromDate} to ${toDate}
+Category: ${catLabel}
+
+Note: As a Day Scholar, this notice serves as official intimation for college attendance records. My parent/guardian has also been notified of this leave.
+
+Thanking you,
+
+Yours obediently,
+${studentName}
+(Day Scholar Student)
+JKKM College of Technology`;
+  }
 
   if (passType === "outing") {
     const outingReasonMap: Record<string, string> = {
@@ -142,6 +191,8 @@ JKKM College of Technology
 Komarapalayam.`;
 }
 
+import { useAuth } from "@/contexts/AuthContext";
+
 const formSchema = z.object({
   passType: z.enum(["leave", "outing"]),
   leaveType: z.string().min(1, "Please select a category"),
@@ -157,6 +208,10 @@ export default function ApplyLeavePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createLeave = useCreateLeave();
+  const { user } = useAuth();
+  const isDayScholar = (user as any)?.studentType === "DAY_SCHOLAR" || (user as any)?.isDayScholar;
+  const studentName = user?.name || "Student";
+
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedPassType, setSelectedPassType] = useState<PassType>("leave");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -182,7 +237,7 @@ export default function ApplyLeavePage() {
 
   useEffect(() => {
     if (selectedCategory && destination && fromDate) {
-      const letter = generateLetter(selectedPassType, selectedCategory, destination, fromDate, toDate, "Student", customReason);
+      const letter = generateLetter(selectedPassType, selectedCategory, destination, fromDate, toDate, studentName, customReason, isDayScholar);
       setGeneratedLetter(letter);
       setValue("aiGeneratedLetter", letter);
       if (selectedCategory !== "other") {
@@ -194,14 +249,24 @@ export default function ApplyLeavePage() {
         setValue("reason", customReason);
       }
     }
-  }, [selectedCategory, destination, fromDate, toDate, selectedPassType, customReason]);
+  }, [selectedCategory, destination, fromDate, toDate, selectedPassType, customReason, isDayScholar, studentName]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     createLeave.mutate(
       { data: { ...values, reason: values.reason } as any },
       {
         onSuccess: () => {
-          toast({ title: "✅ Application Submitted", description: "Your request has been forwarded to the Warden for approval." });
+          if (isDayScholar) {
+            toast({
+              title: "✅ Leave Notice Recorded",
+              description: "Your leave information has been recorded and Tutor, HOD, and Parent have been notified.",
+            });
+          } else {
+            toast({
+              title: "✅ Application Submitted",
+              description: "Your request has been forwarded to the Warden for approval.",
+            });
+          }
           queryClient.invalidateQueries({ queryKey: getListLeavesQueryKey() });
           setLocation("/leaves");
         },
@@ -237,32 +302,64 @@ export default function ApplyLeavePage() {
       {step === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">What do you need?</CardTitle>
-            <CardDescription>Select the type of pass you want to apply for.</CardDescription>
+            <CardTitle className="text-2xl">
+              {isDayScholar ? "Day Scholar Leave Information Notice" : "What do you need?"}
+            </CardTitle>
+            <CardDescription>
+              {isDayScholar
+                ? "Submit your leave intimation for attendance and academic record keeping."
+                : "Select the type of pass you want to apply for."}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={() => { setSelectedPassType("leave"); form.setValue("passType", "leave"); }}
-              className={`p-6 rounded-xl border-2 text-left transition-all hover:shadow-md ${selectedPassType === "leave" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
-            >
-              <div className="text-3xl mb-3">🏠</div>
-              <div className="font-bold text-lg">Hostel Leave</div>
-              <div className="text-sm text-muted-foreground mt-1">Go home for holidays, family events, or medical reasons. Requires full approval chain: Warden → Tutor → HOD → Principal.</div>
-              <div className="mt-3 flex flex-wrap gap-1">
-                {["Semester Holiday", "Family Function", "Medical"].map(t => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+          <CardContent className={isDayScholar ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+            {isDayScholar ? (
+              <div className="p-6 rounded-xl border-2 border-purple-300 bg-purple-50/60 dark:bg-purple-950/20">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="text-3xl">🚌</div>
+                  <div>
+                    <div className="font-bold text-lg text-purple-900 dark:text-purple-300">Day Scholar Leave Notice</div>
+                    <Badge variant="outline" className="border-purple-300 text-purple-700 bg-purple-100 dark:bg-purple-900/40 text-xs">
+                      Information Only (No Gate Pass Required)
+                    </Badge>
+                  </div>
+                </div>
+                <p className="text-sm text-purple-950/80 dark:text-purple-200 mt-2">
+                  As a registered Day Scholar student, your leave submission directly records your absence in college attendance records.
+                  Your Class Tutor and HOD are automatically notified, and your parent/guardian receives an instant SMS/WhatsApp intimation.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Badge variant="secondary" className="text-xs">📚 Attendance Tracking</Badge>
+                  <Badge variant="secondary" className="text-xs">👨‍🏫 Tutor & HOD Informed</Badge>
+                  <Badge variant="secondary" className="text-xs">📱 Parent Notified</Badge>
+                  <Badge variant="secondary" className="text-xs">❌ No Hostel Gate Pass Needed</Badge>
+                </div>
               </div>
-            </button>
-            <button
-              onClick={() => { setSelectedPassType("outing"); form.setValue("passType", "outing"); }}
-              className={`p-6 rounded-xl border-2 text-left transition-all hover:shadow-md ${selectedPassType === "outing" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
-            >
-              <div className="text-3xl mb-3">🚶</div>
-              <div className="font-bold text-lg">Outing Pass</div>
-              <div className="text-sm text-muted-foreground mt-1">Quick outing within town for personal errands. Faster approval: Warden only. Return same day.</div>
-              <div className="mt-3 flex flex-wrap gap-1">
-                {["Hair Cut", "Shopping", "ATM / Bank", "Medical"].map(t => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
-              </div>
-            </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => { setSelectedPassType("leave"); form.setValue("passType", "leave"); }}
+                  className={`p-6 rounded-xl border-2 text-left transition-all hover:shadow-md ${selectedPassType === "leave" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                >
+                  <div className="text-3xl mb-3">🏠</div>
+                  <div className="font-bold text-lg">Hostel Leave</div>
+                  <div className="text-sm text-muted-foreground mt-1">Go home for holidays, family events, or medical reasons. Requires full approval chain: Warden → Tutor → HOD → Principal.</div>
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {["Semester Holiday", "Family Function", "Medical"].map(t => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+                  </div>
+                </button>
+                <button
+                  onClick={() => { setSelectedPassType("outing"); form.setValue("passType", "outing"); }}
+                  className={`p-6 rounded-xl border-2 text-left transition-all hover:shadow-md ${selectedPassType === "outing" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                >
+                  <div className="text-3xl mb-3">🚶</div>
+                  <div className="font-bold text-lg">Outing Pass</div>
+                  <div className="text-sm text-muted-foreground mt-1">Quick outing within town for personal errands. Faster approval: Warden only. Return same day.</div>
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {["Hair Cut", "Shopping", "ATM / Bank", "Medical"].map(t => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+                  </div>
+                </button>
+              </>
+            )}
           </CardContent>
           <div className="px-6 pb-6 flex justify-end">
             <Button onClick={() => setStep(2)}>
@@ -278,7 +375,11 @@ export default function ApplyLeavePage() {
           <form className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>{selectedPassType === "leave" ? "🏠 Hostel Leave" : "🚶 Outing Pass"} — Choose Category</CardTitle>
+                <CardTitle>
+                  {isDayScholar
+                    ? "🚌 Day Scholar Leave Notice — Choose Category"
+                    : (selectedPassType === "leave" ? "🏠 Hostel Leave" : "🚶 Outing Pass") + " — Choose Category"}
+                </CardTitle>
                 <CardDescription>Select the reason that best matches your situation.</CardDescription>
               </CardHeader>
               <CardContent>
@@ -333,9 +434,9 @@ export default function ApplyLeavePage() {
                   name="destination"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4" /> Destination</FormLabel>
+                      <FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4" /> Destination / Reason Location</FormLabel>
                       <FormControl>
-                        <Input placeholder={selectedPassType === "outing" ? "e.g., Town Market, Komarapalayam" : "e.g., 123 Gandhi Street, Chennai - 600001"} {...field} />
+                        <Input placeholder={isDayScholar ? "e.g., Home, Komarapalayam / Hospital" : (selectedPassType === "outing" ? "e.g., Town Market, Komarapalayam" : "e.g., 123 Gandhi Street, Chennai - 600001")} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -378,7 +479,7 @@ export default function ApplyLeavePage() {
                   type="button"
                   disabled={!selectedCategory || !fromDate || !toDate || !destination || (selectedCategory === "other" && customReason.length < 5)}
                   onClick={() => {
-                    const letter = generateLetter(selectedPassType, selectedCategory, destination, fromDate, toDate, "Student", customReason);
+                    const letter = generateLetter(selectedPassType, selectedCategory, destination, fromDate, toDate, studentName, customReason, isDayScholar);
                     setGeneratedLetter(letter);
                     setValue("aiGeneratedLetter", letter);
                     if (selectedCategory !== "other") {
@@ -408,7 +509,7 @@ export default function ApplyLeavePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-primary" />
-                  Review Your Application Letter
+                  {isDayScholar ? "Review Leave Information Notice" : "Review Your Application Letter"}
                 </CardTitle>
                 <CardDescription>
                   This letter has been auto-generated based on your inputs. You can edit it before submitting.
@@ -444,11 +545,13 @@ export default function ApplyLeavePage() {
                   />
                 </div>
 
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                  <strong>📋 Approval Route:</strong>{" "}
-                  {selectedPassType === "outing"
-                    ? "Warden → Outpass Generated (Same Day)"
-                    : "Warden → Tutor (Parent Call) → HOD → Principal → Warden Final → Outpass Generated"}
+                <div className={`mt-4 p-3 border rounded-lg text-sm ${isDayScholar ? "bg-purple-50 border-purple-200 text-purple-900" : "bg-blue-50 border-blue-200 text-blue-800"}`}>
+                  <strong>📋 {isDayScholar ? "Information Flow:" : "Approval Route:"}</strong>{" "}
+                  {isDayScholar
+                    ? "Student → Leave Info Submitted → Tutor/HOD Informed → Parent Notified → Recorded (No Hostel Gate Pass required)"
+                    : (selectedPassType === "outing"
+                        ? "Warden → Outpass Generated (Same Day)"
+                        : "Warden → Tutor (Parent Call) → HOD → Principal → Warden Final → Outpass Generated")}
                 </div>
               </CardContent>
               <div className="px-6 pb-6 flex justify-between">
@@ -456,7 +559,7 @@ export default function ApplyLeavePage() {
                   <ArrowLeft className="w-4 h-4 mr-2" /> Edit Details
                 </Button>
                 <Button type="submit" disabled={createLeave.isPending} className="min-w-[160px]">
-                  {createLeave.isPending ? "Submitting..." : "✅ Submit Application"}
+                  {createLeave.isPending ? "Submitting..." : (isDayScholar ? "✅ Submit Leave Notice" : "✅ Submit Application")}
                 </Button>
               </div>
             </Card>

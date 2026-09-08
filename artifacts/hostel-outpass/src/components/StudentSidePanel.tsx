@@ -51,6 +51,7 @@ export function StudentSidePanel({
           <StudentProfilePhoto
             photoUrl={student.photoUrl}
             name={student.name || "Student"}
+            registerNumber={student.registerNumber}
             size="lg"
             className="border-2 border-white/80 shadow-md shrink-0"
           />
@@ -61,9 +62,20 @@ export function StudentSidePanel({
             <div className="text-xs text-blue-100 font-mono">
               Reg: {student.registerNumber || "STU-REG"}
             </div>
-            <Badge className="bg-white/20 hover:bg-white/30 text-white text-[10px] border-none mt-1">
-              {student.departmentName || "Engineering"}
-            </Badge>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Badge className="bg-white/20 hover:bg-white/30 text-white text-[10px] border-none">
+                {student.departmentName || "Engineering"}
+              </Badge>
+              {(student as any).studentType === "DAY_SCHOLAR" || (student as any).isDayScholar ? (
+                <Badge className="bg-purple-500 text-white text-[10px] border-none">
+                  🚌 Day Scholar
+                </Badge>
+              ) : (
+                <Badge className="bg-blue-500 text-white text-[10px] border-none">
+                  🏠 Hosteller
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -86,9 +98,13 @@ export function StudentSidePanel({
             </span>
           </div>
           <div className="flex justify-between items-center py-0.5">
-            <span className="text-muted-foreground">Hostel & Room:</span>
+            <span className="text-muted-foreground">
+              {(student as any).studentType === "DAY_SCHOLAR" || (student as any).isDayScholar ? "Student Category:" : "Hostel & Room:"}
+            </span>
             <span className="font-semibold text-slate-800 dark:text-slate-200">
-              {student.hostelBlock || "Block A"} - {student.hostelRoom || "101"}
+              {(student as any).studentType === "DAY_SCHOLAR" || (student as any).isDayScholar
+                ? "Day Scholar (Non-Resident)"
+                : `${student.hostelBlock || "Block A"} - ${student.hostelRoom || "101"}`}
             </span>
           </div>
         </div>

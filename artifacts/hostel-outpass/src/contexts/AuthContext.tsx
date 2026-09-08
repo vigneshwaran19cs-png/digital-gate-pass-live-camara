@@ -22,6 +22,22 @@ const seedEmails: Record<string, string> = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function normalizeUserPhoto(u: any): any {
+  if (!u) return u;
+  if (!u.photoUrl || u.photoUrl.includes("unsplash") || u.photoUrl === "") {
+    if (u.registerNumber) {
+      u.photoUrl = `/students/${u.registerNumber.trim()}.jpg`;
+      u.profilePhoto = u.photoUrl;
+    } else if (u.barcode) {
+      u.photoUrl = `/students/${u.barcode.trim()}.jpg`;
+      u.profilePhoto = u.photoUrl;
+    }
+  } else {
+    u.profilePhoto = u.photoUrl;
+  }
+  return u;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
@@ -32,20 +48,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthTokenGetter(() => savedToken);
         try {
           const freshUser = await getMe();
-          setUser(freshUser);
-          localStorage.setItem("auth_user", JSON.stringify(freshUser));
+          const normalized = normalizeUserPhoto(freshUser);
+          setUser(normalized);
+          localStorage.setItem("auth_user", JSON.stringify(normalized));
         } catch (e) {
           // Token is invalid/expired or connection issue
-          setUser(null);
-          localStorage.removeItem("auth_user");
-          localStorage.removeItem("auth_token");
-          setAuthTokenGetter(() => null);
+          const savedUser = localStorage.getItem("auth_user");
+          if (savedUser) {
+            try {
+              const parsed = normalizeUserPhoto(JSON.parse(savedUser));
+              setUser(parsed);
+            } catch (err) {}
+          }
         }
       } else {
         const savedUser = localStorage.getItem("auth_user");
         if (savedUser) {
           try {
-            setUser(JSON.parse(savedUser));
+            const parsed = normalizeUserPhoto(JSON.parse(savedUser));
+            setUser(parsed);
           } catch (e) {}
         }
       }
@@ -56,8 +77,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithCredentials = async (email: string, password: string) => {
     const res = await apiLogin({ email, password });
     if (res.token && res.user) {
-      setUser(res.user);
-      localStorage.setItem("auth_user", JSON.stringify(res.user));
+      const normalized = normalizeUserPhoto(res.user);
+      setUser(normalized);
+      localStorage.setItem("auth_user", JSON.stringify(normalized));
       localStorage.setItem("auth_token", res.token);
       setAuthTokenGetter(() => res.token);
     } else {

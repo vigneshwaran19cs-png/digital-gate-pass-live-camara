@@ -21,7 +21,7 @@ export default function Dashboard() {
 
   if (!user) return null;
 
-  switch (user.role) {
+  switch (user.role as string) {
     case "tutor": return <TutorDashboard />;
     case "hod": return <HodDashboard />;
     case "principal": return <PrincipalDashboard />;

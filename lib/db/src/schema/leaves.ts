@@ -52,6 +52,7 @@ export const leavesTable = mysqlTable("leaves", {
     "fully_approved",
     "rejected",
     "cancelled",
+    "info_submitted",
   ]).notNull().default("pending"),
   currentStep: mysqlEnum("current_step", [
     "warden",
@@ -61,6 +62,7 @@ export const leavesTable = mysqlTable("leaves", {
     "warden_final",
     "completed",
     "rejected",
+    "info_submitted",
   ]).notNull().default("warden"),
   wardenRemarks: text("warden_remarks"),
   tutorRemarks: text("tutor_remarks"),

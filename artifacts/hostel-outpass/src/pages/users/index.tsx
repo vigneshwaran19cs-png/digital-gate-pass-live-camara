@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useListUsers, useCreateUser, useUpdateUser, useDeleteUser, useListDepartments, useListClasses } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +16,7 @@ import {
   GraduationCap, BookOpen, Building2, Crown, Shield, ScanLine, Settings,
   Plus, Pencil, Trash2, Search, RefreshCw, Phone, Mail, Hash, Download,
   User, UserCog, Filter, AlertTriangle, Calendar, Clock, FileText, CheckCircle2,
-  QrCode, Sparkles, ExternalLink, Image as ImageIcon, Eye, ArrowRight, Building, Lock
+  QrCode, Sparkles, ExternalLink, Image as ImageIcon, Eye, ArrowRight, Building, Lock, CreditCard, Home, Users as UsersIcon
 } from "lucide-react";
 import { CategorizedDepartmentSelect } from "@/components/CategorizedDepartmentSelect";
 
@@ -33,7 +34,7 @@ const ROLE_TABS = [
   { value: "principal", label: "Principal", icon: Crown, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
   { value: "security", label: "Security", icon: ScanLine, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
   { value: "super_admin", label: "Admin", icon: Settings, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" },
-  { value: "parent", label: "Parents", icon: Users, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
+  { value: "parent", label: "Parents", icon: UsersIcon, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
 ];
 
 function getRoleConf(role: string) {
@@ -52,6 +53,7 @@ function RoleBadge({ role }: { role: string }) {
 
 interface UserFormData {
   name: string; email: string; phone: string; role: string;
+  studentType: string; barcode: string; bedNumber: string;
   departmentId: string; classId: string; registerNumber: string; year: string;
   hostelBlock: string; hostelRoom: string; parentPhone: string; parentName: string;
   parentWhatsapp: string; parentEmail: string; address: string;
@@ -60,8 +62,8 @@ interface UserFormData {
 }
 
 const emptyForm: UserFormData = {
-  name: "", email: "", phone: "", role: "student", departmentId: "", classId: "",
-  registerNumber: "", year: "I", hostelBlock: "", hostelRoom: "", parentPhone: "", parentName: "",
+  name: "", email: "", phone: "", role: "student", studentType: "HOSTELLER", barcode: "", bedNumber: "Bed-1",
+  departmentId: "", classId: "", registerNumber: "", year: "I", hostelBlock: "Boys Hostel - Main Block", hostelRoom: "", parentPhone: "", parentName: "",
   parentWhatsapp: "", parentEmail: "", address: "", designation: "", password: "",
   photoUrl: "", idCardUrl: "", attendancePercentage: "87",
 };
@@ -91,11 +93,13 @@ const emptyLeaveForm: ManualLeaveFormData = {
 };
 
 export default function UsersPage() {
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [roleTab, setRoleTab] = useState("all");
   const [deptFilter, setDeptFilter] = useState("all");
+  const [studentTypeFilter, setStudentTypeFilter] = useState<"all" | "HOSTELLER" | "DAY_SCHOLAR">("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -133,10 +137,12 @@ export default function UsersPage() {
   const filtered = users.filter(u => {
     const q = search.toLowerCase();
     const deptName = getDeptName(u.departmentId);
-    const matchSearch = !q || u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.registerNumber?.toLowerCase().includes(q) || deptName.toLowerCase().includes(q);
+    const matchSearch = !q || u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.registerNumber?.toLowerCase().includes(q) || (u as any).barcode?.toLowerCase().includes(q) || deptName.toLowerCase().includes(q);
     const matchRole = roleTab === "all" || u.role === roleTab;
     const matchDept = deptFilter === "all" || u.departmentId === parseInt(deptFilter, 10);
-    return matchSearch && matchRole && matchDept;
+    const isDay = u.studentType === "DAY_SCHOLAR" || (u.hostelBlock && u.hostelBlock.toLowerCase().includes("day"));
+    const matchStudentType = studentTypeFilter === "all" || (studentTypeFilter === "DAY_SCHOLAR" ? isDay : !isDay);
+    return matchSearch && matchRole && matchDept && (u.role === "student" ? matchStudentType : true);
   });
 
   const openAdd = () => { setFormData({ ...emptyForm, role: roleTab !== "all" ? roleTab : "student" }); setShowAddModal(true); };
@@ -144,6 +150,9 @@ export default function UsersPage() {
     setSelectedUser(u);
     setFormData({ 
       name: u.name || "", email: u.email || "", phone: u.phone || "", role: u.role || "student", 
+      studentType: u.studentType || (u.hostelBlock?.toLowerCase().includes("day") ? "DAY_SCHOLAR" : "HOSTELLER"),
+      barcode: u.barcode || u.registerNumber || "",
+      bedNumber: u.bedNumber || "Bed-1",
       departmentId: u.departmentId?.toString() || "", classId: u.classId?.toString() || "",
       registerNumber: u.registerNumber || "", year: u.year || "I", 
       hostelBlock: u.hostelBlock || "", hostelRoom: u.hostelRoom || "", parentPhone: u.parentPhone || "", 
@@ -191,7 +200,10 @@ export default function UsersPage() {
         designation: formData.role !== "student" ? (formData.designation || undefined) : undefined,
         photoUrl: formData.photoUrl || undefined,
         idCardUrl: formData.idCardUrl || undefined,
-      }
+        studentType: (formData as any).studentType || undefined,
+        barcode: (formData as any).barcode || undefined,
+        bedNumber: (formData as any).bedNumber || undefined,
+      } as any
     }, {
       onSuccess: () => {
         setIsSubmitting(false);
@@ -378,22 +390,29 @@ export default function UsersPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-sm font-semibold text-xs"
+            onClick={() => setLocation("/admin/id-card-upload")}
+          >
+            <CreditCard className="w-3.5 h-3.5" /> Student ID Card Upload
+          </Button>
+          <Button
             variant="outline"
             size="sm"
-            className="gap-2 border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100"
+            className="gap-2 border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100 text-xs"
             onClick={handleSeedTestData}
             disabled={isSeeding}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSeeding ? "animate-spin" : ""}`} />
             {isSeeding ? "Populating…" : "Load 20 Test Students"}
           </Button>
-          <Button variant="outline" size="sm" className="gap-2 hidden md:flex" onClick={exportCSV}>
+          <Button variant="outline" size="sm" className="gap-2 hidden md:flex text-xs" onClick={exportCSV}>
             <Download className="w-3.5 h-3.5" /> Export CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2 hidden md:flex">
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2 hidden md:flex text-xs">
             <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </Button>
-          <Button size="sm" className="bg-slate-800 hover:bg-slate-700 text-white gap-2" onClick={openAdd}>
+          <Button size="sm" className="bg-slate-800 hover:bg-slate-700 text-white gap-2 text-xs" onClick={openAdd}>
             <Plus className="w-3.5 h-3.5" /> Add User
           </Button>
         </div>
@@ -464,6 +483,24 @@ export default function UsersPage() {
             })}
           </TabsList>
 
+          {/* Student Type Filter Pills */}
+          {(roleTab === "student" || roleTab === "all") && (
+            <div className="flex items-center gap-2 mb-3 bg-white p-2 rounded-xl border border-slate-200/70 shadow-2xs">
+              <span className="text-xs font-semibold text-slate-600 pl-1">Filter by Student Type:</span>
+              <Tabs value={studentTypeFilter} onValueChange={(v) => setStudentTypeFilter(v as any)}>
+                <TabsList className="h-7 bg-slate-100">
+                  <TabsTrigger value="all" className="text-[11px] h-6 px-2.5">All Types</TabsTrigger>
+                  <TabsTrigger value="HOSTELLER" className="text-[11px] h-6 px-2.5 gap-1">
+                    🏠 Hostellers ({users.filter(u => u.role === "student" && u.studentType !== "DAY_SCHOLAR").length})
+                  </TabsTrigger>
+                  <TabsTrigger value="DAY_SCHOLAR" className="text-[11px] h-6 px-2.5 gap-1">
+                    🚌 Day Scholars ({users.filter(u => u.role === "student" && u.studentType === "DAY_SCHOLAR").length})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          )}
+
           {ROLE_TABS.map(tab => (
             <TabsContent key={tab.value} value={tab.value}>
               <div className="glass-card rounded-2xl overflow-hidden bg-white shadow-sm">
@@ -491,6 +528,7 @@ export default function UsersPage() {
                   <div className="divide-y divide-border/30">
                     {filtered.map((u: any, i: number) => {
                       const rc = getRoleConf(u.role);
+                      const isDay = u.studentType === "DAY_SCHOLAR" || (u.hostelBlock && u.hostelBlock.toLowerCase().includes("day"));
                       return (
                         <motion.div
                           key={u.id}
@@ -516,7 +554,18 @@ export default function UsersPage() {
                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                               <span className="font-semibold text-sm text-slate-800">{u.name}</span>
                               <RoleBadge role={u.role} />
-                              {u.hostelRoom && (
+                              {u.role === "student" && (
+                                isDay ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] bg-purple-50 border border-purple-200 text-purple-700 px-2 py-0.5 rounded-md font-semibold">
+                                    🚌 Day Scholar
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2 py-0.5 rounded-md font-semibold">
+                                    🏠 Hosteller
+                                  </span>
+                                )
+                              )}
+                              {!isDay && u.hostelRoom && (
                                 <span className="text-[10px] bg-cyan-50 border border-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded font-mono">
                                   Room {u.hostelRoom}
                                 </span>
@@ -534,7 +583,7 @@ export default function UsersPage() {
                               )}
                               {u.role === "student" && (
                                 <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
-                                  Barcode: {u.registerNumber?.replace(/^7312/, "") || u.registerNumber || "N/A"}
+                                  Barcode: {u.barcode || u.registerNumber || "N/A"}
                                 </span>
                               )}
                             </div>
@@ -874,7 +923,7 @@ function UserForm({ formData, updateForm, isEdit = false }: {
     { label: "Chinraj M (Mech)", url: "/students/chinraj_m.jpg" },
     { label: "Karthick Rajan (Auto)", url: "/students/karthick_rajan_s.jpg" },
     { label: "Kavin Kaarthik (Auto)", url: "/students/kavin_kaarthik_m.jpg" },
-    { label: "Female Student", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400" },
+    { label: "Female Student", url: "/students/vimal_m.jpg" },
   ];
 
   const applyQuickTemplate = (type: "student_eng" | "student_poly" | "student_pharm" | "faculty") => {
@@ -1059,43 +1108,68 @@ function UserForm({ formData, updateForm, isEdit = false }: {
         />
 
         {isStudent && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-            <div>
-              <Label className="text-xs font-semibold text-slate-600">Class & Year Section</Label>
-              <Select value={formData.classId} onValueChange={v => updateForm("classId", v)}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select Class Section" /></SelectTrigger>
-                <SelectContent>
-                  {filteredClasses.length > 0 ? (
-                    filteredClasses.map((c: any) => (
-                      <SelectItem key={c.id} value={c.id.toString()}>
-                        {c.year} Year - Section {c.section}
+          <div className="space-y-3 pt-2">
+            {/* Student Type Selection */}
+            <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-xl space-y-2">
+              <Label className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                <UsersIcon className="w-3.5 h-3.5 text-blue-600" /> Student Type Classification *
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateForm("studentType", "HOSTELLER")}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                    formData.studentType === "HOSTELLER"
+                      ? "bg-blue-600 text-white border-blue-700 shadow-xs"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  🏠 Hosteller
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateForm("studentType", "DAY_SCHOLAR")}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                    formData.studentType === "DAY_SCHOLAR"
+                      ? "bg-purple-600 text-white border-purple-700 shadow-xs"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  🚌 Day Scholar
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Class & Year Section</Label>
+                <Select value={formData.classId} onValueChange={v => updateForm("classId", v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select Class Section" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredClasses.length > 0 ? (
+                      filteredClasses.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id.toString()}>
+                          {c.year} Year - Section {c.section}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>
+                        {formData.departmentId ? "No classes registered for dept" : "Choose department first"}
                       </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>
-                      {formData.departmentId ? "No classes registered for dept" : "Choose department first"}
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <Label className="text-xs font-semibold text-slate-600">Register Number (Barcode)</Label>
-              <Input className="mt-1" placeholder="e.g. 731225ME029" value={formData.registerNumber} onChange={e => updateForm("registerNumber", e.target.value)} />
-            </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Register Number *</Label>
+                <Input className="mt-1 font-mono" placeholder="e.g. 731225ME029" value={formData.registerNumber} onChange={e => updateForm("registerNumber", e.target.value)} />
+              </div>
 
-            <div>
-              <Label className="text-xs font-semibold text-slate-600">Attendance Percentage (%)</Label>
-              <Input
-                className="mt-1"
-                type="number"
-                min="0"
-                max="100"
-                placeholder="e.g. 92"
-                value={formData.attendancePercentage}
-                onChange={e => updateForm("attendancePercentage", e.target.value)}
-              />
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">ID Barcode</Label>
+                <Input className="mt-1 font-mono" placeholder="e.g. 731225ME029" value={formData.barcode} onChange={e => updateForm("barcode", e.target.value)} />
+              </div>
             </div>
           </div>
         )}
@@ -1104,21 +1178,31 @@ function UserForm({ formData, updateForm, isEdit = false }: {
       {/* Section 3: Hostel Stay & Parents (If Student) */}
       {isStudent && (
         <>
-          <div className="p-3 bg-slate-50/50 border rounded-xl space-y-3">
-            <div className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-              <Building className="w-3.5 h-3.5 text-cyan-600" /> 3. Hostel Stay & Room
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold text-slate-600">Hostel Block</Label>
-                <Input className="mt-1" placeholder="e.g. Boys Hostel - Main Block" value={formData.hostelBlock} onChange={e => updateForm("hostelBlock", e.target.value)} />
+          {formData.studentType !== "DAY_SCHOLAR" ? (
+            <div className="p-3 bg-slate-50/50 border rounded-xl space-y-3">
+              <div className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                <Building className="w-3.5 h-3.5 text-cyan-600" /> 3. Hostel Accommodation Details
               </div>
-              <div>
-                <Label className="text-xs font-semibold text-slate-600">Hostel Room No.</Label>
-                <Input className="mt-1" placeholder="e.g. A-204 (Bed 1)" value={formData.hostelRoom} onChange={e => updateForm("hostelRoom", e.target.value)} />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold text-slate-600">Hostel Block</Label>
+                  <Input className="mt-1" placeholder="e.g. Boys Hostel - Main Block" value={formData.hostelBlock} onChange={e => updateForm("hostelBlock", e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-600">Hostel Room No.</Label>
+                  <Input className="mt-1" placeholder="e.g. A-204" value={formData.hostelRoom} onChange={e => updateForm("hostelRoom", e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-600">Bed Number</Label>
+                  <Input className="mt-1" placeholder="e.g. Bed-1" value={formData.bedNumber} onChange={e => updateForm("bedNumber", e.target.value)} />
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-3 bg-purple-50/50 border border-purple-100 rounded-xl text-xs text-purple-900">
+              <span className="font-bold">Day Scholar:</span> Hostel room, bed and gate pass checkout are disabled for this student.
+            </div>
+          )}
 
           <div className="p-3 bg-slate-50/50 border rounded-xl space-y-3">
             <div className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">

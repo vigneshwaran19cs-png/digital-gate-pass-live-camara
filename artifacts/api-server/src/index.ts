@@ -90,7 +90,13 @@ async function initDatabase() {
     try { await pool.query(`ALTER TABLE leaves ADD COLUMN fraud_status ENUM('genuine', 'suspicious', 'manual_review') DEFAULT 'genuine';`); } catch(e) {}
     try { await pool.query(`ALTER TABLE leaves ADD COLUMN fraud_notes TEXT;`); } catch(e) {}
     try { await pool.query(`ALTER TABLE leaves ADD COLUMN is_emergency ENUM('true', 'false') DEFAULT 'false';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE leaves MODIFY COLUMN status ENUM('pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled', 'info_submitted') NOT NULL DEFAULT 'pending';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE leaves MODIFY COLUMN current_step ENUM('warden', 'tutor', 'hod', 'principal', 'warden_final', 'completed', 'rejected', 'info_submitted') NOT NULL DEFAULT 'warden';`); } catch(e) {}
     
+    try { await pool.query(`ALTER TABLE users ADD COLUMN student_type ENUM('HOSTELLER', 'DAY_SCHOLAR') DEFAULT 'HOSTELLER';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN barcode VARCHAR(100);`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN bed_number VARCHAR(50);`); } catch(e) {}
+    try { await pool.query(`CREATE INDEX idx_users_barcode ON users (barcode);`); } catch(e) {}
     try { await pool.query(`ALTER TABLE users ADD COLUMN is_face_enrolled ENUM('true', 'false') DEFAULT 'false';`); } catch(e) {}
     try { await pool.query(`ALTER TABLE users ADD COLUMN face_embedding TEXT;`); } catch(e) {}
     try { await pool.query(`ALTER TABLE users ADD COLUMN id_card_url TEXT;`); } catch(e) {}
@@ -98,7 +104,10 @@ async function initDatabase() {
     try { await pool.query(`ALTER TABLE users ADD COLUMN college_type VARCHAR(100) DEFAULT 'Engineering';`); } catch(e) {}
     try { await pool.query(`ALTER TABLE gate_logs ADD COLUMN captured_live_photo TEXT;`); } catch(e) {}
     try { await pool.query(`CREATE INDEX idx_users_register_number ON users (register_number);`); } catch(e) {}
-    try { await pool.query(`UPDATE users SET photo_url = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400', is_face_enrolled = 'true' WHERE photo_url IS NULL OR photo_url = '';`); } catch(e) {}
+    try { await pool.query(`UPDATE users SET student_type = 'HOSTELLER' WHERE student_type IS NULL;`); } catch(e) {}
+    try { await pool.query(`UPDATE users SET barcode = register_number WHERE barcode IS NULL AND register_number IS NOT NULL;`); } catch(e) {}
+    try { await pool.query(`UPDATE users SET photo_url = CONCAT('/students/', register_number, '.jpg') WHERE (photo_url LIKE '%unsplash%' OR photo_url IS NULL OR photo_url = '') AND register_number IS NOT NULL;`); } catch(e) {}
+    try { await pool.query(`UPDATE users SET photo_url = '/students/vimal_m.jpg' WHERE photo_url LIKE '%unsplash%';`); } catch(e) {}
     try { await pool.query(`UPDATE users SET department_id = 1, hostel_block = 'Boys Hostel - A Block', hostel_room = 'A-101', parent_name = 'Robert Doe', parent_phone = '0987654321', phone = '1234567890' WHERE register_number = 'STU001' AND (department_id IS NULL OR hostel_block IS NULL);`); } catch(e) {}
 
     logger.info("Missing tables, gate logs, location logs, and schema columns initialized.");

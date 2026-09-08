@@ -859,7 +859,7 @@ function UserForm({ formData, updateForm, isEdit = false }: {
     { label: "Chinraj M (Mech)", url: "/students/chinraj_m.jpg" },
     { label: "Karthick Rajan (Auto)", url: "/students/karthick_rajan_s.jpg" },
     { label: "Kavin Kaarthik (Auto)", url: "/students/kavin_kaarthik_m.jpg" },
-    { label: "Female Student", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400" },
+    { label: "Female Student", url: "/students/vimal_m.jpg" },
   ];
 
   const applyQuickTemplate = (type: "student_eng" | "student_poly" | "student_pharm" | "faculty") => {

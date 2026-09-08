@@ -17,7 +17,7 @@ export default function OutpassesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const isSuperAdmin = user?.role === "super_admin" || user?.role === "admin";
+  const isSuperAdmin = user?.role === "super_admin" || (user?.role as string) === "admin";
 
   const { data: outpasses = [], isLoading, refetch } = useListOutpasses(
     user?.role === "student" ? { studentId: user.id } : {}
