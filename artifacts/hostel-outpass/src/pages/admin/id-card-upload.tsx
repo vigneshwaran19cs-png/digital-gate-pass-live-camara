@@ -522,6 +522,36 @@ export default function StudentIdCardUploadPage() {
       { name: "DEEPIKA SHREE A", reg: "731225IT007", barcode: "25IT007", dept: "IT", parent: "A. Annamalai", phone: "9344247739", bg: "AB+VE", dob: "13-01-2008", address: "73, 1C ANANGUR ROAD, GANDHI STREET, KOMARAPALAYAM, NAMAKKAL(DT), PIN-638183", photo: "/students/731225IT007.jpg" },
       { name: "DEVAKRISHNAN V", reg: "731225IT008", barcode: "25IT008", dept: "IT", parent: "V. Velusamy", phone: "7373839049", bg: "AB+VE", dob: "24-07-2008", address: "289, THANDAVARAYAN THOTTAM, GURUVAREDDIYUR, ILLIPILLI, ERODE(DT)-638504", photo: "/students/731225IT008.jpg" },
       { name: "DHARMAN S", reg: "731225IT009", barcode: "25IT009", dept: "IT", parent: "S. Subramanian", phone: "9047248767", bg: "O+VE", dob: "24-09-2007", address: "93/205, PENNADAM ROAD, LAST STREET, SITHALUR, CUDDALORE(DT), PIN-606001", photo: "/students/731225IT009.jpg" },
+      // Sheet 46 (CSE Batch 2025-2029)
+      { name: "PRITHIVIVASAN M", reg: "731225CS040", barcode: "25CS040", dept: "CSE", parent: "M. Manickam", phone: "9994948567", bg: "B+VE", dob: "23-02-2008", address: "2/64, ERUKKALAKKATTI, KANGEYAM, PUDUKKOTTAI(DT), PIN-614624", photo: "/students/731225CS040.jpg" },
+      { name: "PUGAZHENDHI C", reg: "731225CS041", barcode: "25CS041", dept: "CSE", parent: "C. Chinnasamy", phone: "9952722091", bg: "O+VE", dob: "13-05-2008", address: "97, KANTHAPILLAYAR KOVIL, ALACHAMPALAYAM, IDAPPADY, SALEM(DT), PIN-637101", photo: "/students/731225CS041.jpg" },
+      { name: "RAGHUL S", reg: "731225CS042", barcode: "25CS042", dept: "CSE", parent: "S. Sekar", phone: "9176967139", bg: "AB+VE", dob: "17-05-2008", address: "3/370, BHARATHI NAGAR, GERETTY, KRISHNAGIRI(DT), PIN-635102", photo: "/students/731225CS042.jpg" },
+      { name: "RAJA ANANTH N", reg: "731225CS043", barcode: "25CS043", dept: "CSE", parent: "N. Natarajan", phone: "6374124894", bg: "O+VE", dob: "29-01-2008", address: "415-218, KANNAMUCHI, METTUR, SALEM(DT), PIN-636303", photo: "/students/731225CS043.jpg" },
+      { name: "SANTHIYA V", reg: "731225CS044", barcode: "25CS044", dept: "CSE", parent: "V. Viswanathan", phone: "9789818901", bg: "B+VE", dob: "14-01-2008", address: "301A, NADAR COLONY, KUPPANDAMPALAYAM, ERODE(DT), PIN-638502", photo: "/students/731225CS044.jpg" },
+      // Sheet 47 (CSE Batch 2025-2029)
+      { name: "SARAVANAN S", reg: "731225CS045", barcode: "25CS045", dept: "CSE", parent: "S. Soundarapandian", phone: "7200933997", bg: "B+VE", dob: "06-07-2007", address: "3/257, VIRUTHANKOTTAI, PEDDANAPALLI, KRISHNAGIRI, KRISHNAGIRI(DT), PIN-635001", photo: "/students/731225CS045.jpg" },
+      { name: "SARAVANAN S", reg: "731225CS046", barcode: "25CS046", dept: "CSE", parent: "S. Senthil", phone: "9342113682", bg: "B+VE", dob: "04-04-2008", address: "520, AMMAN NAGAR, ALAMPALAYAM, ERODE(DT), PIN-638501", photo: "/students/731225CS046.jpg" },
+      { name: "SATHISH KUMAR C", reg: "731225CS047", barcode: "25CS047", dept: "CSE", parent: "C. Chandrasekar", phone: "9597818062", bg: "AB+VE", dob: "18-06-2007", address: "40/2 GANDHIJI STREET, THAVITTUPALAYAM, ERODE(DT), PIN-638501", photo: "/students/731225CS047.jpg" },
+      { name: "SATHISH S", reg: "731225CS048", barcode: "25CS048", dept: "CSE", parent: "S. Subramani", phone: "8667522532", bg: "O+VE", dob: "25-11-2006", address: "1/220, KARAIKADU, KARAIKADU, SALEM(DT), PIN-636303", photo: "/students/731225CS048.jpg" },
+      { name: "SATHYA K", reg: "731225CS049", barcode: "25CS049", dept: "CSE", parent: "K. Kumar", phone: "8015969195", bg: "O+VE", dob: "24-10-2007", address: "4/19, KARUVALUR, MARIYAMMAN KOVIL ST, CHINNAPELAMEDU, ERODE(DT), PIN-638452", photo: "/students/731225CS049.jpg" },
+      // Sheet 48 (CSE Batch 2025-2029)
+      { name: "SATHYA V", reg: "731225CS050", barcode: "25CS050", dept: "CSE", parent: "V. Velusamy", phone: "8122755767", bg: "O+VE", dob: "20-08-2008", address: "315/278, NAVAPPATTI, PUDHUR, SALEM(DT), PIN-636452", photo: "/students/731225CS050.jpg" },
+      { name: "SHOBANA C", reg: "731225CS051", barcode: "25CS051", dept: "CSE", parent: "C. Chinnasamy", phone: "8838103590", bg: "O+VE", dob: "20-05-2008", address: "56, MIDDLE STREET, PACHERY, KALLAKURICHI(DT), PIN-606401", photo: "/students/731225CS051.jpg" },
+      { name: "SUJITHKAVI S", reg: "731225CS052", barcode: "25CS052", dept: "CSE", parent: "S. Shanmugam", phone: "9943211505", bg: "O+VE", dob: "20-11-2007", address: "2/351, ARASAN KINARU ST., KORAKKAI, CUDDALORE(DT), PIN-606106", photo: "/students/731225CS052.jpg" },
+      { name: "THANANJAI P", reg: "731225CS053", barcode: "25CS053", dept: "CSE", parent: "P. Palani", phone: "7904961977", bg: "A+VE", dob: "29-06-2007", address: "8/35, SURAPPALLI SCHOOL NEAR, SURAPPALLI, SALEM(DT), PIN-636501", photo: "/students/731225CS053.jpg" },
+      { name: "THANGAPANDI G", reg: "731225CS054", barcode: "25CS054", dept: "CSE", parent: "G. Ganesan", phone: "9655321263", bg: "O+VE", dob: "29-05-2008", address: "4/350, A.SEKKARAPPATTI, ADAGPADI, DHARMAPURI, DHARMAPURI(DT), PIN-636803", photo: "/students/731225CS054.jpg" },
+      // Sheet 49 (CSE Batch 2025-2029)
+      { name: "THENMOZHI C", reg: "731225CS055", barcode: "25CS055", dept: "CSE", parent: "C. Chandran", phone: "7639736577", bg: "A+VE", dob: "21-09-2007", address: "2/252, SOUTH STREET, VALLIMADHURAM, CUDDALORE, CUDDALORE(DT), PIN-606108", photo: "/students/731225CS055.jpg" },
+      { name: "VENKATESHWARAN L", reg: "731225CS056", barcode: "25CS056", dept: "CSE", parent: "L. Lakshmanan", phone: "8754931788", bg: "A+VE", dob: "24-09-2007", address: "20, AVANIIPERUR WEST ST., REDDY THERU, SALEM(DT), PIN-637101", photo: "/students/731225CS056.jpg" },
+      { name: "VETRIVEL K", reg: "731225CS057", barcode: "25CS057", dept: "CSE", parent: "K. Krishnan", phone: "9344638498", bg: "O-VE", dob: "10-04-2008", address: "472, KULIYAN KATTU KOTTAI, MATHUR, ANTHIYUR, ERODE(DT), PIN-638314", photo: "/students/731225CS057.jpg" },
+      { name: "VISHWA S", reg: "731225CS058", barcode: "25CS058", dept: "CSE", parent: "S. Subramani", phone: "9787369040", bg: "B+VE", dob: "23-02-2008", address: "63, SOUTH STREET, MATHUR, KALLAKURICHI(DT), PIN-606207", photo: "/students/731225CS058.jpg" },
+      { name: "YAMUNA S", reg: "731225CS059", barcode: "25CS059", dept: "CSE", parent: "S. Sekar", phone: "8608369393", bg: "A+VE", dob: "21-05-2008", address: "85/METTUVALLASU, BOMMAMALLUR, TIRUPPUR(DT), PIN-638673", photo: "/students/731225CS059.jpg" },
+      // Sheet 50 (CSE & IT Batch 2025-2029)
+      { name: "YUVARAJ E", reg: "731225CS060", barcode: "25CS060", dept: "CSE", parent: "E. Elangovan", phone: "9003847665", bg: "B+VE", dob: "01-03-2008", address: "3/14 WEST PUDHUVADI, KEERANUR, KARUR, PIN-639119", photo: "/students/731225CS060.jpg" },
+      { name: "AARTHI SRI T", reg: "731225IT001", barcode: "25IT001", dept: "IT", parent: "T. Thangaraj", phone: "9843544118", bg: "A+VE", dob: "15-02-2007", address: "27/57, A EXTENSION ST., RANGASAMUTHIRAM, SATHY, ERODE(DT), PIN-638402", photo: "/students/731225IT001.jpg" },
+      { name: "ABARNA P", reg: "731225IT002", barcode: "25IT002", dept: "IT", parent: "P. Palanisamy", phone: "7094773368", bg: "B+VE", dob: "13-09-2008", address: "203, ADHITHIRAVIDAR ST., CHOKKANATHAPURAM, THANJAVUR(DT), PIN-614803", photo: "/students/731225IT002.jpg" },
+      { name: "AFRINBANU S", reg: "731225IT003", barcode: "25IT003", dept: "IT", parent: "S. Syed", phone: "9442663854", bg: "O+VE", dob: "23-05-2008", address: "5/756, SHESHANAGAR, ERODE(DT), PIN-638461", photo: "/students/731225IT003.jpg" },
+      { name: "ARUNDHATHI V", reg: "731225IT004", barcode: "25IT004", dept: "IT", parent: "V. Velu", phone: "9025117445", bg: "O+VE", dob: "24-06-2008", address: "36, DAMBEDKAR STREET, MARANDAHALLI, DHARMAPURI(DT), PIN-636806", photo: "/students/731225IT004.jpg" },
       // Other Department Samples (CSE, ECE, EEE, AI & DS)
       { name: "PRIYA DHARSHINI S", reg: "731223104002", barcode: "23104002", dept: "CSE", parent: "S. Subramanian", phone: "9443234560", bg: "AB+VE", dob: "12-05-2005", address: "45, Kamarajar Street, Tiruchengode, Namakkal - 637211", photo: "/students/731223104002.jpg" },
       { name: "DINESH KUMAR R", reg: "731223104001", barcode: "23104001", dept: "CSE", parent: "R. Ramasamy", phone: "9443123450", bg: "O+VE", dob: "18-08-2005", address: "12, Bharathi Nagar, Bhavani Main Road, Erode - 638001", photo: "/students/731223104001.jpg" },
@@ -585,7 +615,13 @@ export default function StudentIdCardUploadPage() {
       candidateData.slice(210, 215), // Sheet 43: Gopinath, Haridhash, Harish, Hemanth, Janani S
       candidateData.slice(215, 220), // Sheet 44: Dinesh T, Divya B, Gokul S, Gokulnath A P, Gokulnath G
       candidateData.slice(220, 225), // Sheet 45: Boopathi, Brindha Devi, Deepika Shree, Devakrishnan, Dharman
+      candidateData.slice(225, 230), // Sheet 46: Prithivivasan, Pugazhendhi, Raghul, Raja Ananth, Santhiya V
+      candidateData.slice(230, 235), // Sheet 47: Saravanan S, Saravanan S, Sathish Kumar, Sathish S, Sathya K
+      candidateData.slice(235, 240), // Sheet 48: Sathya V, Shobana, Sujithkavi, Thananjai, Thangapandi
+      candidateData.slice(240, 245), // Sheet 49: Thenmozhi, Venkateshwaran, Vetrivel, Vishwa, Yamuna
+      candidateData.slice(245, 250), // Sheet 50: Yuvaraj, Aarthi Sri, Abarna, Afrinbanu, Arundhathi
     ];
+
 
     for (let i = 0; i < totalFiles; i++) {
       const fileItem = selectedFiles[i];

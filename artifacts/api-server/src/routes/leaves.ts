@@ -468,10 +468,22 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
         newStep = "completed";
         updateFields = { wardenRemarks: remarksField, status: newStatus, currentStep: newStep };
       } else if (isEmergencyLeave) {
-        // Requirement 4 & 7: Emergency Leave workflow goes directly from Warden -> Principal
+        // Requirement 16: Emergency Hosteller leave:
+        // Warden can grant emergency permission immediately without waiting for Principal.
+        // Gate pass must be generated after Warden approval.
+        // Student can leave using that emergency gate pass.
+        // Gate entry/exit must be recorded.
+        // Principal can review and approve the emergency leave later from the Principal portal.
+        // Clearly show "Emergency Warden Approved – Principal Review Pending".
         newStatus = "warden_approved";
         newStep = "principal";
-        updateFields = { wardenRemarks: remarksField, status: newStatus, currentStep: newStep };
+        updateFields = { 
+          wardenRemarks: remarksField || "Emergency Warden Approved – Principal Review Pending", 
+          status: newStatus, 
+          currentStep: newStep 
+        };
+        // Instantly generate and attach gate pass for emergency departure
+        await generateAndAttachOutpass(leave.id, leave.studentId, "Hostel Warden (Emergency Grant)");
       } else {
         newStatus = "warden_approved";
         newStep = "tutor";
