@@ -16,11 +16,12 @@ router.get("/departments", async (req, res): Promise<void> => {
 
 router.post("/departments", async (req, res): Promise<void> => {
   try {
-    const [{ id }] = await db.insert(departmentsTable).values({
+    const [resDept] = await db.insert(departmentsTable).values({
       code: req.body.code,
       name: req.body.name,
       hodId: req.body.hodId,
-    }).$returningId();
+    });
+    const id = Number((resDept as any).insertId);
     const [created] = await db.select().from(departmentsTable).where(eq(departmentsTable.id, id));
     res.status(201).json(created);
   } catch (error) {

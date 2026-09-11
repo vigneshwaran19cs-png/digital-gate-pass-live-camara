@@ -21,12 +21,13 @@ router.get("/classes", async (req, res): Promise<void> => {
 
 router.post("/classes", async (req, res): Promise<void> => {
   try {
-    const [{ id }] = await db.insert(classesTable).values({
+    const [resClass] = await db.insert(classesTable).values({
       departmentId: req.body.departmentId,
       year: req.body.year,
       section: req.body.section,
       tutorId: req.body.tutorId ?? null,
-    }).$returningId();
+    });
+    const id = Number((resClass as any).insertId);
     const [created] = await db.select().from(classesTable).where(eq(classesTable.id, id));
     res.status(201).json(created);
   } catch (error) {

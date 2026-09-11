@@ -339,6 +339,86 @@ export default function PrincipalDashboard() {
         </motion.div>
       )}
 
+      {/* Requirement 5: Dedicated Emergency Leaves Approval Pending Card */}
+      {(() => {
+        const emergencyPendingList = allLeaves.filter((l: any) => {
+          const isE = l.isEmergency === "true" || l.leaveType === "family_emergency" || l.leaveType === "emergency";
+          return isE && (l.currentStep === "principal" || l.status === "warden_approved") && l.status !== "fully_approved" && l.status !== "rejected";
+        });
+
+        if (emergencyPendingList.length === 0) return null;
+
+        return (
+          <motion.div custom={3} variants={fadeUp} initial="hidden" animate="show" className="glass-card rounded-2xl p-5 border-2 border-red-500/80 bg-red-50/60 dark:bg-red-950/40 shadow-lg space-y-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center font-bold text-sm shadow-md animate-pulse">
+                  🔴
+                </div>
+                <div>
+                  <h3 className="font-heading font-extrabold text-base text-red-950 dark:text-red-100 flex items-center gap-2">
+                    Emergency Leaves – Approval Pending
+                  </h3>
+                  <p className="text-xs text-red-800 dark:text-red-300">
+                    Permitted by Warden & Digital Gate Pass released. Pending Principal post-review.
+                  </p>
+                </div>
+              </div>
+              <Badge className="bg-red-600 text-white font-extrabold text-xs px-2.5 py-1">
+                {emergencyPendingList.length} Pending Review
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {emergencyPendingList.map((emergLeave: any) => (
+                <div key={emergLeave.id} className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 shadow-sm space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">{emergLeave.student?.name}</h4>
+                      <p className="text-xs font-mono text-slate-500">Reg No: {emergLeave.student?.registerNumber || "23CS101"}</p>
+                    </div>
+                    <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px] uppercase font-bold">
+                      🔴 EMERGENCY LEAVE
+                    </Badge>
+                  </div>
+
+                  <div className="text-xs space-y-1 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-lg border">
+                    <p className="text-slate-700 dark:text-slate-300"><strong>Reason:</strong> {emergLeave.reason}</p>
+                    <p className="text-slate-600 dark:text-slate-400"><strong>From:</strong> {format(new Date(emergLeave.fromDate), "d MMM yyyy")} | <strong>Return:</strong> {format(new Date(emergLeave.toDate), "d MMM yyyy")}</p>
+                    <p className="text-slate-600 dark:text-slate-400"><strong>Destination:</strong> {emergLeave.destination}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] p-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-900 dark:text-emerald-300">
+                    <div>Warden: <span className="font-bold text-emerald-700 dark:text-emerald-400">✓ Approved</span></div>
+                    <div>Gate Pass: <span className="font-bold text-emerald-700 dark:text-emerald-400">✓ Generated</span></div>
+                    <div>Gate Status: <span className="font-bold text-emerald-700 dark:text-emerald-400">Active</span></div>
+                    <div>Principal: <span className="font-bold text-amber-600">Pending</span></div>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => { setSelectedLeave(emergLeave); setRemarks(""); }}>
+                      Review
+                    </Button>
+                    <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold" onClick={() => {
+                      approveLeave.mutate({ id: emergLeave.id, data: { remarks: "Approved by Principal" } }, {
+                        onSuccess: () => { toast({ title: "Emergency Leave Fully Approved ✓" }); invalidate(); }
+                      });
+                    }}>
+                      Approve
+                    </Button>
+                    <Button size="sm" variant="outline" className="border-rose-300 text-rose-700 hover:bg-rose-50 text-xs" onClick={() => {
+                      setSelectedLeave(emergLeave); setRemarks("");
+                    }}>
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        );
+      })()}
+
       <Tabs defaultValue="queue" className="space-y-4">
         <TabsList className="glass-card border-border/50">
           <TabsTrigger value="queue">Approval Queue</TabsTrigger>

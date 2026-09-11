@@ -30,14 +30,15 @@ router.get("/hostel-blocks", async (req, res): Promise<void> => {
 router.post("/hostel-blocks", async (req, res): Promise<void> => {
   try {
     const { name, code, genderType, totalRooms, totalCapacity, wardenId } = req.body;
-    const [{ id }] = await db.insert(hostelBlocksTable).values({
+    const [resBlock] = await db.insert(hostelBlocksTable).values({
       name,
       code,
       genderType: genderType || "boys",
       totalRooms: totalRooms || 50,
       totalCapacity: totalCapacity || 200,
       wardenId: wardenId || null,
-    }).$returningId();
+    });
+    const id = Number((resBlock as any).insertId);
 
     const [created] = await db.select().from(hostelBlocksTable).where(eq(hostelBlocksTable.id, id));
     res.status(201).json(created);

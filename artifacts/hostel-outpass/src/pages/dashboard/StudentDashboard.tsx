@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { lookupRealStudentName } from "@/lib/student_candidates";
 import { useListLeaves, useGetStudentsOutside, getListLeavesQueryKey } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ import { StudentProfilePhoto } from "@/components/StudentProfilePhoto";
 import { StudentProfileSetupModal } from "@/components/StudentProfileSetupModal";
 import { LiveStudentLocationTracker } from "@/components/LiveStudentLocationTracker";
 import { ForwardingStatusBadge } from "@/components/ForwardingStatusBadge";
+import { JourneyTrackingWidget } from "@/components/JourneyTrackingWidget";
+
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -26,23 +29,11 @@ function StatusBadge({ status, currentStep, isEmergency }: { status: string; cur
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const isDayScholar = (user as any)?.studentType === "DAY_SCHOLAR" || (user as any)?.isDayScholar;
-
-  // Check if profile has any missing vital fields
-  const isProfileIncomplete = (
-    !user?.registerNumber ||
-    !user?.departmentId ||
-    !(user as any)?.parentPhone ||
-    (!isDayScholar && !(user as any)?.hostelRoom)
+  const studentRealName = lookupRealStudentName(
+    user?.registerNumber || (user as any)?.barcode || user?.email || user?.name,
+    user?.name
   );
-
-  useEffect(() => {
-    // Auto-prompt modal if critical profile data is missing
-    if (isProfileIncomplete) {
-      setShowProfileModal(true);
-    }
-  }, [isProfileIncomplete]);
+  const isDayScholar = (user as any)?.studentType === "DAY_SCHOLAR" || (user as any)?.isDayScholar;
 
   const { data: leavesData } = useListLeaves(
     { studentId: user?.id },
@@ -64,35 +55,11 @@ export default function StudentDashboard() {
     { label: "Pending Requests", value: pending, icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
     { label: "Approved Leaves", value: approved, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
     { label: "Active Outpasses", value: activeOutpass, icon: QrCode, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
-    { label: "Total Requests", value: (leaves as any[]).length, icon: FileText, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" },
+    { label: "Total Requests", value: (leaves as any[]).length, icon: FileText, color: "text-slate-600", bg: "bg-slate-100", border: "border-slate-100" },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Profile Incomplete Banner */}
-      {isProfileIncomplete && (
-        <div className="p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-400/80 rounded-2xl flex items-center justify-between flex-wrap gap-3 shadow-sm animate-pulse">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg shrink-0">
-              ⚠️
-            </div>
-            <div>
-              <div className="font-bold text-amber-950 text-sm">Action Required: Complete Your Student Profile</div>
-              <div className="text-xs text-amber-900">
-                Please fill in your Department and Parent Phone to enable automated notifications & SMS alerts.
-              </div>
-            </div>
-          </div>
-          <Button
-            size="sm"
-            className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs gap-1.5 shadow-sm"
-            onClick={() => setShowProfileModal(true)}
-          >
-            <Pencil className="w-3.5 h-3.5" /> Fill Full Details Now
-          </Button>
-        </div>
-      )}
-
       {/* Header Profile Card */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-4">
@@ -116,7 +83,7 @@ export default function StudentDashboard() {
                 {isDayScholar ? "🚌 Day Scholar" : "🏠 Hosteller"}
               </Badge>
             </div>
-            <h1 className="text-2xl font-heading font-bold">Welcome, {user?.name?.split(" ")[0]}</h1>
+            <h1 className="text-2xl font-heading font-bold">Welcome, {studentRealName}</h1>
             <p className="text-muted-foreground text-xs font-mono mt-0.5">
               Reg No: <span className="font-bold text-slate-800 dark:text-slate-200">{user?.registerNumber || "Not Set"}</span>
               {!isDayScholar && <> · Room <span className="font-bold text-slate-800 dark:text-slate-200">{(user as any)?.hostelRoom || "Not Set"}</span></>}
@@ -125,15 +92,6 @@ export default function StudentDashboard() {
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100 text-xs font-semibold"
-            onClick={() => setShowProfileModal(true)}
-          >
-            <Pencil className="w-3.5 h-3.5" /> Edit / Update My Details
-          </Button>
-
           <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
             <div className="text-center px-2">
               <div className="text-[10px] uppercase font-bold text-slate-500">Attendance</div>
@@ -149,12 +107,6 @@ export default function StudentDashboard() {
           </div>
         </div>
       </motion.div>
-
-      {/* Self-Service Profile Setup Modal */}
-      <StudentProfileSetupModal
-        open={showProfileModal}
-        onOpenChange={setShowProfileModal}
-      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s, i) => {
@@ -231,7 +183,8 @@ export default function StudentDashboard() {
 
       {/* Live GPS Outpass Location Tracker (Hostellers Only) */}
       {!isDayScholar && (
-        <motion.div custom={4.5} variants={fadeUp} initial="hidden" animate="show">
+        <motion.div custom={4.5} variants={fadeUp} initial="hidden" animate="show" className="space-y-4">
+          <JourneyTrackingWidget destination={(user as any)?.address || "Erode / Salem Main Road, TN"} />
           <LiveStudentLocationTracker
             studentId={user?.id || 1}
             studentName={user?.name || "Student"}
@@ -241,6 +194,7 @@ export default function StudentDashboard() {
           />
         </motion.div>
       )}
+
 
       {/* Recent Leaves */}
       <motion.div custom={5} variants={fadeUp} initial="hidden" animate="show" className="glass-card rounded-2xl overflow-hidden bg-white shadow-sm">

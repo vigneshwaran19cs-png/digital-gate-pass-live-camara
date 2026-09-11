@@ -94,6 +94,7 @@ def run():
             photo_y2 = y_top + 175
 
             photo_crop = sheet_img.crop((photo_x1, photo_y1, photo_x2, photo_y2))
+            photo_crop = photo_crop.transpose(Image.ROTATE_90)
 
             # Target filenames
             filenames = [

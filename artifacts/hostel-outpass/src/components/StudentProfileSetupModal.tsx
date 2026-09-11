@@ -10,13 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CategorizedDepartmentSelect } from "@/components/CategorizedDepartmentSelect";
 import {
   User, GraduationCap, Building, Phone, MapPin, Image as ImageIcon,
-  CheckCircle2, Sparkles, AlertCircle, Shield, ArrowRight, Lock
+  CheckCircle2, Sparkles, AlertCircle, Shield, ArrowRight, Lock, Upload
 } from "lucide-react";
 
 interface StudentProfileSetupModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+const PRESET_PHOTOS = [
+  { label: "Male Student", url: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150" },
+  { label: "Female Student", url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150" },
+  { label: "Default Avatar", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150" },
+];
 
 export function StudentProfileSetupModal({ open, onOpenChange }: StudentProfileSetupModalProps) {
   const { user, updateUserProfile } = useAuth();
@@ -36,6 +42,8 @@ export function StudentProfileSetupModal({ open, onOpenChange }: StudentProfileS
   const [parentWhatsapp, setParentWhatsapp] = useState((user as any)?.parentWhatsapp || "");
   const [parentEmail, setParentEmail] = useState((user as any)?.parentEmail || "");
   const [address, setAddress] = useState((user as any)?.address || "");
+  const [district, setDistrict] = useState((user as any)?.district || "");
+  const [outingDestination, setOutingDestination] = useState((user as any)?.outingDestination || "");
   const [photoUrl, setPhotoUrl] = useState(user?.photoUrl || (user?.registerNumber ? `/students/${user.registerNumber}.jpg` : "/students/vimal_m.jpg"));
   const [idCardUrl, setIdCardUrl] = useState((user as any)?.idCardUrl || "/students/id_card_sheet.jpg");
   const [newPassword, setNewPassword] = useState("");
@@ -61,6 +69,8 @@ export function StudentProfileSetupModal({ open, onOpenChange }: StudentProfileS
       setParentWhatsapp((user as any)?.parentWhatsapp || "");
       setParentEmail((user as any)?.parentEmail || "");
       setAddress((user as any)?.address || "");
+      setDistrict((user as any)?.district || "");
+      setOutingDestination((user as any)?.outingDestination || "");
       setPhotoUrl(user.photoUrl || (user.registerNumber ? `/students/${user.registerNumber}.jpg` : "/students/vimal_m.jpg"));
       setIdCardUrl((user as any)?.idCardUrl || "/students/id_card_sheet.jpg");
     }
@@ -106,6 +116,8 @@ export function StudentProfileSetupModal({ open, onOpenChange }: StudentProfileS
         parentWhatsapp: parentWhatsapp || parentPhone || undefined,
         parentEmail: parentEmail || undefined,
         address,
+        district: district || undefined,
+        outingDestination: outingDestination || undefined,
         photoUrl: photoUrl || `/students/${registerNumber}.jpg`,
         idCardUrl,
       };
@@ -138,6 +150,20 @@ export function StudentProfileSetupModal({ open, onOpenChange }: StudentProfileS
       toast({ title: "Error", description: e.message || "Failed to update profile.", variant: "destructive" });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setPhotoUrl(event.target.result as string);
+          toast({ title: "Photo Uploaded", description: `${file.name} selected as profile photo.` });
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -210,24 +236,63 @@ export function StudentProfileSetupModal({ open, onOpenChange }: StudentProfileS
               <ImageIcon className="w-4 h-4 text-blue-600" /> 2. Real ID-Card Profile Photo
             </Label>
             <div className="flex items-center gap-3">
-              <img
-                src={photoUrl || (registerNumber ? `/students/${registerNumber}.jpg` : "/students/vimal_m.jpg")}
-                alt="Student ID Portrait"
-                className="w-14 h-14 rounded-xl object-cover border-2 border-blue-500 shadow-sm bg-white shrink-0"
-                onError={(e: any) => {
-                  e.currentTarget.src = "/students/vimal_m.jpg";
-                }}
-              />
-              <div className="flex-1 space-y-1">
-                <Input
-                  placeholder="Photo URL (e.g. /students/731225CS040.jpg)"
-                  value={photoUrl}
-                  onChange={e => setPhotoUrl(e.target.value)}
-                  className="text-xs h-8 bg-white font-mono"
+              {photoUrl ? (
+                <img
+                  src={photoUrl}
+                  alt="Avatar"
+                  className="w-14 h-14 rounded-xl object-cover border-2 border-blue-500 shadow-sm bg-white shrink-0"
                 />
-                <p className="text-[10px] text-slate-500">
-                  Linked directly to your Register Number: <span className="font-mono font-bold text-blue-700">/students/{registerNumber || "REG_NO"}.jpg</span>
-                </p>
+              ) : (
+                <div className="w-14 h-14 rounded-xl border border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400 bg-white shrink-0">
+                  No Photo
+                </div>
+              )}
+              <div className="flex-1 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  {photoUrl.startsWith("data:image/") ? (
+                    <div className="flex-1 flex items-center justify-between px-3 h-8 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-700 font-medium overflow-hidden">
+                      <span className="truncate flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        Uploaded Image File ({Math.round((photoUrl.length * 0.75) / 1024)} KB)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPhotoUrl("")}
+                        className="text-emerald-700 hover:text-emerald-900 font-bold ml-2 text-xs"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  ) : (
+                    <Input
+                      placeholder="Photo URL or upload image file"
+                      value={photoUrl}
+                      onChange={e => setPhotoUrl(e.target.value)}
+                      className="text-xs h-8 bg-white flex-1"
+                    />
+                  )}
+                  <label className="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shrink-0 shadow-xs transition">
+                    <Upload className="w-3.5 h-3.5" /> Upload Image
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </label>
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {PRESET_PHOTOS.map(p => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setPhotoUrl(p.url)}
+                      className="text-[10px] px-2 py-0.5 bg-white border border-slate-200 hover:border-blue-400 rounded-md font-medium text-slate-700"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -384,6 +449,26 @@ export function StudentProfileSetupModal({ open, onOpenChange }: StudentProfileS
                   placeholder="Door No, Street, City / Village, Pincode"
                   value={address}
                   onChange={e => setAddress(e.target.value)}
+                  className="mt-1 text-xs bg-white"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Native District (Tamil Nadu)</Label>
+                <Input
+                  placeholder="e.g. Salem, Erode, Chennai"
+                  value={district}
+                  onChange={e => setDistrict(e.target.value)}
+                  className="mt-1 text-xs bg-white"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Saved Outing Destination</Label>
+                <Input
+                  placeholder="e.g. TN Palayam, Gobichettipalayam, Komarapalayam Market"
+                  value={outingDestination}
+                  onChange={e => setOutingDestination(e.target.value)}
                   className="mt-1 text-xs bg-white"
                 />
               </div>

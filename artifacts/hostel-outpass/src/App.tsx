@@ -28,6 +28,8 @@ import StudentProfilePage from "@/pages/students/profile";
 import EmergencyLeavePage from "@/pages/leaves/emergency";
 import BulkApprovePage from "@/pages/leaves/bulk-approve";
 import StudentIdCardUploadPage from "@/pages/admin/id-card-upload";
+import LiveTrackingPage from "@/pages/track";
+import AdminJourneySettingsPage from "@/pages/admin/journey-settings";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -54,6 +56,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={LoginPage} />
+      <Route path="/track/:token" component={LiveTrackingPage} />
       <ProtectedRoute path="/dashboard" component={Dashboard} />
       <ProtectedRoute path="/enrollment" component={EnrollmentPage} />
       <ProtectedRoute path="/profile" component={StudentProfilePage} />
@@ -74,6 +77,8 @@ function Router() {
       <ProtectedRoute path="/admin/departments" component={AdminDepartmentsPage} />
       <ProtectedRoute path="/admin/classes" component={AdminClassesPage} />
       <ProtectedRoute path="/admin/hostels" component={AdminHostelsPage} />
+      <ProtectedRoute path="/admin/journey-settings" component={AdminJourneySettingsPage} />
+
       
       <Route>
         {user ? (
@@ -88,6 +93,8 @@ function Router() {
   );
 }
 
+import { DevToolsPanel } from "@/components/DevToolsPanel";
+
 function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="light">
@@ -97,6 +104,7 @@ function App() {
             <BrandingProvider>
               <div className="min-h-screen">
                 <Router />
+                <DevToolsPanel />
                 <Toaster />
               </div>
             </BrandingProvider>

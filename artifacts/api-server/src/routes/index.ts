@@ -12,6 +12,9 @@ import hostelBlocksRouter from "./hostel_blocks";
 import enrollmentRouter from "./enrollment";
 import gateLogsRouter from "./gate_logs";
 import locationRouter from "./location";
+import journeysRouter from "./journeys";
+import geofencesRouter from "./geofences";
+import whatsappAdminRouter from "./whatsapp_admin";
 
 const router: IRouter = Router();
 
@@ -28,5 +31,9 @@ router.use(hostelBlocksRouter);
 router.use(enrollmentRouter);
 router.use(gateLogsRouter);
 router.use(locationRouter);
+router.use(journeysRouter);
+router.use(geofencesRouter);
+router.use(whatsappAdminRouter);
+
 
 export default router;

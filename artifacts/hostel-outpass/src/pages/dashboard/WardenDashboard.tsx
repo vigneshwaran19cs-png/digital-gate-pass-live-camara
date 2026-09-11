@@ -537,10 +537,19 @@ export default function WardenDashboard() {
               <div className="space-y-3">
                 <Textarea placeholder="Add remarks/comments (required for rejection)…" rows={3} value={remarks} onChange={e => setRemarks(e.target.value)} />
                 <div className="flex gap-2">
-                  <Button className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white gap-2" onClick={handleApprove} disabled={approveLeave.isPending}>
-                    <CheckCircle2 className="w-4 h-4" /> {selectedLeave.currentStep === "warden" ? "Approve Initial" : "Approve Final & Release pass"}
+                  <Button 
+                    className={`flex-1 ${isEmergCheck(selectedLeave) ? "bg-rose-600 hover:bg-rose-700" : "bg-cyan-600 hover:bg-cyan-700"} text-white gap-2 font-bold`} 
+                    onClick={handleApprove} 
+                    disabled={approveLeave.isPending}
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> 
+                    {isEmergCheck(selectedLeave) 
+                      ? "Approve & Permit Immediately" 
+                      : selectedLeave.currentStep === "warden" 
+                      ? "Approve Initial" 
+                      : "Approve Final & Release pass"}
                   </Button>
-                  <Button variant="outline" className="flex-1 border-rose-500/30 text-rose-400 hover:bg-rose-500/10 gap-2" onClick={handleReject} disabled={rejectLeave.isPending}>
+                  <Button variant="outline" className="flex-1 border-rose-500/30 text-rose-600 hover:bg-rose-500/10 gap-2" onClick={handleReject} disabled={rejectLeave.isPending}>
                     <XCircle className="w-4 h-4" /> Reject
                   </Button>
                 </div>

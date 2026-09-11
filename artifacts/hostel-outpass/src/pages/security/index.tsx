@@ -51,17 +51,68 @@ export default function SecurityDashboard() {
   const [verificationResult, setVerificationResult] = useState<any | null>(null);
   const [dayScholarNotice, setDayScholarNotice] = useState<any | null>(null);
 
-  const handleScanSuccess = (code: string) => {
-    let outpassCode = code;
+  const executeBarcodeVerification = async (scannedCode: string) => {
+    const code = scannedCode.trim();
+    if (!code) return;
+    setSearchInput(code);
+    setActiveSearch(code);
+    setDayScholarNotice(null);
+    setVerificationResult(null);
+
+    try {
+      const res = await fetch("/api/gate/verify-barcode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ barcode: code }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.verified) {
+        if (data.isDayScholar) {
+          setDayScholarNotice(data);
+          toast({
+            title: "🚌 Day Scholar Identified",
+            description: data.message || "Day Scholar – Hostel Gate Pass Not Applicable",
+          });
+        } else {
+          toast({
+            title: "Student not found",
+            description: data.message || `No student profile found for barcode / register number "${code}".`,
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+      setVerificationResult(data);
+      toast({
+        title: `${data.actionType === "EXIT" ? "EXIT RECORDED ✓" : "ENTRY RECORDED ✓"}`,
+        description: data.duplicateMessage || `${data.student?.name} (${data.student?.registerNumber || code}) ${data.actionType === "EXIT" ? "Exited" : "Entered"} Main Gate via ID Barcode`,
+      });
+      queryClient.invalidateQueries({ queryKey: getGetActivityFeedQueryKey() });
+    } catch (err) {
+      setVerificationResult(null);
+      toast({ title: "Student not found", description: "Failed to verify student barcode", variant: "destructive" });
+    }
+  };
+
+  const handleScanSuccess = async (code: string) => {
+    let cleanCode = code;
     try {
       const parsed = JSON.parse(code);
       if (parsed && typeof parsed === "object") {
-        outpassCode = parsed.outpassCode || parsed.code || parsed.id || code;
+        cleanCode = parsed.barcode || parsed.registerNumber || parsed.outpassCode || parsed.code || parsed.id || code;
       }
     } catch (e) {}
-    setSearchType("outpass");
-    setSearchInput(outpassCode);
-    setActiveSearch(outpassCode);
+
+    cleanCode = String(cleanCode).trim();
+    setSearchInput(cleanCode);
+
+    if (searchType === "barcode" || !cleanCode.toUpperCase().startsWith("OP-")) {
+      setSearchType("barcode");
+      await executeBarcodeVerification(cleanCode);
+    } else {
+      setSearchType("outpass");
+      setActiveSearch(cleanCode);
+    }
   };
 
   const queryParams = {
@@ -93,43 +144,12 @@ export default function SecurityDashboard() {
   const handleBarcodeSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchInput.trim()) return;
-    setActiveSearch(searchInput.trim());
-    setDayScholarNotice(null);
-    setVerificationResult(null);
-
     if (searchType === "barcode") {
-      try {
-        const res = await fetch("/api/gate/verify-barcode", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ barcode: searchInput.trim() }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.verified) {
-          if (data.isDayScholar) {
-            setDayScholarNotice(data);
-            toast({
-              title: "🚌 Day Scholar Identified",
-              description: data.message || "Day Scholar – Hostel Gate Pass Not Applicable",
-            });
-          } else {
-            toast({
-              title: "Student not found",
-              description: data.message || `No student profile found for barcode / register number "${searchInput.trim()}".`,
-              variant: "destructive",
-            });
-          }
-          return;
-        }
-        setVerificationResult(data);
-        toast({
-          title: `${data.actionType === "EXIT" ? "EXIT RECORDED ✓" : "ENTRY RECORDED ✓"}`,
-          description: data.duplicateMessage || `${data.student?.name} ${data.actionType === "EXIT" ? "Exited" : "Entered"} Main Gate via ID Barcode`,
-        });
-      } catch (err) {
-        setVerificationResult(null);
-        toast({ title: "Student not found", description: "Failed to verify student barcode", variant: "destructive" });
-      }
+      await executeBarcodeVerification(searchInput.trim());
+    } else {
+      setActiveSearch(searchInput.trim());
+      setDayScholarNotice(null);
+      setVerificationResult(null);
     }
   };
 
@@ -232,7 +252,10 @@ export default function SecurityDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <button
               type="button"
-              onClick={() => setSearchType("barcode")}
+              onClick={() => {
+                setSearchType("barcode");
+                setIsScannerOpen(true);
+              }}
               className={`p-4 rounded-xl border text-left flex items-start gap-3 transition-all ${
                 searchType === "barcode"
                   ? "border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 ring-2 ring-blue-500/20"
@@ -242,10 +265,13 @@ export default function SecurityDashboard() {
               <div className="p-2.5 rounded-lg bg-blue-600 text-white shrink-0">
                 <Barcode className="w-5 h-5" />
               </div>
-              <div>
-                <div className="font-bold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wide">Option 1 (Primary)</div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wide">Option 1 (Primary)</span>
+                  <Badge className="bg-blue-600 text-white text-[10px] px-1.5 py-0.2">📷 Camera Ready</Badge>
+                </div>
                 <div className="font-extrabold text-sm text-blue-900 dark:text-blue-300 mt-0.5">Scan ID Card Barcode</div>
-                <div className="text-[11px] text-muted-foreground mt-1">Read student barcode on physical college ID card</div>
+                <div className="text-[11px] text-muted-foreground mt-1">Read student barcode on physical college ID card via webcam</div>
               </div>
             </button>
 
@@ -285,14 +311,14 @@ export default function SecurityDashboard() {
             </button>
           </div>
 
-          <form onSubmit={handleBarcodeSearch} className="flex gap-3 pt-2">
-            <div className="relative flex-1">
+          <form onSubmit={handleBarcodeSearch} className="flex gap-2 sm:gap-3 pt-2 flex-wrap sm:flex-nowrap">
+            <div className="relative flex-1 min-w-[240px]">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
                 className="pl-10 text-base h-12 font-mono border-slate-300 focus:border-blue-500"
                 placeholder={
                   searchType === "barcode"
-                    ? "Scan barcode or enter Register No (e.g. STU001)..."
+                    ? "Scan barcode or enter Register No (e.g. 25IT030, 25CS040, STU001)..."
                     : searchType === "outpass"
                     ? "Enter Outpass Code (e.g. OP-0001)..."
                     : "Enter Register Number..."
@@ -302,7 +328,15 @@ export default function SecurityDashboard() {
                 autoFocus
               />
             </div>
-            <Button type="submit" className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2">
+            <Button
+              type="button"
+              onClick={() => setIsScannerOpen(true)}
+              variant="outline"
+              className="h-12 px-4 border-blue-300 text-blue-800 bg-blue-50 hover:bg-blue-100 font-bold gap-2 shrink-0"
+            >
+              <Camera className="w-4 h-4 text-blue-600" /> Webcam Scan Barcode
+            </Button>
+            <Button type="submit" className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2 shrink-0">
               <Check className="w-4 h-4" /> Scan & Verify
             </Button>
           </form>
@@ -424,20 +458,37 @@ export default function SecurityDashboard() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 text-xs">
                   <div>
-                    <span className="text-muted-foreground block">Leave Purpose</span>
-                    <span className="font-bold">{op.leave?.reason}</span>
+                    <span className="text-muted-foreground block text-[10px]">Leave Type & Purpose</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="font-bold">{op.leave?.reason}</span>
+                      {((op.leave as any)?.isEmergency === "true" || op.leave?.leaveType === "family_emergency") && (
+                        <Badge className="bg-red-600 text-white font-extrabold text-[9px] px-1.5 py-0.5">🔴 EMERGENCY</Badge>
+                      )}
+                    </div>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block">Destination</span>
-                    <span className="font-bold">{op.leave?.destination}</span>
+                    <span className="text-muted-foreground block text-[10px]">Warden Permission</span>
+                    <span className="font-bold text-emerald-600">✓ Approved & Permitted</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block">Out Date & Time</span>
-                    <span className="font-bold">{formatDateTime(op.leave?.fromDate)}</span>
+                    <span className="text-muted-foreground block text-[10px]">Principal Review</span>
+                    <span className={`font-bold ${
+                      op.leave?.status === "fully_approved"
+                        ? "text-emerald-600"
+                        : op.leave?.status === "rejected"
+                        ? "text-red-600"
+                        : "text-amber-600"
+                    }`}>
+                      {op.leave?.status === "fully_approved"
+                        ? "✓ Approved"
+                        : op.leave?.status === "rejected"
+                        ? "Rejected After Warden Permission"
+                        : "Pending Review"}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block">Return Date & Time</span>
-                    <span className="font-bold">{formatDateTime(op.leave?.toDate)}</span>
+                    <span className="text-muted-foreground block text-[10px]">Valid Period</span>
+                    <span className="font-bold">{formatDateTime(op.leave?.fromDate)} – {formatDateTime(op.leave?.toDate)}</span>
                   </div>
                 </div>
 

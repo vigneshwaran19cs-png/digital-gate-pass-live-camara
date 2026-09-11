@@ -10,8 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Link } from "wouter";
 import {
   CalendarIcon, MapPin, ArrowRight, AlertCircle, Clock, Plus, Sparkles,
-  Search, Filter, CheckCircle2, Pencil, Trash2, Shield, Eye, RefreshCw
+  Search, Filter, CheckCircle2, Pencil, Trash2, Shield, Eye, RefreshCw,
+  CheckSquare, Square, X
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { StudentProfilePhoto } from "@/components/StudentProfilePhoto";
@@ -22,6 +24,10 @@ export default function LeavesPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Multiple Selection & Bulk Action State for Super Admin
+  const [selectedLeaveIds, setSelectedLeaveIds] = useState<number[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Manual Leave Creation Modal for Super Admin
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -82,6 +88,76 @@ export default function LeavesPage() {
 
     return matchesSearch && matchesStatus;
   });
+
+  const toggleSelectLeave = (id: number, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setSelectedLeaveIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedLeaveIds.length === filteredLeaves.length && filteredLeaves.length > 0) {
+      setSelectedLeaveIds([]);
+    } else {
+      setSelectedLeaveIds(filteredLeaves.map(l => l.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedLeaveIds.length === 0) return;
+    if (!confirm(`Are you sure you want to PERMANENTLY DELETE ${selectedLeaveIds.length} selected leave request(s)?`)) return;
+
+    setIsBulkDeleting(true);
+    try {
+      const res = await fetch("/api/leaves/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leaveIds: selectedLeaveIds })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast({
+          title: "🗑️ Bulk Delete Successful",
+          description: data.message || `Permanently deleted ${selectedLeaveIds.length} leave records.`
+        });
+        setSelectedLeaveIds([]);
+        refetch();
+      } else {
+        toast({ title: "❌ Error", description: "Failed to perform bulk delete.", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "❌ Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedLeaveIds.length === 0) return;
+    try {
+      const res = await fetch("/api/leaves/bulk-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leaveIds: selectedLeaveIds, remarks: "Super Admin Bulk Force Approval" })
+      });
+      if (res.ok) {
+        toast({
+          title: "⚡ Bulk Force Approved",
+          description: `Approved ${selectedLeaveIds.length} leave requests & generated QR gate passes!`
+        });
+        setSelectedLeaveIds([]);
+        refetch();
+      } else {
+        toast({ title: "❌ Error", description: "Failed to bulk approve leaves.", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "❌ Error", description: err.message, variant: "destructive" });
+    }
+  };
 
   // Role Forwarding Map Helper
   const getForwardingTarget = (leave: any) => {
@@ -287,8 +363,8 @@ export default function LeavesPage() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row gap-3 items-center">
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             className="pl-10 h-10 bg-white"
@@ -298,21 +374,82 @@ export default function LeavesPage() {
           />
         </div>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-48 h-10 bg-white">
-            <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses ({leaves.length})</SelectItem>
-            <SelectItem value="pending">Pending Approval</SelectItem>
-            <SelectItem value="approved">Fully Approved</SelectItem>
-            <SelectItem value="emergency">🔴 Emergency Leaves</SelectItem>
-            <SelectItem value="day_scholar">🚌 Day Scholar Notices</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-48 h-10 bg-white">
+              <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses ({leaves.length})</SelectItem>
+              <SelectItem value="pending">Pending Approval</SelectItem>
+              <SelectItem value="approved">Fully Approved</SelectItem>
+              <SelectItem value="emergency">🔴 Emergency Leaves</SelectItem>
+              <SelectItem value="day_scholar">🚌 Day Scholar Notices</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {isSuperAdmin && filteredLeaves.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={toggleSelectAll}
+              className="h-10 bg-white border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 gap-1.5 shrink-0"
+            >
+              {selectedLeaveIds.length === filteredLeaves.length ? (
+                <>
+                  <CheckSquare className="w-4 h-4 text-indigo-600" /> Deselect All
+                </>
+              ) : (
+                <>
+                  <Square className="w-4 h-4 text-slate-500" /> Select All ({filteredLeaves.length})
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Super Admin Floating Bulk Actions Bar */}
+      {isSuperAdmin && selectedLeaveIds.length > 0 && (
+        <div className="sticky top-4 z-40 p-3.5 bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-3">
+          <div className="flex items-center gap-3">
+            <Badge className="bg-indigo-600 text-white font-bold text-xs px-3 py-1">
+              {selectedLeaveIds.length} Selected
+            </Badge>
+            <span className="text-xs text-slate-300 font-medium hidden md:inline">
+              Super Admin Multiple Item Selection Active
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleBulkApprove}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Force Approve ({selectedLeaveIds.length})
+            </Button>
+            <Button
+              size="sm"
+              disabled={isBulkDeleting}
+              onClick={handleBulkDelete}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs gap-1.5 shadow-sm"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete Selected ({selectedLeaveIds.length})
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedLeaveIds([])}
+              className="text-slate-400 hover:text-white text-xs px-2"
+              title="Clear Selection"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center min-h-[300px]">
@@ -333,12 +470,20 @@ export default function LeavesPage() {
             const isDayScholarLeave = leave.status === "info_submitted" || leave.currentStep === "info_submitted" || leave.student?.studentType === "DAY_SCHOLAR" || (leave.student as any)?.isDayScholar;
             const isEmergency = !isDayScholarLeave && (leave.isEmergency === "true" || leave.leaveType === "family_emergency" || leave.leaveType === "emergency");
             const forwardedRole = getForwardingTarget(leave);
+            const isSelected = selectedLeaveIds.includes(leave.id);
 
             return (
-              <Link key={leave.id} href={`/leaves/${leave.id}`}>
+              <div key={leave.id} className="relative">
                 <Card
-                  className={`hover:shadow-xl cursor-pointer transition-all duration-200 h-full flex flex-col overflow-hidden relative group bg-white ${
-                    isDayScholarLeave
+                  onClick={(e) => {
+                    if (isSuperAdmin && (e.ctrlKey || e.metaKey)) {
+                      toggleSelectLeave(leave.id, e);
+                    }
+                  }}
+                  className={`hover:shadow-xl transition-all duration-200 h-full flex flex-col overflow-hidden relative group bg-white ${
+                    isSelected
+                      ? "ring-2 ring-indigo-600 border-indigo-600 bg-indigo-50/20 shadow-indigo-100"
+                      : isDayScholarLeave
                       ? "border-2 border-purple-300 bg-purple-50/20 shadow-purple-100"
                       : isEmergency
                       ? "border-2 border-red-500/80 bg-red-50/20 shadow-red-100"
@@ -365,12 +510,28 @@ export default function LeavesPage() {
 
                   <CardHeader className="pb-3 pt-3.5">
                     <div className="flex justify-between items-start gap-2">
-                      <div>
-                        <CardTitle className="text-base font-heading font-bold capitalize flex items-center gap-2 text-slate-800">
-                          {leave.leaveType?.replace("_", " ")}
-                        </CardTitle>
-                        <div className="text-xs text-muted-foreground mt-0.5 font-mono">
-                          Submitted: {formatDateTime(leave.createdAt)}
+                      <div className="flex items-start gap-2.5">
+                        {isSuperAdmin && (
+                          <div
+                            onClick={(e) => toggleSelectLeave(leave.id, e)}
+                            className="pt-0.5 cursor-pointer shrink-0"
+                            title="Select for multiple deletion"
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelectLeave(leave.id)}
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <CardTitle className="text-base font-heading font-bold capitalize flex items-center gap-2 text-slate-800">
+                            <Link href={`/leaves/${leave.id}`} className="hover:underline hover:text-blue-600">
+                              {leave.leaveType?.replace("_", " ")}
+                            </Link>
+                          </CardTitle>
+                          <div className="text-xs text-muted-foreground mt-0.5 font-mono">
+                            Submitted: {formatDateTime(leave.createdAt)}
+                          </div>
                         </div>
                       </div>
 
@@ -497,7 +658,7 @@ export default function LeavesPage() {
                     )}
                   </CardContent>
                 </Card>
-              </Link>
+              </div>
             );
           })}
         </div>

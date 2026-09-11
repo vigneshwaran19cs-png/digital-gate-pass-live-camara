@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, locationLogsTable, usersTable, notificationsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { resolveUserId } from "./auth";
+import { sendWhatsAppNotification } from "../lib/whatsapp";
 
 const router: IRouter = Router();
 
@@ -192,6 +193,123 @@ router.post("/location/battery-alert", async (req, res): Promise<void> => {
     res.json({ success: true, message: "Low battery alert logged & Parent/Tutor notified." });
   } catch (error) {
     res.status(500).json({ error: "Failed to log battery alert" });
+  }
+});
+
+// 6. Red Zone / Geofence Breach Alert (Auto WhatsApp to Parent & HOD)
+router.post("/location/red-zone-alert", async (req, res): Promise<void> => {
+  try {
+    const studentId = resolveUserId(req) || req.body.studentId || 1;
+    const { zoneName = "Restricted Area", latitude, longitude } = req.body;
+
+    const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId));
+    if (!student) {
+      res.status(404).json({ error: "Student not found" });
+      return;
+    }
+
+    const studentName = student.name || "Student";
+    const parentPhone = student.parentWhatsapp || student.parentPhone || "919876543210";
+    const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const trackingUrl = `${req.protocol}://${req.get("host")}/track/demo-token`;
+
+    // 1. Send WhatsApp to Parent
+    if (parentPhone) {
+      await sendWhatsAppNotification({
+        recipientPhone: parentPhone,
+        recipientRole: "parent",
+        messageType: "RED_ZONE_ALERT",
+        studentName,
+        currentLocationName: `${zoneName} (${latitude || "11.53"}, ${longitude || "77.72"})`,
+        trackingUrl,
+        timeStr,
+      });
+    }
+
+    // 2. Send WhatsApp to HOD
+    const hods = await db.select().from(usersTable).where(eq(usersTable.role, "hod"));
+    for (const hod of hods) {
+      if (hod.phone || (hod as any).parentWhatsapp) {
+        await sendWhatsAppNotification({
+          recipientPhone: hod.phone || (hod as any).parentWhatsapp,
+          recipientRole: "hod",
+          messageType: "RED_ZONE_ALERT",
+          studentName,
+          currentLocationName: `${zoneName} (${latitude || "11.53"}, ${longitude || "77.72"})`,
+          trackingUrl,
+          timeStr,
+        });
+      }
+    }
+
+    res.json({ success: true, message: "⚠️ Red Zone WhatsApp Alert sent to Parent & HOD!" });
+  } catch (error) {
+    console.error("Failed to send Red Zone alert:", error);
+    res.status(500).json({ error: "Failed to send Red Zone alert" });
+  }
+});
+
+// 7. GPS Disconnect / Signal Lost Alert (Auto WhatsApp to Parent & HOD with Last Known Location)
+router.post("/location/gps-lost-alert", async (req, res): Promise<void> => {
+  try {
+    const studentId = resolveUserId(req) || req.body.studentId || 1;
+    const { timeoutMins = 5, lastLocationName = "Salem Road Geofence Point", latitude, longitude } = req.body;
+
+    const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId));
+    if (!student) {
+      res.status(404).json({ error: "Student not found" });
+      return;
+    }
+
+    const [lastLog] = await db.select().from(locationLogsTable)
+      .where(eq(locationLogsTable.studentId, studentId))
+      .orderBy(desc(locationLogsTable.timestamp))
+      .limit(1);
+
+    const studentName = student.name || "Student";
+    const parentPhone = student.parentWhatsapp || student.parentPhone || "919876543210";
+    const timeStr = lastLog?.timestamp ? new Date(lastLog.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const trackingUrl = `${req.protocol}://${req.get("host")}/track/demo-token`;
+    const locationName = lastLocationName || (lastLog ? `${lastLog.status} (${lastLog.latitude}, ${lastLog.longitude})` : "En-route");
+
+    // 1. Send WhatsApp to Parent
+    if (parentPhone) {
+      await sendWhatsAppNotification({
+        recipientPhone: parentPhone,
+        recipientRole: "parent",
+        messageType: "GPS_DISCONNECTED",
+        studentName,
+        currentLocationName: locationName,
+        trackingUrl,
+        timeStr,
+        timeoutMins: Number(timeoutMins),
+      });
+    }
+
+    // 2. Send WhatsApp to HOD
+    const hods = await db.select().from(usersTable).where(eq(usersTable.role, "hod"));
+    for (const hod of hods) {
+      if (hod.phone || (hod as any).parentWhatsapp) {
+        await sendWhatsAppNotification({
+          recipientPhone: hod.phone || (hod as any).parentWhatsapp,
+          recipientRole: "hod",
+          messageType: "GPS_DISCONNECTED",
+          studentName,
+          currentLocationName: locationName,
+          trackingUrl,
+          timeStr,
+          timeoutMins: Number(timeoutMins),
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `🚨 GPS Lost alert dispatched! Last known location (${locationName}) sent to Parent & HOD via WhatsApp.`,
+    });
+  } catch (error) {
+    console.error("Failed to send GPS Lost alert:", error);
+    res.status(500).json({ error: "Failed to send GPS Lost alert" });
   }
 });
 

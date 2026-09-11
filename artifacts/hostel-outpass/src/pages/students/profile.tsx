@@ -29,6 +29,8 @@ export default function StudentProfilePage() {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [gateLogs, setGateLogs] = useState<any[]>([]);
 
+  const isSuperAdmin = (user?.role as string) === "super_admin" || (user?.role as string) === "SUPER_ADMIN";
+
   useEffect(() => {
     if ((user?.role as string) === "parent") {
       setLocation("/dashboard");
@@ -109,64 +111,105 @@ export default function StudentProfilePage() {
                   size="xl"
                   className="w-24 h-24 rounded-2xl bg-white p-1 shadow-lg border-2 border-white shrink-0 overflow-hidden"
                 />
-                <Dialog open={isPhotoDialogOpen} onOpenChange={setIsPhotoDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="absolute -bottom-1 -right-1 rounded-full w-8 h-8 p-0 shadow-md bg-white hover:bg-slate-100 text-blue-600 border"
-                      title="Update Profile Photo"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2">
-                        <ImageIcon className="w-5 h-5 text-blue-600" /> Student Profile Photo Upload
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                      <p className="text-xs text-muted-foreground">
-                        Select or enter your profile image URL. This image will automatically appear across your profile, leave letters, gate passes, and security verification.
-                      </p>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold">Image URL / Preset</label>
-                        <Input
-                          placeholder="/students/vimal_m.jpg"
-                          value={photoUrlInput}
-                          onChange={(e) => setPhotoUrlInput(e.target.value)}
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPhotoUrlInput("/students/vimal_m.jpg")}
-                          className="p-1 border rounded-lg hover:border-blue-500 overflow-hidden"
-                        >
-                          <img src="/students/vimal_m.jpg" className="w-full h-12 object-cover rounded" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPhotoUrlInput("/students/vimal_m.jpg")}
-                          className="p-1 border rounded-lg hover:border-blue-500 overflow-hidden"
-                        >
-                          <img src="/students/vimal_m.jpg" className="w-full h-12 object-cover rounded" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPhotoUrlInput("/students/vimal_m.jpg")}
-                          className="p-1 border rounded-lg hover:border-blue-500 overflow-hidden"
-                        >
-                          <img src="/students/vimal_m.jpg" className="w-full h-12 object-cover rounded" />
-                        </button>
-                      </div>
-                      <Button onClick={handleUpdatePhoto} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                        Save Profile Photo
+                {isSuperAdmin && (
+                  <Dialog open={isPhotoDialogOpen} onOpenChange={setIsPhotoDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="absolute -bottom-1 -right-1 rounded-full w-8 h-8 p-0 shadow-md bg-white hover:bg-slate-100 text-blue-600 border"
+                        title="Update Profile Photo"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
                       </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <ImageIcon className="w-5 h-5 text-blue-600" /> Student Profile Photo Upload
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-2">
+                        <p className="text-xs text-muted-foreground">
+                          Select or enter your profile image URL. This image will automatically appear across your profile, leave letters, gate passes, and security verification.
+                        </p>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold">Image File or URL</label>
+                          <div className="flex items-center gap-2">
+                            {photoUrlInput.startsWith("data:image/") ? (
+                              <div className="flex-1 flex items-center justify-between px-3 h-9 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-700 font-medium overflow-hidden">
+                                <span className="truncate flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                  Image Attached ({Math.round((photoUrlInput.length * 0.75) / 1024)} KB)
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setPhotoUrlInput("")}
+                                  className="text-emerald-700 hover:text-emerald-900 font-bold ml-2 text-xs"
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            ) : (
+                              <Input
+                                placeholder="Image URL or choose file"
+                                value={photoUrlInput}
+                                onChange={(e) => setPhotoUrlInput(e.target.value)}
+                                className="flex-1 text-xs"
+                              />
+                            )}
+                            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shrink-0 shadow-xs">
+                              <Upload className="w-3.5 h-3.5" /> Upload File
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      if (ev.target?.result) {
+                                        setPhotoUrlInput(ev.target.result as string);
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPhotoUrlInput("/students/vimal_m.jpg")}
+                            className="p-1 border rounded-lg hover:border-blue-500 overflow-hidden"
+                          >
+                            <img src="/students/vimal_m.jpg" className="w-full h-12 object-cover rounded" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPhotoUrlInput("/students/azhagesan_s.jpg")}
+                            className="p-1 border rounded-lg hover:border-blue-500 overflow-hidden"
+                          >
+                            <img src="/students/azhagesan_s.jpg" className="w-full h-12 object-cover rounded" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPhotoUrlInput("/students/chinraj_m.jpg")}
+                            className="p-1 border rounded-lg hover:border-blue-500 overflow-hidden"
+                          >
+                            <img src="/students/chinraj_m.jpg" className="w-full h-12 object-cover rounded" />
+                          </button>
+                        </div>
+                        <Button onClick={handleUpdatePhoto} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+                          Save Profile Photo
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -181,9 +224,6 @@ export default function StudentProfilePage() {
                       🏠 Hosteller
                     </Badge>
                   )}
-                  {!isDayScholar && (
-                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Face Enrolled ✓</Badge>
-                  )}
                 </div>
                 <div className="text-sm text-muted-foreground font-mono">
                   ID: {user?.registerNumber || "STU001"} · Barcode: {(user as any)?.barcode || user?.registerNumber || "N/A"}
@@ -192,23 +232,27 @@ export default function StudentProfilePage() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditProfileOpen(true)}
-                className="border-blue-200 bg-blue-50/60 text-blue-700 hover:bg-blue-100 gap-2 text-xs"
-              >
-                <Pencil className="w-4 h-4" /> Edit Profile Details
-              </Button>
+              {isSuperAdmin && (
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditProfileOpen(true)}
+                  className="border-blue-200 bg-blue-50/60 text-blue-700 hover:bg-blue-100 gap-2 text-xs"
+                >
+                  <Pencil className="w-4 h-4" /> Edit Profile Details
+                </Button>
+              )}
               <Button onClick={() => setLocation("/apply")} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 text-xs">
                 <FileText className="w-4 h-4" /> {isDayScholar ? "Submit Leave Notice" : "Apply Leave"}
               </Button>
             </div>
           </div>
 
-          <StudentProfileSetupModal
-            open={isEditProfileOpen}
-            onOpenChange={setIsEditProfileOpen}
-          />
+          {isSuperAdmin && (
+            <StudentProfileSetupModal
+              open={isEditProfileOpen}
+              onOpenChange={setIsEditProfileOpen}
+            />
+          )}
 
           {/* Attendance Stats & Performance Breakdown */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t">

@@ -25,6 +25,7 @@ export const UserRole = {
   warden: "warden",
   security: "security",
   super_admin: "super_admin",
+  parent: "parent",
 } as const;
 
 export interface User {
@@ -57,6 +58,10 @@ export interface User {
   /** @nullable */
   address?: string | null;
   /** @nullable */
+  district?: string | null;
+  /** @nullable */
+  outingDestination?: string | null;
+  /** @nullable */
   designation?: string | null;
   createdAt?: string;
 }
@@ -76,6 +81,7 @@ export const UserInputRole = {
   warden: "warden",
   security: "security",
   super_admin: "super_admin",
+  parent: "parent",
 } as const;
 
 export interface UserInput {
@@ -97,6 +103,8 @@ export interface UserInput {
   parentWhatsapp?: string;
   parentEmail?: string;
   address?: string;
+  district?: string;
+  outingDestination?: string;
   designation?: string;
 }
 
@@ -113,6 +121,8 @@ export interface UserUpdate {
   parentWhatsapp?: string;
   parentEmail?: string;
   address?: string;
+  district?: string;
+  outingDestination?: string;
   designation?: string;
 }
 
@@ -207,7 +217,13 @@ export interface LeaveRequest {
   reason: string;
   fromDate: string;
   toDate: string;
+  /** @nullable */
+  fromTime?: string | null;
+  /** @nullable */
+  toTime?: string | null;
   destination: string;
+  /** @nullable */
+  district?: string | null;
   status: LeaveRequestStatus;
   currentStep: LeaveRequestCurrentStep;
   /** @nullable */
@@ -310,15 +326,21 @@ export interface LeaveInput {
   reason: string;
   fromDate: string;
   toDate: string;
+  fromTime?: string;
+  toTime?: string;
   /** @minLength 1 */
   destination: string;
+  district?: string;
 }
 
 export interface LeaveUpdate {
   reason?: string;
   fromDate?: string;
   toDate?: string;
+  fromTime?: string;
+  toTime?: string;
   destination?: string;
+  district?: string;
 }
 
 export interface ApprovalAction {

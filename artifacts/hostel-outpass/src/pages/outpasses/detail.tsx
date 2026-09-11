@@ -8,6 +8,8 @@ import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { JourneyTrackingWidget } from "@/components/JourneyTrackingWidget";
+
 
 export default function OutpassDetailPage() {
   const [, params] = useRoute("/outpasses/:id");
@@ -322,13 +324,13 @@ export default function OutpassDetailPage() {
     pdf.save(`GatePass_${outpass.gatePassNumber || outpass.outpassCode}.pdf`);
   };
 
-  const formattedOutDate = outpass.leave?.fromDate 
-    ? format(new Date(outpass.leave.fromDate), "dd-MM-yyyy hh:mm a") 
-    : "—";
+  const formattedOutDate = (outpass.leave as any)?.fromDate && (outpass.leave as any)?.fromTime
+    ? `${(outpass.leave as any).fromDate} ${(outpass.leave as any).fromTime}`
+    : (outpass.leave?.fromDate ? format(new Date(outpass.leave.fromDate), "dd-MM-yyyy hh:mm a") : "—");
 
-  const formattedInDate = outpass.leave?.toDate 
-    ? format(new Date(outpass.leave.toDate), "dd-MM-yyyy hh:mm a") 
-    : "—";
+  const formattedInDate = (outpass.leave as any)?.toDate && (outpass.leave as any)?.toTime
+    ? `${(outpass.leave as any).toDate} ${(outpass.leave as any).toTime}`
+    : (outpass.leave?.toDate ? format(new Date(outpass.leave.toDate), "dd-MM-yyyy hh:mm a") : "—");
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -450,7 +452,9 @@ export default function OutpassDetailPage() {
                     {/* Row 7: Place & Hostel */}
                     <tr>
                       <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1">Place</td>
-                      <td className="val-cell border border-[#0a2540] px-2 py-1 truncate">{outpass.leave?.destination}</td>
+                      <td className="val-cell border border-[#0a2540] px-2 py-1 truncate">
+                        {outpass.leave?.destination} {(outpass.leave as any)?.district ? `(${(outpass.leave as any).district} Dist)` : ""}
+                      </td>
                       <td className="label-cell bg-slate-50 font-bold border border-[#0a2540] px-2 py-1">Hostel</td>
                       <td className="val-cell border border-[#0a2540] px-2 py-1">Yes</td>
                     </tr>
@@ -593,7 +597,14 @@ export default function OutpassDetailPage() {
 
         {/* Sidebar Actions Column */}
         <div className="md:col-span-2 space-y-6">
+          <JourneyTrackingWidget
+            outpassId={outpass.id}
+            leaveId={outpass.leaveId}
+            destination={outpass.leave?.destination}
+          />
+
           <Card className="glass-card p-6 space-y-4">
+
             <div>
               <h2 className="font-heading font-bold text-xl mb-1">Gate Pass Ready</h2>
               <p className="text-sm text-muted-foreground">This digital outpass has been approved by the JKKM administrative flow and is ready for exit gate verification.</p>
@@ -602,16 +613,52 @@ export default function OutpassDetailPage() {
             <div className="space-y-2">
               <div className="flex justify-between items-center text-sm p-3 bg-muted/30 rounded-xl">
                 <span className="text-muted-foreground">Outpass Number:</span>
-                <span className="font-mono font-bold text-blue-400">
+                <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
                   {outpass.gatePassNumber || `GP-2026-${String(outpass.id).padStart(4, "0")}`}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-sm p-3 bg-muted/30 rounded-xl">
-                <span className="text-muted-foreground">Current Status:</span>
-                <Badge variant={outpass.status === "generated" ? "default" : "secondary"}>
-                  {outpass.status}
-                </Badge>
-              </div>
+
+              {((outpass.leave as any)?.isEmergency === "true" || outpass.leave?.leaveType === "family_emergency" || outpass.leave?.leaveType === "emergency") ? (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl space-y-2 text-xs">
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="font-semibold text-red-950 dark:text-red-200 shrink-0">Pass Status:</span>
+                    <Badge className="bg-red-600 text-white font-extrabold text-[10px] px-2 py-0.5 text-right">
+                      {outpass.leave?.status === "rejected"
+                        ? "EMERGENCY LEAVE – PRINCIPAL REJECTED AFTER WARDEN PERMISSION"
+                        : outpass.leave?.status === "fully_approved"
+                        ? "VALID – EMERGENCY / FULLY APPROVED"
+                        : "VALID – EMERGENCY / WARDEN APPROVED"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center pt-1 border-t border-red-200 dark:border-red-800 text-red-900 dark:text-red-300">
+                    <span>Warden Approval:</span>
+                    <span className="font-bold text-emerald-600">✓ Approved & Permitted</span>
+                  </div>
+                  <div className="flex justify-between items-center text-red-900 dark:text-red-300">
+                    <span>Principal Approval:</span>
+                    <span className={`font-bold ${
+                      outpass.leave?.status === "fully_approved"
+                        ? "text-emerald-600"
+                        : outpass.leave?.status === "rejected"
+                        ? "text-red-600"
+                        : "text-amber-600"
+                    }`}>
+                      {outpass.leave?.status === "fully_approved"
+                        ? "✓ Approved"
+                        : outpass.leave?.status === "rejected"
+                        ? "Rejected After Permission"
+                        : "Pending Review"}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center text-sm p-3 bg-muted/30 rounded-xl">
+                  <span className="text-muted-foreground">Current Status:</span>
+                  <Badge variant={outpass.status === "generated" ? "default" : "secondary"}>
+                    {outpass.status}
+                  </Badge>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-2.5 pt-2">

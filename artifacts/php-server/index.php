@@ -1811,21 +1811,22 @@ if ($method === 'POST' && preg_match('#^/outpasses/(?P<id>\d+)/verify$#', $path,
         exit;
     }
     
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE role = 'warden'");
+    // Notify ALL roles EXCEPT security (watchman anna)
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE role != 'security'");
     $stmt->execute();
-    $wardens = $stmt->fetchAll();
+    $targetUsers = $stmt->fetchAll();
     
     $stmtS = $pdo->prepare("SELECT name, register_number FROM users WHERE id = ?");
     $stmtS->execute([$updated['student_id']]);
     $student = $stmtS->fetch();
     
-    foreach ($wardens as $w) {
+    foreach ($targetUsers as $u) {
         $stmtN = $pdo->prepare("INSERT INTO notifications (user_id, type, title, message, is_read, outpass_id) VALUES (?, ?, ?, ?, ?, ?)");
         $stmtN->execute([
-            $w['id'],
+            $u['id'],
             'exit_recorded',
-            'Student Exit Recorded',
-            ($student['name'] ?? 'Student') . ' (' . ($student['register_number'] ?? '') . ') exited at ' . $gateLocation,
+            '🏡 Student Departed / Left for Home (Oorukku Poiyacha)',
+            ($student['name'] ?? 'Student') . ' (' . ($student['register_number'] ?? '') . ') has checked out and departed campus via ' . $gateLocation,
             0,
             $updated['id']
         ]);

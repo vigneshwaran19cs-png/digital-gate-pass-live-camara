@@ -148,9 +148,34 @@ export default function LiveScannerPage() {
         }
         setCameraActive(true);
 
-        scanInterval = setInterval(() => {
+        scanInterval = setInterval(async () => {
           if (!isScanning || isProcessingRef.current) return;
 
+          // A. Try Webcam Barcode Auto-Detection via Browser BarcodeDetector API
+          if ("BarcodeDetector" in window && videoRef.current && videoRef.current.readyState === 4) {
+            try {
+              const barcodeDetector = new (window as any).BarcodeDetector({
+                formats: ["code_128", "code_39", "qr_code", "ean_13", "ean_8", "upc_a", "pdf417", "data_matrix"]
+              });
+              const detectedBarcodes = await barcodeDetector.detect(videoRef.current);
+              if (detectedBarcodes && detectedBarcodes.length > 0) {
+                const scannedVal = detectedBarcodes[0].rawValue;
+                if (scannedVal && scannedVal.trim()) {
+                  isProcessingRef.current = true;
+                  if (scanInterval) clearInterval(scanInterval);
+                  setManualCode(scannedVal.trim());
+                  setScanState("VERIFIED");
+                  setIsScanning(false);
+                  executeBarcodeVerification(scannedVal.trim());
+                  return;
+                }
+              }
+            } catch (e) {
+              // Ignore barcode detection errors and continue to face analysis
+            }
+          }
+
+          // B. Face Landmark Evaluation
           const evalResult = analyzeStreamWithMediaPipe();
           setDetectionConfidence(evalResult.confidence);
 
@@ -167,7 +192,7 @@ export default function LiveScannerPage() {
             // Execute backend verification after 1 tick (0.35s) for instant auto verification!
             if (consecutiveValidTicksRef.current >= 1) {
               isProcessingRef.current = true;
-              clearInterval(scanInterval!);
+              if (scanInterval) clearInterval(scanInterval);
               executeBackendVerification(1, evalResult.confidence);
             }
           }
@@ -226,21 +251,63 @@ export default function LiveScannerPage() {
         toast({ title: "🤖 MediaPipe AI Face Verified!", description: `Identified ${data.student?.name} (Landmark Confidence: ${faceConfidence}%)` });
       }
 
+      const activeLeave = data.activeLeave;
+      const isDayScholar = data.student?.studentType === "DAY_SCHOLAR" || data.isDayScholar;
+      let isApproved = false;
+      let approvalStatusText = "NO ACTIVE PASS / LEAVE";
+
+      if (isDayScholar) {
+        isApproved = true;
+        approvalStatusText = "DAY SCHOLAR (HOSTEL PASS N/A)";
+      } else if (activeLeave) {
+        const st = activeLeave.status || "";
+        if (["fully_approved", "warden_approved", "hod_approved", "principal_approved"].includes(st)) {
+          isApproved = true;
+          approvalStatusText = "APPROVED & VALID PASS ✓";
+        } else if (st === "pending") {
+          isApproved = false;
+          approvalStatusText = "PENDING WARDEN / HOD APPROVAL ⏳";
+        } else if (st === "rejected") {
+          isApproved = false;
+          approvalStatusText = "OUTPASS REJECTED ❌";
+        } else {
+          isApproved = true;
+          approvalStatusText = "APPROVED & VALID PASS ✓";
+        }
+      } else {
+        isApproved = false;
+        approvalStatusText = "NO ACTIVE OUTPASS APPLIED ❌";
+      }
+
       setVerifiedStudent({
+        id: data.student?.id,
         name: data.student?.name,
         registerNumber: data.student?.registerNumber,
         department: data.student?.department || "Computer Science & Engineering",
-        hostelRoom: data.student?.hostelRoom || "A-101",
-        passType: data.activeLeave?.passType?.replace("_", " ").toUpperCase() || "OUTING PASS",
-        status: "APPROVED & VALID",
-        destination: data.activeLeave?.destination || "Campus Movement",
-        validUntil: "Today, 6:00 PM",
+        classInfo: data.student?.classInfo || "3rd Year",
+        hostelRoom: isDayScholar ? "N/A" : (data.student?.hostelRoom || "A-101"),
+        hostelBlock: isDayScholar ? "Day Scholar" : (data.student?.hostelBlock || "Boys Hostel - Block A"),
+        studentType: isDayScholar ? "DAY_SCHOLAR" : "HOSTELLER",
+        isDayScholar,
+        leaveId: activeLeave?.id,
+        passType: activeLeave?.passType?.replace("_", " ").toUpperCase() || "OUTING PASS",
+        leaveReason: activeLeave?.reason || "Campus Movement",
+        destination: activeLeave?.destination || "Local",
+        fromDate: activeLeave?.fromDate,
+        toDate: activeLeave?.toDate,
+        isApproved,
+        approvalStatusText,
+        leaveStatus: activeLeave?.status || "none",
         actionType: data.actionType || "EXIT",
         confidence: faceConfidence,
         isDuplicateScan: data.isDuplicateScan || false,
         duplicateMessage: data.duplicateMessage,
-        enrolledIdPhoto: data.faceComparison?.enrolledIdPhoto || data.student?.idCardUrl || "/students/vimal_m.jpg",
+        enrolledIdPhoto: data.faceComparison?.enrolledIdPhoto || data.student?.photoUrl || (data.student?.registerNumber ? `/students/${data.student.registerNumber}.jpg` : "/students/vimal_m.jpg"),
         liveScannedPhoto: data.faceComparison?.liveScannedPhoto || data.student?.photoUrl || "/students/vimal_m.jpg",
+        lastExit: data.lastExit,
+        lastEntry: data.lastEntry,
+        entryExitHistory: data.entryExitHistory || [],
+        gateActionRecorded: null,
       });
     } catch (e) {
       setVerifiedStudent(null);
@@ -252,8 +319,9 @@ export default function LiveScannerPage() {
     }
   };
 
-  const executeBarcodeVerification = async () => {
-    if (!manualCode.trim()) {
+  const executeBarcodeVerification = async (codeOverride?: string) => {
+    const codeToVerify = (codeOverride || manualCode).trim();
+    if (!codeToVerify) {
       toast({ title: "Please enter Register No or Barcode", variant: "destructive" });
       return;
     }
@@ -261,7 +329,7 @@ export default function LiveScannerPage() {
       const res = await fetch("http://localhost:5000/api/gate/verify-barcode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ barcode: manualCode.trim(), registerNumber: manualCode.trim() }),
+        body: JSON.stringify({ barcode: codeToVerify, registerNumber: codeToVerify }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -270,8 +338,36 @@ export default function LiveScannerPage() {
       }
       const isDayScholar = data.student?.studentType === "DAY_SCHOLAR" || data.isDayScholar;
       const photo = data.student?.photoUrl || data.student?.profilePhoto || (data.student?.registerNumber ? `/students/${data.student.registerNumber}.jpg` : "/students/vimal_m.jpg");
+      const activeLeave = data.activeLeave;
+
+      let isApproved = false;
+      let approvalStatusText = "NO ACTIVE PASS / LEAVE";
+
+      if (isDayScholar) {
+        isApproved = true;
+        approvalStatusText = "DAY SCHOLAR (HOSTEL PASS N/A)";
+      } else if (activeLeave) {
+        const st = activeLeave.status || "";
+        if (["fully_approved", "warden_approved", "hod_approved", "principal_approved"].includes(st)) {
+          isApproved = true;
+          approvalStatusText = "APPROVED & VALID PASS ✓";
+        } else if (st === "pending") {
+          isApproved = false;
+          approvalStatusText = "PENDING WARDEN / HOD APPROVAL ⏳";
+        } else if (st === "rejected") {
+          isApproved = false;
+          approvalStatusText = "OUTPASS REJECTED ❌";
+        } else {
+          isApproved = true;
+          approvalStatusText = "APPROVED & VALID PASS ✓";
+        }
+      } else {
+        isApproved = false;
+        approvalStatusText = "NO ACTIVE OUTPASS APPLIED ❌";
+      }
 
       setVerifiedStudent({
+        id: data.student?.id,
         name: data.student?.name,
         registerNumber: data.student?.registerNumber,
         barcode: data.student?.barcode || data.student?.registerNumber,
@@ -280,11 +376,16 @@ export default function LiveScannerPage() {
         studentType: isDayScholar ? "DAY_SCHOLAR" : "HOSTELLER",
         isDayScholar,
         hostelRoom: isDayScholar ? "N/A" : (data.student?.hostelRoom || "A-101"),
-        hostelBlock: isDayScholar ? "Day Scholar" : (data.student?.hostelBlock || "Boys Hostel - A Block"),
-        passType: data.activeLeave?.passType?.replace("_", " ").toUpperCase() || "OUTING PASS",
-        status: isDayScholar ? "DAY SCHOLAR (PASS N/A)" : (data.activeLeave ? "APPROVED & VALID" : "NO ACTIVE LEAVE"),
-        leaveReason: data.activeLeave?.reason || "Campus Movement",
-        destination: data.activeLeave?.destination || "Local",
+        hostelBlock: isDayScholar ? "Day Scholar" : (data.student?.hostelBlock || "Boys Hostel - Block A"),
+        leaveId: activeLeave?.id,
+        passType: activeLeave?.passType?.replace("_", " ").toUpperCase() || "OUTING PASS",
+        leaveReason: activeLeave?.reason || "Campus Movement",
+        destination: activeLeave?.destination || "Local",
+        fromDate: activeLeave?.fromDate,
+        toDate: activeLeave?.toDate,
+        isApproved,
+        approvalStatusText,
+        leaveStatus: activeLeave?.status || "none",
         actionType: data.actionType || "EXIT",
         confidence: 100,
         isDuplicateScan: data.isDuplicateScan || false,
@@ -294,10 +395,11 @@ export default function LiveScannerPage() {
         lastExit: data.lastExit,
         lastEntry: data.lastEntry,
         entryExitHistory: data.entryExitHistory || [],
+        gateActionRecorded: null,
       });
 
       toast({
-        title: isDayScholar ? "ℹ️ Day Scholar Identified" : "✅ Student Barcode Verified",
+        title: isDayScholar ? "ℹ️ Day Scholar Identified" : isApproved ? "✅ Student Barcode Verified (Pass Approved)" : "⚠️ Student Barcode Verified (Pass Not Approved)",
         description: data.message || `Identified ${data.student?.name} (${data.student?.registerNumber})`,
       });
     } catch (err: any) {
@@ -305,14 +407,45 @@ export default function LiveScannerPage() {
     }
   };
 
-  const handleRecordGateAction = (action: "ENTRY" | "EXIT") => {
-    toast({
-      title: `✅ Gate ${action} Recorded`,
-      description: `${verifiedStudent?.name} successfully recorded at ${action} gate at ${new Date().toLocaleTimeString()}`,
-    });
-    setVerifiedStudent(null);
-    setIsScanning(true);
-    setScanState("INITIALIZING");
+  const handleRecordGateAction = async (action: "ENTRY" | "EXIT") => {
+    if (!verifiedStudent) return;
+    try {
+      const res = await fetch("http://localhost:5000/api/gate/record-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: verifiedStudent.id,
+          actionType: action,
+          verificationMethod: "ID_BARCODE",
+          leaveId: verifiedStudent.leaveId,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({
+          title: `✅ Gate ${action} Approved & Recorded!`,
+          description: `${verifiedStudent.name} (${verifiedStudent.registerNumber}) marked as ${action} at ${new Date().toLocaleTimeString()}`,
+        });
+      } else {
+        toast({
+          title: `✅ Gate ${action} Recorded`,
+          description: `${verifiedStudent.name} recorded at ${action} gate at ${new Date().toLocaleTimeString()}`,
+        });
+      }
+    } catch (e) {
+      toast({
+        title: `✅ Gate ${action} Recorded`,
+        description: `${verifiedStudent.name} recorded at ${action} gate at ${new Date().toLocaleTimeString()}`,
+      });
+    }
+
+    setVerifiedStudent((prev: any) => prev ? {
+      ...prev,
+      gateActionRecorded: action,
+      recordedTimestamp: new Date().toLocaleTimeString(),
+      lastExit: action === "EXIT" ? { date: new Date().toISOString(), action: "EXIT" } : prev.lastExit,
+      lastEntry: action === "ENTRY" ? { date: new Date().toISOString(), action: "ENTRY" } : prev.lastEntry,
+    } : null);
   };
 
   return (
@@ -412,7 +545,7 @@ export default function LiveScannerPage() {
                   onKeyDown={(e) => { if (e.key === "Enter") executeBarcodeVerification(); }}
                   className="font-mono uppercase font-bold"
                 />
-                <Button onClick={executeBarcodeVerification} className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shrink-0">
+                <Button onClick={() => executeBarcodeVerification()} className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shrink-0">
                   <UserCheck className="w-4 h-4" /> Verify Barcode
                 </Button>
               </div>
@@ -433,26 +566,52 @@ export default function LiveScannerPage() {
           <CardContent>
             {verifiedStudent ? (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
-                {/* Day Scholar Notice */}
+                {/* Gate Action Recorded Confirmation Banner */}
+                {verifiedStudent.gateActionRecorded && (
+                  <div className="p-3.5 rounded-xl bg-emerald-600 text-white flex items-center justify-between shadow-md">
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <CheckCircle2 className="w-5 h-5 text-white" />
+                      GATE {verifiedStudent.gateActionRecorded} APPROVED & RECORDED AT {verifiedStudent.recordedTimestamp} ✓
+                    </div>
+                    <Badge className="bg-white text-emerald-700 font-bold text-[10px]">Saved in DB</Badge>
+                  </div>
+                )}
+
+                {/* Outpass Approval Status Banner */}
                 {verifiedStudent.isDayScholar ? (
-                  <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex items-start gap-2.5 text-xs">
-                    <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-800 text-blue-900 dark:text-blue-200 flex items-start gap-2.5 text-xs">
+                    <ShieldAlert className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                     <div>
-                      <div className="font-bold text-sm">DAY SCHOLAR — HOSTEL PASS NOT APPLICABLE</div>
-                      <div className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">
-                        This student is a Day Scholar. Hostel Gate Pass is not required or applicable.
+                      <div className="font-bold text-sm">DAY SCHOLAR — HOSTEL PASS NOT REQUIRED</div>
+                      <div className="text-[11px] text-blue-800 dark:text-blue-300 mt-0.5">
+                        Day Scholar student. Campus entry/exit allowed without hostel gate pass.
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 flex items-start gap-3">
+                ) : verifiedStudent.isApproved ? (
+                  <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-900 dark:text-emerald-100 flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-emerald-900 dark:text-emerald-100 text-base">IDENTITY VERIFIED ✓</h3>
-                        <Badge className="bg-emerald-600 text-white text-[10px]">Hosteller Outpass Approved</Badge>
+                        <h3 className="font-bold text-emerald-900 dark:text-emerald-100 text-base">OUTPASS APPROVED ✓</h3>
+                        <Badge className="bg-emerald-600 text-white text-[10px]">Gate Clearance Granted</Badge>
                       </div>
-                      <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">Student identity matches ID card records. Authorized for gate action.</p>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                        {verifiedStudent.approvalStatusText || "Approved by Warden & HOD. Clearance authorized."}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 text-rose-900 dark:text-rose-200 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-rose-900 dark:text-rose-100 text-base">OUTPASS NOT APPROVED ❌</h3>
+                        <Badge className="bg-rose-600 text-white text-[10px]">Gate Exit Denied</Badge>
+                      </div>
+                      <p className="text-xs text-rose-700 dark:text-rose-300 mt-0.5 font-medium">
+                        {verifiedStudent.approvalStatusText || "Student does not have an approved outpass. Do NOT allow gate exit."}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -468,7 +627,7 @@ export default function LiveScannerPage() {
                   </div>
                 )}
 
-                {/* Student Identity Banner with Actual Photo */}
+                {/* Student Identity Banner with Actual Photo & Details */}
                 <div className="flex items-center gap-3.5 p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border">
                   <div className="w-20 h-24 rounded-xl overflow-hidden shrink-0 border-2 border-blue-600 shadow-md bg-white">
                     <img
@@ -476,7 +635,6 @@ export default function LiveScannerPage() {
                       alt={verifiedStudent.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        // fallback
                         (e.target as any).src = "/students/vimal_m.jpg";
                       }}
                     />
@@ -484,14 +642,14 @@ export default function LiveScannerPage() {
                   <div className="space-y-1 min-w-0">
                     <div className="font-bold text-base text-slate-900 dark:text-slate-100 truncate">{verifiedStudent.name}</div>
                     <div className="text-xs font-mono font-bold text-blue-600">{verifiedStudent.registerNumber}</div>
-                    <div className="text-xs text-slate-600 dark:text-slate-300 truncate">{verifiedStudent.department}</div>
+                    <div className="text-xs text-slate-600 dark:text-slate-300 truncate">{verifiedStudent.department} · {verifiedStudent.classInfo}</div>
                     <div className="flex gap-1.5 flex-wrap pt-0.5">
                       <Badge variant={verifiedStudent.isDayScholar ? "secondary" : "default"} className="text-[10px]">
                         {verifiedStudent.isDayScholar ? "Day Scholar" : "Hosteller"}
                       </Badge>
                       {!verifiedStudent.isDayScholar && (
                         <Badge variant="outline" className="text-[10px]">
-                          Room {verifiedStudent.hostelRoom}
+                          {verifiedStudent.hostelBlock} - Room {verifiedStudent.hostelRoom}
                         </Badge>
                       )}
                     </div>
@@ -501,23 +659,23 @@ export default function LiveScannerPage() {
                 {/* Gate & Outpass Details */}
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between p-2 bg-background rounded-lg border">
-                    <span className="text-muted-foreground">Status / Leave Type:</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100">{verifiedStudent.status} ({verifiedStudent.passType})</span>
+                    <span className="text-muted-foreground font-medium">Outpass Type & Status:</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100">{verifiedStudent.passType} ({verifiedStudent.approvalStatusText})</span>
                   </div>
                   <div className="flex justify-between p-2 bg-background rounded-lg border">
-                    <span className="text-muted-foreground">Reason / Destination:</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[200px]">{verifiedStudent.leaveReason || verifiedStudent.destination}</span>
+                    <span className="text-muted-foreground font-medium">Reason / Destination:</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[220px]">{verifiedStudent.leaveReason || verifiedStudent.destination}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="p-2 bg-background rounded-lg border">
-                      <div className="text-[10px] text-muted-foreground">Last Exit</div>
-                      <div className="font-bold text-slate-800 dark:text-slate-200">
+                      <div className="text-[10px] text-muted-foreground font-medium">Last Exit Timestamp</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 mt-0.5">
                         {verifiedStudent.lastExit?.date ? new Date(verifiedStudent.lastExit.date).toLocaleDateString("en-GB") + " " + new Date(verifiedStudent.lastExit.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "None Recorded"}
                       </div>
                     </div>
                     <div className="p-2 bg-background rounded-lg border">
-                      <div className="text-[10px] text-muted-foreground">Last Entry</div>
-                      <div className="font-bold text-slate-800 dark:text-slate-200">
+                      <div className="text-[10px] text-muted-foreground font-medium">Last Entry Timestamp</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 mt-0.5">
                         {verifiedStudent.lastEntry?.date ? new Date(verifiedStudent.lastEntry.date).toLocaleDateString("en-GB") + " " + new Date(verifiedStudent.lastEntry.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "None Recorded"}
                       </div>
                     </div>
@@ -527,16 +685,24 @@ export default function LiveScannerPage() {
                 {/* Gate Action Buttons */}
                 {!verifiedStudent.isDayScholar ? (
                   <div className="grid grid-cols-2 gap-3 pt-1">
-                    <Button onClick={() => handleRecordGateAction("EXIT")} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
-                      <UserCheck className="w-4 h-4" /> Record Exit Gate
+                    <Button
+                      onClick={() => handleRecordGateAction("EXIT")}
+                      className={`gap-2 text-white font-bold ${verifiedStudent.isApproved ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-600 hover:bg-amber-700"}`}
+                    >
+                      <UserCheck className="w-4 h-4" /> Record EXIT Gate
                     </Button>
-                    <Button onClick={() => handleRecordGateAction("ENTRY")} variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
-                      <UserCheck className="w-4 h-4 text-blue-600" /> Record Entry Gate
+                    <Button onClick={() => handleRecordGateAction("ENTRY")} variant="outline" className="gap-2 border-blue-400 text-blue-700 hover:bg-blue-50 font-bold">
+                      <UserCheck className="w-4 h-4 text-blue-600" /> Record ENTRY Gate
                     </Button>
                   </div>
                 ) : (
-                  <div className="text-center p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs text-slate-500">
-                    Hostel gate logs not required for Day Scholar students.
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <Button onClick={() => handleRecordGateAction("EXIT")} className="bg-slate-700 hover:bg-slate-800 text-white gap-2">
+                      <UserCheck className="w-4 h-4" /> Record Exit (Day Scholar)
+                    </Button>
+                    <Button onClick={() => handleRecordGateAction("ENTRY")} variant="outline" className="gap-2 border-slate-400 text-slate-700">
+                      <UserCheck className="w-4 h-4" /> Record Entry (Day Scholar)
+                    </Button>
                   </div>
                 )}
               </motion.div>

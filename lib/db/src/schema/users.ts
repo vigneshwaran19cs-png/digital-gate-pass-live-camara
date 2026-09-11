@@ -38,6 +38,8 @@ export const usersTable = mysqlTable("users", {
   parentWhatsapp: varchar("parent_whatsapp", { length: 20 }),
   parentEmail: varchar("parent_email", { length: 255 }),
   address: text("address"),
+  district: varchar("district", { length: 100 }),
+  outingDestination: varchar("outing_destination", { length: 255 }),
   
   // Staff Fields
   designation: varchar("designation", { length: 255 }),

@@ -258,7 +258,8 @@ router.post("/students/id-card-register", async (req, res): Promise<void> => {
       isFaceEnrolled: "true",
     };
 
-    const [{ id }] = await db.insert(usersTable).values(insertData).$returningId();
+    const [resUser] = await db.insert(usersTable).values(insertData);
+    const id = Number((resUser as any).insertId);
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
 
     const enriched = await enrichStudentProfile(user);
@@ -273,165 +274,6 @@ router.post("/students/id-card-register", async (req, res): Promise<void> => {
   }
 });
 
-// Bulk Register / Import multiple Students from ID Card batch processing
-router.post("/api/students/bulk-import-idcards", async (req, res): Promise<void> => {
-  try {
-    const { students = [] } = req.body;
-    if (!Array.isArray(students) || students.length === 0) {
-      res.status(400).json({ error: "Students list array is required and cannot be empty." });
-      return;
-    }
-
-    const allExistingUsers = await db.select().from(usersTable);
-    const existingUserMap = new Map<string, typeof usersTable.$inferSelect>();
-    const existingBarcodeMap = new Map<string, typeof usersTable.$inferSelect>();
-    const existingEmailSet = new Set<string>();
-
-    for (const u of allExistingUsers) {
-      if (u.registerNumber) existingUserMap.set(u.registerNumber.trim().toLowerCase(), u);
-      if (u.email) existingEmailSet.add(u.email.trim().toLowerCase());
-      if ((u as any).barcode) existingBarcodeMap.set(String((u as any).barcode).trim().toLowerCase(), u);
-    }
-
-    let insertedCount = 0;
-    let alreadyExistsCount = 0;
-    let failedCount = 0;
-    const results: Array<{
-      registerNumber: string;
-      name: string;
-      studentType: string;
-      status: "inserted" | "already_exists" | "failed";
-      message: string;
-      studentId?: number;
-    }> = [];
-
-    for (let i = 0; i < students.length; i++) {
-      const s = students[i];
-      const rawReg = (s.registerNumber || "").trim();
-      const rawName = (s.name || `Student ${i + 1}`).trim();
-      const studentType = s.studentType === "DAY_SCHOLAR" ? "DAY_SCHOLAR" : "HOSTELLER";
-      const normalizedReg = rawReg.toLowerCase();
-      const finalBarcode = (s.barcode || rawReg || `BC-${Date.now()}-${i}`).trim();
-      const normalizedBarcode = finalBarcode.toLowerCase();
-      const studentPhoto = s.photoUrl || (rawReg ? `/students/${rawReg}.jpg` : "/students/vimal_m.jpg");
-
-      // Duplicate check: Register number or Barcode already exists
-      const existingStudent = (rawReg && existingUserMap.get(normalizedReg)) || existingBarcodeMap.get(normalizedBarcode);
-      
-      if (existingStudent) {
-        alreadyExistsCount++;
-        // Update photo or missing fields if needed
-        const updatePayload: any = {};
-        if (!existingStudent.photoUrl || existingStudent.photoUrl.includes("unsplash") || existingStudent.photoUrl === "") {
-          updatePayload.photoUrl = studentPhoto;
-          updatePayload.isFaceEnrolled = "true";
-        }
-        if (!existingStudent.phone && s.phone) updatePayload.phone = s.phone;
-        if (!existingStudent.parentName && s.parentName) updatePayload.parentName = s.parentName;
-        if (!existingStudent.parentPhone && s.parentPhone) updatePayload.parentPhone = s.parentPhone;
-        if (!existingStudent.address && s.address) updatePayload.address = s.address;
-
-        if (Object.keys(updatePayload).length > 0) {
-          await db.update(usersTable).set(updatePayload).where(eq(usersTable.id, existingStudent.id));
-        }
-
-        results.push({
-          registerNumber: rawReg,
-          name: rawName,
-          studentType,
-          status: "already_exists",
-          studentId: existingStudent.id,
-          message: `Recognized Existing Student: "${rawName}" (${rawReg}). Photo and identity mapped without duplicate.`,
-        });
-        continue;
-      }
-
-      // Determine email
-      let email = (s.email || "").trim().toLowerCase();
-      if (!email || !email.includes("@")) {
-        const safeRegPart = rawReg.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || `stu${Date.now()}${i}`;
-        email = `${safeRegPart}@student.jkkm.ac.in`;
-      }
-
-      // If email exists, make it unique
-      let attempt = 1;
-      let finalEmail = email;
-      while (existingEmailSet.has(finalEmail)) {
-        finalEmail = `${email.split("@")[0]}_${attempt}@${email.split("@")[1] || "student.jkkm.ac.in"}`;
-        attempt++;
-      }
-
-      try {
-        const insertData: any = {
-          name: rawName,
-          email: finalEmail,
-          passwordHash: hashPassword(s.password || "password123"),
-          role: "student",
-          studentType,
-          barcode: finalBarcode,
-          registerNumber: rawReg || `REG-${Date.now()}-${i}`,
-          departmentId: s.departmentId ? Number(s.departmentId) : null,
-          classId: s.classId ? Number(s.classId) : null,
-          hostelBlock: studentType === "DAY_SCHOLAR" ? "Day Scholar" : (s.hostelBlock || "Boys Hostel - A Block"),
-          hostelRoom: studentType === "DAY_SCHOLAR" ? "N/A" : (s.hostelRoom || `A-${100 + (insertedCount % 40) + 1}`),
-          bedNumber: studentType === "DAY_SCHOLAR" ? "N/A" : (s.bedNumber || `Bed-${(insertedCount % 3) + 1}`),
-          phone: s.phone || null,
-          parentName: s.parentName || null,
-          parentPhone: s.parentPhone || null,
-          parentWhatsapp: s.parentWhatsapp || s.parentPhone || null,
-          parentEmail: s.parentEmail || null,
-          address: s.address || null,
-          collegeType: s.collegeType || "Engineering",
-          photoUrl: studentPhoto,
-          idCardUrl: s.idCardUrl || (rawReg ? `/students/${rawReg}_card.jpg` : "/students/id_card_sheet.jpg"),
-          attendancePercentage: s.attendancePercentage ? Number(s.attendancePercentage) : 88,
-          isFaceEnrolled: "true",
-        };
-
-        const [{ id }] = await db.insert(usersTable).values(insertData).$returningId();
-        const [insertedUser] = await db.select().from(usersTable).where(eq(usersTable.id, id));
-        
-        // Track into memory sets for subsequent batch iterations
-        if (rawReg) existingUserMap.set(normalizedReg, insertedUser);
-        existingBarcodeMap.set(normalizedBarcode, insertedUser);
-        existingEmailSet.add(finalEmail);
-
-        insertedCount++;
-        results.push({
-          registerNumber: rawReg || insertData.registerNumber,
-          name: rawName,
-          studentType,
-          status: "inserted",
-          studentId: id,
-          message: `Successfully registered as ${studentType === "HOSTELLER" ? "Hosteller" : "Day Scholar"}.`,
-        });
-      } catch (insertErr: any) {
-        console.error(`Error inserting student in bulk [${rawName} - ${rawReg}]:`, insertErr);
-        failedCount++;
-        results.push({
-          registerNumber: rawReg,
-          name: rawName,
-          studentType,
-          status: "failed",
-          message: `Failed to insert: ${insertErr.message || "Database insert error"}`,
-        });
-      }
-    }
-
-    res.status(200).json({
-      success: true,
-      totalProcessed: students.length,
-      insertedCount,
-      alreadyExistsCount,
-      failedCount,
-      message: `Bulk processing complete: ${insertedCount} registered, ${alreadyExistsCount} already existed, ${failedCount} failed.`,
-      results,
-    });
-  } catch (err: any) {
-    console.error("Bulk ID Card Import failure:", err);
-    res.status(500).json({ error: "Failed to process bulk import", message: err.message });
-  }
-});
 
 router.get("/users", async (req, res): Promise<void> => {
   const parsed = ListUsersQueryParams.safeParse(req.query);
@@ -503,7 +345,8 @@ router.post("/users", async (req, res): Promise<void> => {
     isFaceEnrolled: bodyData.photoUrl ? "true" : "false",
   };
 
-  const [{ id }] = await db.insert(usersTable).values(insertData).$returningId();
+  const [resUser] = await db.insert(usersTable).values(insertData);
+  const id = Number((resUser as any).insertId);
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
 
   res.status(201).json(await enrichStudentProfile(user));
@@ -679,6 +522,8 @@ router.post("/students/bulk-import-idcards", async (req, res): Promise<void> => 
     res.json({
       success: true,
       message: `Successfully processed ${results.length} students (${importedCount} new, ${updatedCount} updated).`,
+      insertedCount: importedCount,
+      alreadyExistsCount: updatedCount,
       importedCount,
       updatedCount,
       students: results,

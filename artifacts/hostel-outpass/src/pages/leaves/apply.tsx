@@ -14,6 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, Home, Stethoscope, BookOpen, Briefcase, Users, Heart, Scissors, ShoppingBag, Banknote, Building2, ClipboardList, AlertCircle, CheckCircle2, FileText, MapPin } from "lucide-react";
 
+import { DateTimePickerSection } from "@/components/DateTimePickerSection";
+import { DistrictLocationSelector } from "@/components/DistrictLocationSelector";
+
 type PassType = "leave" | "outing";
 
 const LEAVE_CATEGORIES = [
@@ -44,14 +47,15 @@ const OUTING_CATEGORIES = [
   { value: "other", label: "Other Reason", icon: FileText, color: "bg-gray-100 text-gray-800 border-gray-200", desc: "Type your own reason" },
 ];
 
-function generateLetter(passType: PassType, category: string, destination: string, fromDate: string, toDate: string, studentName = "Student", customReason = "", isDayScholar = false): string {
+function generateLetter(passType: PassType, category: string, destination: string, fromDate: string, fromTime: string, toDate: string, toTime: string, district = "", studentName = "Student", customReason = "", isDayScholar = false): string {
   const cat = passType === "leave" ? LEAVE_CATEGORIES.find(c => c.value === category) : OUTING_CATEGORIES.find(c => c.value === category);
   const catLabel = cat?.label || category;
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  const districtLine = district ? `\nDistrict: ${district} District` : "";
 
   if (isDayScholar) {
-    const daysText = fromDate && toDate ? `from ${fromDate} to ${toDate}` : "for the specified period";
+    const daysText = fromDate && toDate ? `from ${fromDate} (${fromTime}) to ${toDate} (${toTime})` : "for the specified period";
     const reasonParagraphMap: Record<string, string> = {
       semester_holiday: `I will not be able to attend regular college classes during this period due to semester holiday break.`,
       study_holiday: `As the examination period is approaching, I will be studying from home to prepare for the upcoming examinations.`,
@@ -85,8 +89,9 @@ I, ${studentName}, a Day Scholar student of JKKM College of Technology, hereby s
 
 ${reasonParagraph}
 
-Destination / Address: ${destination}
-Leave Period: ${fromDate} to ${toDate}
+Destination / Address: ${destination}${districtLine}
+Departure: ${fromDate} at ${fromTime}
+Expected Return: ${toDate} at ${toTime}
 Category: ${catLabel}
 
 Note: As a Day Scholar, this notice serves as official intimation for college attendance records. My parent/guardian has also been notified of this leave.
@@ -125,9 +130,9 @@ I, ${studentName}, a student of JKKM College of Technology residing in the colle
 ${outingPurpose}
 
 Purpose of Outing: ${catLabel}
-Destination: ${destination}
-Date: ${fromDate}${toDate && toDate !== fromDate ? ` to ${toDate}` : ""}
-Expected Return Time: Same day before 6:00 PM
+Destination: ${destination}${districtLine}
+Departure Date & Out Time: ${fromDate} at ${fromTime}
+Expected Return Date & In Time: ${toDate} at ${toTime}
 
 I assure you that I will return within the stipulated time and will not engage in any activity that brings disrepute to the institution.
 
@@ -138,7 +143,7 @@ ${studentName}
 JKKM College of Technology`;
   }
 
-  const daysText = fromDate && toDate ? `from ${fromDate} to ${toDate}` : "for the specified period";
+  const daysText = fromDate && toDate ? `from ${fromDate} (${fromTime}) to ${toDate} (${toTime})` : "for the specified period";
 
   const reasonParagraphMap: Record<string, string> = {
     semester_holiday: `I wish to go to my hometown as the semester has ended and I would like to spend time with my family during this break.`,
@@ -175,8 +180,9 @@ I, ${studentName}, a hostel student of JKKM College of Technology, most respectf
 
 ${reasonParagraph}
 
-Destination: ${destination}
-Leave Period: ${fromDate} to ${toDate}
+Destination: ${destination}${districtLine}
+Departure: ${fromDate} at ${fromTime}
+Expected Return: ${toDate} at ${toTime}
 Category: ${catLabel}
 
 I assure you that I will make up for any missed studies and will report back to the hostel within the sanctioned time without fail.
@@ -196,9 +202,12 @@ import { useAuth } from "@/contexts/AuthContext";
 const formSchema = z.object({
   passType: z.enum(["leave", "outing"]),
   leaveType: z.string().min(1, "Please select a category"),
-  fromDate: z.string().min(1, "From Date is required"),
-  toDate: z.string().min(1, "To Date is required"),
-  destination: z.string().min(3, "Destination is required"),
+  fromDate: z.string().min(1, "Departure Date is required"),
+  fromTime: z.string().min(1, "Departure Out Time is required"),
+  toDate: z.string().min(1, "Expected Return Date is required"),
+  toTime: z.string().min(1, "Expected Return In Time is required"),
+  destination: z.string().min(3, "Destination location is required"),
+  district: z.string().optional(),
   reason: z.string().min(5, "Please provide a reason"),
   aiGeneratedLetter: z.string().optional(),
 });
@@ -224,20 +233,37 @@ export default function ApplyLeavePage() {
       passType: "leave",
       leaveType: "",
       fromDate: "",
+      fromTime: "09:00",
       toDate: "",
-      destination: "",
+      toTime: "18:00",
+      destination: (user as any)?.address || "",
+      district: (user as any)?.district || "",
       reason: "",
     },
   });
 
-  const { watch, setValue } = form;
+  const { watch, setValue, getValues } = form;
   const fromDate = watch("fromDate");
+  const fromTime = watch("fromTime");
   const toDate = watch("toDate");
+  const toTime = watch("toTime");
   const destination = watch("destination");
+  const district = watch("district") || "";
+
+  useEffect(() => {
+    const userAddress = (user as any)?.address;
+    if (userAddress && !getValues("destination")) {
+      setValue("destination", userAddress);
+    }
+    const userDistrict = (user as any)?.district;
+    if (userDistrict && !getValues("district")) {
+      setValue("district", userDistrict);
+    }
+  }, [user, setValue, getValues]);
 
   useEffect(() => {
     if (selectedCategory && destination && fromDate) {
-      const letter = generateLetter(selectedPassType, selectedCategory, destination, fromDate, toDate, studentName, customReason, isDayScholar);
+      const letter = generateLetter(selectedPassType, selectedCategory, destination, fromDate, fromTime, toDate, toTime, district, studentName, customReason, isDayScholar);
       setGeneratedLetter(letter);
       setValue("aiGeneratedLetter", letter);
       if (selectedCategory !== "other") {
@@ -249,7 +275,7 @@ export default function ApplyLeavePage() {
         setValue("reason", customReason);
       }
     }
-  }, [selectedCategory, destination, fromDate, toDate, selectedPassType, customReason, isDayScholar, studentName]);
+  }, [selectedCategory, destination, district, fromDate, fromTime, toDate, toTime, selectedPassType, customReason, isDayScholar, studentName]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     createLeave.mutate(
@@ -369,7 +395,7 @@ export default function ApplyLeavePage() {
         </Card>
       )}
 
-      {/* Step 2: Category + Dates */}
+      {/* Step 2: Category + Dates + District Location */}
       {step === 2 && (
         <Form {...form}>
           <form className="space-y-6">
@@ -382,8 +408,8 @@ export default function ApplyLeavePage() {
                 </CardTitle>
                 <CardDescription>Select the reason that best matches your situation.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-2">
                   {categories.map(cat => (
                     <button
                       key={cat.value}
@@ -400,47 +426,30 @@ export default function ApplyLeavePage() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <FormField
-                    control={form.control}
-                    name="fromDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>From Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} min={new Date().toISOString().split("T")[0]} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="toDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>To Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} min={fromDate || new Date().toISOString().split("T")[0]} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {/* Departure Date and Out Time, Return Date and In Time Selection */}
+                <DateTimePickerSection
+                  passType={selectedPassType}
+                  fromDate={fromDate}
+                  onFromDateChange={(val) => form.setValue("fromDate", val)}
+                  fromTime={fromTime}
+                  onFromTimeChange={(val) => form.setValue("fromTime", val)}
+                  toDate={toDate}
+                  onToDateChange={(val) => form.setValue("toDate", val)}
+                  toTime={toTime}
+                  onToTimeChange={(val) => form.setValue("toTime", val)}
+                />
 
-                <FormField
-                  control={form.control}
-                  name="destination"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4" /> Destination / Reason Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder={isDayScholar ? "e.g., Home, Komarapalayam / Hospital" : (selectedPassType === "outing" ? "e.g., Town Market, Komarapalayam" : "e.g., 123 Gandhi Street, Chennai - 600001")} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                {/* Tamil Nadu District Selector & Location Autofill */}
+                <DistrictLocationSelector
+                  passType={selectedPassType}
+                  destination={destination}
+                  onDestinationChange={(val) => form.setValue("destination", val)}
+                  district={district}
+                  onDistrictChange={(val) => form.setValue("district", val)}
+                  savedNativePlace={(user as any)?.address}
+                  savedOutingDestination={(user as any)?.outingDestination}
+                  savedDistrict={(user as any)?.district}
+                  isDayScholar={isDayScholar}
                 />
 
                 {selectedCategory === "other" && (
@@ -477,9 +486,9 @@ export default function ApplyLeavePage() {
                 </Button>
                 <Button
                   type="button"
-                  disabled={!selectedCategory || !fromDate || !toDate || !destination || (selectedCategory === "other" && customReason.length < 5)}
+                  disabled={!selectedCategory || !fromDate || !fromTime || !toDate || !toTime || !destination || (selectedCategory === "other" && customReason.length < 5)}
                   onClick={() => {
-                    const letter = generateLetter(selectedPassType, selectedCategory, destination, fromDate, toDate, studentName, customReason, isDayScholar);
+                    const letter = generateLetter(selectedPassType, selectedCategory, destination, fromDate, fromTime, toDate, toTime, district, studentName, customReason, isDayScholar);
                     setGeneratedLetter(letter);
                     setValue("aiGeneratedLetter", letter);
                     if (selectedCategory !== "other") {

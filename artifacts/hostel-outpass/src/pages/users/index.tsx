@@ -16,7 +16,7 @@ import {
   GraduationCap, BookOpen, Building2, Crown, Shield, ScanLine, Settings,
   Plus, Pencil, Trash2, Search, RefreshCw, Phone, Mail, Hash, Download,
   User, UserCog, Filter, AlertTriangle, Calendar, Clock, FileText, CheckCircle2,
-  QrCode, Sparkles, ExternalLink, Image as ImageIcon, Eye, ArrowRight, Building, Lock, CreditCard, Home, Users as UsersIcon
+  QrCode, Sparkles, ExternalLink, Image as ImageIcon, Eye, ArrowRight, Building, Lock, CreditCard, Home, Users as UsersIcon, Upload
 } from "lucide-react";
 import { CategorizedDepartmentSelect } from "@/components/CategorizedDepartmentSelect";
 
@@ -1017,13 +1017,51 @@ function UserForm({ formData, updateForm, isEdit = false }: {
               No Photo
             </div>
           )}
-          <div className="flex-1 space-y-1">
-            <Input
-              placeholder="Photo URL (e.g. /students/vimal_m.jpg or web URL)"
-              value={formData.photoUrl}
-              onChange={e => updateForm("photoUrl", e.target.value)}
-              className="text-xs h-8"
-            />
+          <div className="flex-1 space-y-1.5">
+            <div className="flex items-center gap-2">
+              {formData.photoUrl && formData.photoUrl.startsWith("data:image/") ? (
+                <div className="flex-1 flex items-center justify-between px-3 h-8 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-700 font-medium overflow-hidden">
+                  <span className="truncate flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                    Uploaded Image File ({Math.round((formData.photoUrl.length * 0.75) / 1024)} KB)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => updateForm("photoUrl", "")}
+                    className="text-emerald-700 hover:text-emerald-900 font-bold ml-2 text-xs"
+                  >
+                    Clear
+                  </button>
+                </div>
+              ) : (
+                <Input
+                  placeholder="Photo URL or upload image file"
+                  value={formData.photoUrl}
+                  onChange={e => updateForm("photoUrl", e.target.value)}
+                  className="text-xs h-8 flex-1"
+                />
+              )}
+              <label className="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shrink-0 shadow-xs transition">
+                <Upload className="w-3.5 h-3.5" /> Upload File
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        if (ev.target?.result) {
+                          updateForm("photoUrl", ev.target.result as string);
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
             <div className="flex gap-1 flex-wrap">
               {PRESET_PHOTOS.map(p => (
                 <button

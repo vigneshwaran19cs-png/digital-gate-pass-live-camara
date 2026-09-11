@@ -1,4 +1,4 @@
-import { mysqlTable, text, int, timestamp, date, mysqlEnum } from "drizzle-orm/mysql-core";
+import { mysqlTable, text, int, timestamp, date, mysqlEnum, varchar } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -42,7 +42,10 @@ export const leavesTable = mysqlTable("leaves", {
   aiGeneratedLetter: text("ai_generated_letter"),
   fromDate: date("from_date", { mode: "string" }).notNull(),
   toDate: date("to_date", { mode: "string" }).notNull(),
+  fromTime: varchar("from_time", { length: 20 }),
+  toTime: varchar("to_time", { length: 20 }),
   destination: text("destination").notNull(),
+  district: varchar("district", { length: 100 }),
   status: mysqlEnum("status", [
     "pending",
     "warden_approved",

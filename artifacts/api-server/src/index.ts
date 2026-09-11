@@ -84,14 +84,16 @@ async function initDatabase() {
       );
     `);
     try { await pool.query(`ALTER TABLE leaves ADD COLUMN risk_score INT DEFAULT 0;`); } catch(e) {}
-    try { await pool.query(`ALTER TABLE leaves ADD COLUMN risk_level ENUM('low', 'medium', 'high') DEFAULT 'low';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE leaves ADD COLUMN risk_level VARCHAR(50) DEFAULT 'low';`); } catch(e) {}
     try { await pool.query(`ALTER TABLE leaves ADD COLUMN ai_validation_notes TEXT;`); } catch(e) {}
     try { await pool.query(`ALTER TABLE leaves ADD COLUMN medical_doc_url TEXT;`); } catch(e) {}
-    try { await pool.query(`ALTER TABLE leaves ADD COLUMN fraud_status ENUM('genuine', 'suspicious', 'manual_review') DEFAULT 'genuine';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE leaves ADD COLUMN fraud_status VARCHAR(50) DEFAULT 'genuine';`); } catch(e) {}
     try { await pool.query(`ALTER TABLE leaves ADD COLUMN fraud_notes TEXT;`); } catch(e) {}
-    try { await pool.query(`ALTER TABLE leaves ADD COLUMN is_emergency ENUM('true', 'false') DEFAULT 'false';`); } catch(e) {}
-    try { await pool.query(`ALTER TABLE leaves MODIFY COLUMN status ENUM('pending', 'warden_approved', 'tutor_approved', 'hod_approved', 'principal_approved', 'fully_approved', 'rejected', 'cancelled', 'info_submitted') NOT NULL DEFAULT 'pending';`); } catch(e) {}
-    try { await pool.query(`ALTER TABLE leaves MODIFY COLUMN current_step ENUM('warden', 'tutor', 'hod', 'principal', 'warden_final', 'completed', 'rejected', 'info_submitted') NOT NULL DEFAULT 'warden';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE leaves ADD COLUMN is_emergency VARCHAR(20) DEFAULT 'false';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE leaves MODIFY COLUMN pass_type VARCHAR(100) NOT NULL DEFAULT 'hostel_leave';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE leaves MODIFY COLUMN leave_type VARCHAR(100) NOT NULL;`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE leaves MODIFY COLUMN status VARCHAR(100) NOT NULL DEFAULT 'pending';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE leaves MODIFY COLUMN current_step VARCHAR(100) NOT NULL DEFAULT 'warden';`); } catch(e) {}
     
     try { await pool.query(`ALTER TABLE users ADD COLUMN student_type ENUM('HOSTELLER', 'DAY_SCHOLAR') DEFAULT 'HOSTELLER';`); } catch(e) {}
     try { await pool.query(`ALTER TABLE users ADD COLUMN barcode VARCHAR(100);`); } catch(e) {}
@@ -102,6 +104,18 @@ async function initDatabase() {
     try { await pool.query(`ALTER TABLE users ADD COLUMN id_card_url TEXT;`); } catch(e) {}
     try { await pool.query(`ALTER TABLE users ADD COLUMN attendance_percentage INT DEFAULT 87;`); } catch(e) {}
     try { await pool.query(`ALTER TABLE users ADD COLUMN college_type VARCHAR(100) DEFAULT 'Engineering';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN photo_url TEXT;`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN is_location_sharing_enabled ENUM('true', 'false') DEFAULT 'true';`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN parent_name VARCHAR(255);`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN parent_phone VARCHAR(50);`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN parent_whatsapp VARCHAR(50);`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN parent_email VARCHAR(255);`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN address TEXT;`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN designation VARCHAR(100);`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN department_id INT;`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN class_id INT;`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN hostel_block VARCHAR(100);`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE users ADD COLUMN hostel_room VARCHAR(50);`); } catch(e) {}
     try { await pool.query(`ALTER TABLE gate_logs ADD COLUMN captured_live_photo TEXT;`); } catch(e) {}
     try { await pool.query(`CREATE INDEX idx_users_register_number ON users (register_number);`); } catch(e) {}
     try { await pool.query(`UPDATE users SET student_type = 'HOSTELLER' WHERE student_type IS NULL;`); } catch(e) {}

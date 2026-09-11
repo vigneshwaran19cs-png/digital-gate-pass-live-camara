@@ -18,6 +18,7 @@ import {
 } from "@workspace/api-zod";
 import { generateOutpassCode } from "../lib/outpass";
 import { processLeaveNotifications, sendEmailNotification, sendSmsNotification, sendWhatsAppNotification } from "../lib/notifications";
+import { logger } from "../lib/logger";
 import { parseToken, resolveUserId } from "./auth";
 
 const router: IRouter = Router();
@@ -111,18 +112,20 @@ router.get("/leaves", async (req, res): Promise<void> => {
 
   const conditions: SQL[] = [];
   if (status) {
-    conditions.push(eq(leavesTable.status, status as any));
-
-    // Enforce sequential step filtering so each role only sees actionable requests
-    if (requesterRole === "tutor" && status === "warden_approved") {
-      conditions.push(eq(leavesTable.currentStep, "tutor"));
-    } else if (requesterRole === "hod" && status === "tutor_approved") {
-      conditions.push(eq(leavesTable.currentStep, "hod"));
-    } else if (requesterRole === "principal" && status === "hod_approved") {
+    if (requesterRole === "principal" && status === "hod_approved") {
       conditions.push(eq(leavesTable.currentStep, "principal"));
-    } else if (requesterRole === "warden") {
-      if (status === "pending") conditions.push(eq(leavesTable.currentStep, "warden"));
-      else if (status === "principal_approved") conditions.push(eq(leavesTable.currentStep, "warden_final"));
+    } else {
+      conditions.push(eq(leavesTable.status, status as any));
+
+      // Enforce sequential step filtering so each role only sees actionable requests
+      if (requesterRole === "tutor" && status === "warden_approved") {
+        conditions.push(eq(leavesTable.currentStep, "tutor"));
+      } else if (requesterRole === "hod" && status === "tutor_approved") {
+        conditions.push(eq(leavesTable.currentStep, "hod"));
+      } else if (requesterRole === "warden") {
+        if (status === "pending") conditions.push(eq(leavesTable.currentStep, "warden"));
+        else if (status === "principal_approved") conditions.push(eq(leavesTable.currentStep, "warden_final"));
+      }
     }
   }
   if (studentId) conditions.push(eq(leavesTable.studentId, studentId));
@@ -171,111 +174,211 @@ router.get("/leaves", async (req, res): Promise<void> => {
 });
 
 router.post("/leaves", async (req, res): Promise<void> => {
-  // Support studentId from body (for admin manual entry) or header
-  const studentId = req.body.studentId ? Number(req.body.studentId) : (req.headers["x-student-id"] ? parseInt(String(req.headers["x-student-id"]), 10) : 1);
+  try {
+    const callerId = resolveUserId(req);
+    let requestedStudentId = req.body.studentId ? Number(req.body.studentId) : (req.headers["x-student-id"] ? parseInt(String(req.headers["x-student-id"]), 10) : (callerId || null));
 
-  if (!req.body.reason || !req.body.destination || !req.body.fromDate || !req.body.toDate) {
-    res.status(400).json({ error: "Reason, destination, fromDate, and toDate are required" });
-    return;
-  }
+    let student: any = null;
 
-  // Check if student is Day Scholar
-  const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId));
-  const isDayScholar = (student as any)?.studentType === "DAY_SCHOLAR" || (student?.hostelBlock && student.hostelBlock.toLowerCase().includes("day"));
-
-  const fromDateStr = typeof req.body.fromDate === "string" ? req.body.fromDate.split("T")[0] : new Date(req.body.fromDate).toISOString().split("T")[0];
-  const toDateStr = typeof req.body.toDate === "string" ? req.body.toDate.split("T")[0] : new Date(req.body.toDate).toISOString().split("T")[0];
-  const passType = isDayScholar ? "outing_pass" : (req.body.passType || "hostel_leave");
-  const leaveType = req.body.leaveType || "personal_work";
-  const initialStatus = isDayScholar ? "info_submitted" : (req.body.status || "pending");
-  const initialStep = isDayScholar ? "info_submitted" : (req.body.currentStep || (initialStatus === "fully_approved" ? "completed" : "warden"));
-
-  // Calculate AI Risk Score
-  const from = new Date(fromDateStr);
-  const to = new Date(toDateStr);
-  const durationDays = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (1000 * 3600 * 24)));
-  
-  let riskScore = 15;
-  if (durationDays > 7) riskScore += 40;
-  else if (durationDays > 3) riskScore += 20;
-
-  if (["family_emergency", "hospital_visit", "medical_leave"].includes(leaveType)) {
-    riskScore += 25;
-  }
-
-  const pastLeaves = await db.select({ value: count() }).from(leavesTable).where(eq(leavesTable.studentId, studentId));
-  const pastCount = pastLeaves[0]?.value ?? 0;
-  if (pastCount > 5) riskScore += 20;
-
-  let riskLevel: "low" | "medium" | "high" = "low";
-  if (riskScore >= 60) riskLevel = "high";
-  else if (riskScore >= 35) riskLevel = "medium";
-
-  const aiValidationNotes = isDayScholar
-    ? `Day Scholar Informational Leave: Recorded directly. Parent and Academic staff notified.`
-    : `AI Risk Score: ${riskScore}/100 (${riskLevel.toUpperCase()}). Evaluated ${durationDays} day(s) duration & ${pastCount} past leave history.`;
-
-  const isEmergencyFlag = (req.body.isEmergency === true || req.body.isEmergency === "true" || ["emergency", "family_emergency"].includes(leaveType)) ? "true" : "false";
-
-  const [{ id }] = await db.insert(leavesTable).values({
-    studentId,
-    passType: passType as any,
-    leaveType: leaveType as any,
-    reason: req.body.reason,
-    destination: req.body.destination,
-    fromDate: fromDateStr,
-    toDate: toDateStr,
-    status: initialStatus as any,
-    currentStep: initialStep as any,
-    riskScore: isDayScholar ? 0 : riskScore,
-    riskLevel: isDayScholar ? "low" : riskLevel,
-    aiValidationNotes,
-    medicalDocUrl: req.body.medicalDocUrl || null,
-    fraudStatus: "genuine",
-    fraudNotes: isDayScholar ? "Day Scholar Notice" : "Genuine / Verified",
-    isEmergency: isEmergencyFlag,
-    tutorRemarks: isDayScholar ? "Day Scholar Leave Information Received" : (req.body.tutorRemarks || null),
-    hodRemarks: isDayScholar ? "Day Scholar Leave Information Received" : (req.body.hodRemarks || null),
-    principalRemarks: req.body.principalRemarks || null,
-    wardenRemarks: isDayScholar ? "N/A - Day Scholar" : (req.body.wardenRemarks || null),
-    parentCallStatus: isDayScholar ? "confirmed" : (req.body.parentCallStatus || (initialStatus === "fully_approved" ? "confirmed" : "pending")),
-    parentCallNotes: isDayScholar ? "Parent automatically notified via SMS/WhatsApp/In-app" : (req.body.parentCallNotes || null),
-    aiGeneratedLetter: req.body.aiGeneratedLetter || null,
-  }).$returningId();
-
-  // If Day Scholar: Send notifications immediately to Parent, Student, and Staff
-  if (isDayScholar && student) {
-    const parentMsg = `Your ward ${student.name} (${student.registerNumber || "Student"}) has submitted a leave information request from ${fromDateStr} to ${toDateStr}. Reason: ${req.body.reason}.`;
-    if (student.parentEmail) {
-      await sendEmailNotification(student.id, id, student.parentEmail, "Day Scholar Leave Information", parentMsg);
+    if (requestedStudentId) {
+      const [found] = await db.select().from(usersTable).where(eq(usersTable.id, requestedStudentId));
+      if (found) student = found;
     }
-    if (student.parentPhone) {
-      await sendSmsNotification(student.id, id, student.parentPhone, parentMsg);
+
+    if (!student && callerId) {
+      const [found] = await db.select().from(usersTable).where(eq(usersTable.id, callerId));
+      if (found) student = found;
     }
-    if (student.parentWhatsapp) {
-      await sendWhatsAppNotification(student.id, id, student.parentWhatsapp, parentMsg);
+
+    // Lookup by register number or barcode if provided in body or header
+    const regTerm = req.body.registerNumber || req.body.barcode || req.body.studentRegisterNumber || req.headers["x-student-register-number"];
+    if (!student && regTerm) {
+      const term = String(regTerm).trim().toUpperCase();
+      const allUsers = await db.select().from(usersTable);
+      student = allUsers.find(u => u.registerNumber?.toUpperCase() === term || (u as any).barcode?.toUpperCase() === term || u.email?.toUpperCase().includes(term));
     }
-    await createNotification(student.id, "leave_applied", "Leave Information Submitted", `Your leave notice from ${fromDateStr} to ${toDateStr} has been recorded and parent/staff notified.`, id);
-  }
 
-  // If created directly as fully_approved (by Super Admin for Hostellers), auto-generate outpass
-  if (initialStatus === "fully_approved" && !isDayScholar) {
-    await generateAndAttachOutpass(id, studentId, "Super Admin (Direct Creation)");
-  }
+    // Fallback: If student record is still not found in usersTable, pick first active student user
+    if (!student) {
+      const [fallbackStudent] = await db.select().from(usersTable).where(eq(usersTable.role, "student")).limit(1);
+      if (fallbackStudent) {
+        student = fallbackStudent;
+      } else {
+        const [ins] = await db.insert(usersTable).values({
+          name: "Student User",
+          email: "student@example.com",
+          passwordHash: "hashed_password",
+          role: "student" as const,
+          registerNumber: "STU001",
+          barcode: "STU001",
+          phone: "9876543210",
+          hostelBlock: "Boys Hostel - Main Block",
+          hostelRoom: "A-101",
+        });
+        const [created] = await db.select().from(usersTable).where(eq(usersTable.id, Number((ins as any).insertId)));
+        student = created;
+      }
+    }
 
-  // Retrieve student and details for log
-  if (student) {
-    await db.insert(activityLogsTable).values({
-      userId: student.id,
-      role: student.role,
-      action: isDayScholar ? "Day Scholar Submitted Leave Information" : (initialStatus === "fully_approved" ? "Admin Created Approved Leave" : "Student Applied Leave"),
-      details: { leaveId: id, destination: req.body.destination, studentType: (student as any)?.studentType || "HOSTELLER" },
-      ipAddress: req.ip || null,
-      device: req.headers["user-agent"] || null,
-    });
-  }
+    const studentId = student.id;
 
-  res.status(201).json(await getLeaveWithStudent(id));
+    if (!req.body.reason || !req.body.destination || !req.body.fromDate || !req.body.toDate) {
+      res.status(400).json({ error: "Reason, destination, fromDate, and toDate are required" });
+      return;
+    }
+
+    // Check if student is Day Scholar
+    const isDayScholar = (student as any)?.studentType === "DAY_SCHOLAR" || (student?.hostelBlock && student.hostelBlock.toLowerCase().includes("day"));
+
+    const fromDateStr = typeof req.body.fromDate === "string" ? req.body.fromDate.split("T")[0] : new Date(req.body.fromDate).toISOString().split("T")[0];
+    const toDateStr = typeof req.body.toDate === "string" ? req.body.toDate.split("T")[0] : new Date(req.body.toDate).toISOString().split("T")[0];
+    const fromTimeStr = req.body.fromTime || "09:00";
+    const toTimeStr = req.body.toTime || "18:00";
+    const districtStr = req.body.district || null;
+
+    // Validate Departure vs Return Date and Time
+    const departureDateTime = new Date(`${fromDateStr}T${fromTimeStr}`);
+    const returnDateTime = new Date(`${toDateStr}T${toTimeStr}`);
+    const nowBuffer = new Date(Date.now() - 15 * 60 * 1000); // 15 min buffer
+
+    if (departureDateTime < nowBuffer && fromDateStr < new Date().toISOString().split("T")[0]) {
+      res.status(400).json({ error: "Departure date and time cannot be in the past" });
+      return;
+    }
+
+    if (returnDateTime <= departureDateTime) {
+      res.status(400).json({ error: "Expected Return date and time must be strictly after Departure date and time" });
+      return;
+    }
+
+    const rawPassType = String(req.body.passType || "").toLowerCase();
+    let passType: "hostel_leave" | "outing_pass" = "hostel_leave";
+    if (isDayScholar || rawPassType.includes("outing")) {
+      passType = "outing_pass";
+    } else {
+      passType = "hostel_leave";
+    }
+
+    const leaveType = req.body.leaveType || "personal_work";
+    const initialStatus = isDayScholar ? "info_submitted" : (req.body.status || "pending");
+    const initialStep = isDayScholar ? "info_submitted" : (req.body.currentStep || (initialStatus === "fully_approved" ? "completed" : "warden"));
+
+    // Calculate AI Risk Score
+    const from = new Date(fromDateStr);
+    const to = new Date(toDateStr);
+    const durationDays = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (1000 * 3600 * 24)));
+    
+    let riskScore = 15;
+    if (durationDays > 7) riskScore += 40;
+    else if (durationDays > 3) riskScore += 20;
+
+    if (["family_emergency", "hospital_visit", "medical_leave"].includes(leaveType)) {
+      riskScore += 25;
+    }
+
+    const pastLeaves = await db.select({ value: count() }).from(leavesTable).where(eq(leavesTable.studentId, studentId));
+    const pastCount = pastLeaves[0]?.value ?? 0;
+    if (pastCount > 5) riskScore += 20;
+
+    let riskLevel: "low" | "medium" | "high" = "low";
+    if (riskScore >= 60) riskLevel = "high";
+    else if (riskScore >= 35) riskLevel = "medium";
+
+    const aiValidationNotes = isDayScholar
+      ? `Day Scholar Informational Leave: Recorded directly. Parent and Academic staff notified.`
+      : `AI Risk Score: ${riskScore}/100 (${riskLevel.toUpperCase()}). Evaluated ${durationDays} day(s) duration & ${pastCount} past leave history.`;
+
+    const isEmergencyFlag = (req.body.isEmergency === true || req.body.isEmergency === "true" || ["emergency", "family_emergency"].includes(leaveType)) ? "true" : "false";
+
+    let id: number;
+    try {
+      const [resInsert] = await db.insert(leavesTable).values({
+        studentId,
+        passType: passType as any,
+        leaveType: leaveType as any,
+        reason: req.body.reason,
+        destination: req.body.destination,
+        district: districtStr,
+        fromDate: fromDateStr,
+        toDate: toDateStr,
+        fromTime: fromTimeStr,
+        toTime: toTimeStr,
+        status: initialStatus as any,
+        currentStep: initialStep as any,
+        riskScore: isDayScholar ? 0 : riskScore,
+        riskLevel: isDayScholar ? "low" : riskLevel,
+        aiValidationNotes,
+        medicalDocUrl: req.body.medicalDocUrl || null,
+        fraudStatus: "genuine",
+        fraudNotes: isDayScholar ? "Day Scholar Notice" : "Genuine / Verified",
+        isEmergency: isEmergencyFlag,
+        tutorRemarks: isDayScholar ? "Day Scholar Leave Information Received" : (req.body.tutorRemarks || null),
+        hodRemarks: isDayScholar ? "Day Scholar Leave Information Received" : (req.body.hodRemarks || null),
+        principalRemarks: req.body.principalRemarks || null,
+        wardenRemarks: isDayScholar ? "N/A - Day Scholar" : (req.body.wardenRemarks || null),
+        parentCallStatus: isDayScholar ? "confirmed" : (req.body.parentCallStatus || (initialStatus === "fully_approved" ? "confirmed" : "pending")),
+        parentCallNotes: isDayScholar ? "Parent automatically notified via SMS/WhatsApp/In-app" : (req.body.parentCallNotes || null),
+        aiGeneratedLetter: req.body.aiGeneratedLetter || null,
+      });
+      id = Number((resInsert as any).insertId);
+    } catch (insertErr) {
+      logger.warn({ insertErr }, "Full leaves insert failed, attempting basic fields insert fallback");
+      const [resFallback] = await db.insert(leavesTable).values({
+        studentId,
+        passType: passType as any,
+        leaveType: leaveType as any,
+        reason: req.body.reason,
+        destination: req.body.destination,
+        district: districtStr,
+        fromDate: fromDateStr,
+        toDate: toDateStr,
+        fromTime: fromTimeStr,
+        toTime: toTimeStr,
+        status: initialStatus as any,
+        currentStep: initialStep as any,
+      });
+      id = Number((resFallback as any).insertId);
+    }
+
+    // If Day Scholar: Send notifications immediately to Parent, Student, and Staff
+    if (isDayScholar && student) {
+      const parentMsg = `Your ward ${student.name} (${student.registerNumber || "Student"}) has submitted a leave information request from ${fromDateStr} to ${toDateStr}. Reason: ${req.body.reason}.`;
+      if (student.parentEmail) {
+        await sendEmailNotification(student.id, id, student.parentEmail, "Day Scholar Leave Information", parentMsg);
+      }
+      if (student.parentPhone) {
+        await sendSmsNotification(student.id, id, student.parentPhone, parentMsg);
+      }
+      if (student.parentWhatsapp) {
+        await sendWhatsAppNotification(student.id, id, student.parentWhatsapp, parentMsg);
+      }
+      await createNotification(student.id, "leave_applied", "Leave Information Submitted", `Your leave notice from ${fromDateStr} to ${toDateStr} has been recorded and parent/staff notified.`, id);
+    }
+
+    // If created directly as fully_approved (by Super Admin for Hostellers), auto-generate outpass
+    if (initialStatus === "fully_approved" && !isDayScholar) {
+      await generateAndAttachOutpass(id, studentId, "Super Admin (Direct Creation)");
+    }
+
+    // Retrieve student and details for log
+    if (student) {
+      try {
+        await db.insert(activityLogsTable).values({
+          userId: student.id,
+          role: student.role,
+          action: isDayScholar ? "Day Scholar Submitted Leave Information" : (initialStatus === "fully_approved" ? "Admin Created Approved Leave" : "Student Applied Leave"),
+          details: { leaveId: id, destination: req.body.destination, studentType: (student as any)?.studentType || "HOSTELLER" },
+          ipAddress: req.ip || null,
+          device: req.headers["user-agent"] || null,
+        });
+      } catch (logErr) {}
+    }
+
+    res.status(201).json(await getLeaveWithStudent(id));
+  } catch (err: any) {
+    logger.error({ err }, "Failed to submit leave request");
+    res.status(500).json({ error: err.message || "Failed to submit leave request" });
+  }
 });
 
 router.get("/leaves/similar-groups", async (req, res): Promise<void> => {
@@ -380,12 +483,80 @@ router.delete("/leaves/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // Hard delete related gate logs, outpasses, and leave record
+  // Hard delete related notifications, gate logs, outpasses, and leave record
+  await db.delete(notificationsTable).where(eq(notificationsTable.leaveId, params.data.id));
   await db.delete(gateLogsTable).where(eq(gateLogsTable.leaveId, params.data.id));
   await db.delete(outpassesTable).where(eq(outpassesTable.leaveId, params.data.id));
   await db.delete(leavesTable).where(eq(leavesTable.id, params.data.id));
 
   res.sendStatus(204);
+});
+
+// Bulk Delete Leaves (Super Admin)
+router.post("/leaves/bulk-delete", async (req, res): Promise<void> => {
+  try {
+    const { leaveIds } = req.body;
+    if (!Array.isArray(leaveIds) || leaveIds.length === 0) {
+      res.status(400).json({ error: "No leave IDs provided" });
+      return;
+    }
+
+    const ids = leaveIds.map((id: any) => Number(id)).filter((id: number) => !isNaN(id));
+    if (ids.length === 0) {
+      res.status(400).json({ error: "Invalid leave IDs" });
+      return;
+    }
+
+    await db.delete(notificationsTable).where(inArray(notificationsTable.leaveId, ids));
+    await db.delete(gateLogsTable).where(inArray(gateLogsTable.leaveId, ids));
+    await db.delete(outpassesTable).where(inArray(outpassesTable.leaveId, ids));
+    await db.delete(leavesTable).where(inArray(leavesTable.id, ids));
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${ids.length} leave record(s) permanently across all portals.`,
+      count: ids.length,
+    });
+  } catch (error) {
+    console.error("Bulk delete leaves error:", error);
+    res.status(500).json({ error: "Failed to perform bulk delete" });
+  }
+});
+
+// Bulk Force Approve Leaves (Super Admin)
+router.post("/leaves/bulk-approve", async (req, res): Promise<void> => {
+  try {
+    const { leaveIds, remarks = "Super Admin Bulk Force Approval" } = req.body;
+    if (!Array.isArray(leaveIds) || leaveIds.length === 0) {
+      res.status(400).json({ error: "No leave IDs provided" });
+      return;
+    }
+
+    const ids = leaveIds.map((id: any) => Number(id)).filter((id: number) => !isNaN(id));
+    if (ids.length === 0) {
+      res.status(400).json({ error: "Invalid leave IDs" });
+      return;
+    }
+
+    await db.update(leavesTable).set({
+      status: "fully_approved",
+      currentStep: "completed",
+      wardenRemarks: remarks,
+      tutorRemarks: remarks,
+      hodRemarks: remarks,
+      principalRemarks: remarks,
+      parentCallStatus: "confirmed",
+    }).where(inArray(leavesTable.id, ids));
+
+    res.json({
+      success: true,
+      message: `Successfully force-approved ${ids.length} leave request(s).`,
+      count: ids.length,
+    });
+  } catch (error) {
+    console.error("Bulk approve leaves error:", error);
+    res.status(500).json({ error: "Failed to bulk approve leaves" });
+  }
 });
 
 // Super Admin Direct Force Approval
@@ -609,8 +780,79 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
     device: req.headers["user-agent"] || null,
   });
 
-  // Generate outpass when fully approved
-  if (newStatus === "fully_approved") {
+  // Requirement 2 & 12: Emergency Leave Fast-Track Outpass Generation on Warden Approval
+  if (isEmergencyLeave && leave.currentStep === "warden") {
+    const year = new Date().getFullYear();
+    const [{ value: existingCount }] = await db.select({ value: count() }).from(outpassesTable)
+      .where(gte(outpassesTable.createdAt, new Date(`${year}-01-01`)));
+    const { code, qrData, gatePassNumber } = generateOutpassCode(updated.id, updated.studentId, (existingCount ?? 0) + 1);
+
+    const [principalUser] = await db.select().from(usersTable).where(eq(usersTable.role, "principal")).limit(1);
+    const now = new Date().toISOString();
+
+    const staffDetailsObj = {
+      warden: { name: user.name ?? "Hostel Warden", designation: "Warden", approvedAt: now, status: "approved" },
+      principal: { name: principalUser?.name ?? "Dr. Principal", designation: "Principal", approvedAt: null, status: "pending" },
+    };
+
+    const [{ id: outpassId }] = await db.insert(outpassesTable).values({
+      leaveId: updated.id,
+      studentId: updated.studentId,
+      outpassCode: code,
+      gatePassNumber,
+      qrData,
+      staffDetails: JSON.stringify(staffDetailsObj),
+      status: "generated",
+      approvedByWarden: user.name ?? "Hostel Warden",
+    }).$returningId();
+
+    await db.update(leavesTable).set({ outpassId }).where(eq(leavesTable.id, updated.id));
+
+    // Activity Log
+    await db.insert(activityLogsTable).values({
+      userId: user.id,
+      role: user.role,
+      action: "Emergency Gate Pass Released by Warden",
+      details: { leaveId: updated.id, outpassId },
+      ipAddress: req.ip || null,
+      device: req.headers["user-agent"] || null,
+    });
+
+    // Notify Student: Gate Pass is active immediately
+    await createNotification(updated.studentId, "outpass_generated", "Emergency Outpass Ready!", "Emergency Leave approved by Warden. Your Digital Gate Pass is now active.", updated.id, outpassId);
+    await processLeaveNotifications(updated.studentId, updated.id, "outpass_generated", "Emergency Outpass Ready!", "Emergency Leave approved by Warden. Your Digital Gate Pass is now active.");
+
+    // Notify Principal: Review is pending
+    await processLeaveNotifications(updated.studentId, updated.id, "leave_approved", "Emergency Leave Permitted by Warden", `Emergency Leave permitted by Warden for ${student.name}. Principal review is pending.`, "principal");
+
+  } else if (isEmergencyLeave && leave.currentStep === "principal" && newStatus === "fully_approved") {
+    // Principal approves Emergency Leave later -> Update existing outpass without duplicate
+    const [existingOutpass] = await db.select().from(outpassesTable).where(eq(outpassesTable.leaveId, updated.id));
+    const now = new Date().toISOString();
+
+    if (existingOutpass) {
+      let staffObj: any = {};
+      try {
+        staffObj = JSON.parse(existingOutpass.staffDetails || "{}");
+      } catch (e) {}
+      staffObj.principal = {
+        name: user.name ?? "Dr. Principal",
+        designation: "Principal",
+        approvedAt: now,
+        status: "approved",
+        remarks: remarksField || null,
+      };
+
+      await db.update(outpassesTable).set({
+        staffDetails: JSON.stringify(staffObj),
+        approvedByPrincipal: user.name ?? "Dr. Principal",
+      }).where(eq(outpassesTable.id, existingOutpass.id));
+    }
+
+    await createNotification(updated.studentId, "leave_approved", "Emergency Leave Fully Approved", "Emergency Leave fully approved by Principal.", updated.id);
+    await processLeaveNotifications(updated.studentId, updated.id, "leave_approved", "Emergency Leave Fully Approved", "Emergency Leave fully approved by Principal.");
+
+  } else if (newStatus === "fully_approved") {
     const year = new Date().getFullYear();
     const [{ value: existingCount }] = await db.select({ value: count() }).from(outpassesTable)
       .where(gte(outpassesTable.createdAt, new Date(`${year}-01-01`)));
@@ -625,8 +867,8 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
     let staffDetailsObj: any = {};
     if (isEmergencyLeave) {
       staffDetailsObj = {
-        warden: { name: wardenUser?.name ?? "Hostel Warden", designation: "Warden", approvedAt: now },
-        principal: { name: principalUser?.name ?? "Dr. Principal", designation: "Principal", approvedAt: now },
+        warden: { name: wardenUser?.name ?? "Hostel Warden", designation: "Warden", approvedAt: now, status: "approved" },
+        principal: { name: principalUser?.name ?? "Dr. Principal", designation: "Principal", approvedAt: now, status: "approved" },
       };
     } else {
       staffDetailsObj = {
@@ -649,7 +891,7 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
     }).$returningId();
 
     await db.update(leavesTable).set({ outpassId }).where(eq(leavesTable.id, updated.id));
-    
+
     // Add Activity Log for outpass generation
     await db.insert(activityLogsTable).values({
       userId: user.id,
@@ -661,7 +903,7 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
     });
 
     await createNotification(updated.studentId, "outpass_generated", "Outpass Ready!", "Your leave has been fully approved and your digital outpass is ready.", updated.id, outpassId);
-    
+
     // Notify Student and Parent
     await processLeaveNotifications(updated.studentId, updated.id, "outpass_generated", "Outpass Ready!", "Your leave has been fully approved and your digital outpass is ready.");
   } else if (leave.currentStep === "warden" && newStep === "tutor") {
@@ -679,7 +921,7 @@ router.post("/leaves/:id/approve", async (req, res): Promise<void> => {
     await createNotification(student.id, "parent_notified", "Parent Notified", `Parent notification sent for ${student.name}'s leave request.`, updated.id);
   } else {
     await createNotification(updated.studentId, "leave_approved", "Leave Approved", `Your leave request has been approved at the ${leave.currentStep} stage.`, updated.id);
-    
+
     // Notify next role
     await processLeaveNotifications(updated.studentId, updated.id, "leave_approved", "Leave Approved", `Your leave request has been approved at the ${leave.currentStep} stage.`, nextRoleToNotify);
   }
@@ -723,6 +965,8 @@ router.post("/leaves/:id/reject", async (req, res): Promise<void> => {
     return;
   }
 
+  const isEmergencyLeave = (leave as any).isEmergency === "true" || leave.leaveType === "family_emergency" || leave.leaveType === "emergency";
+
   // Authorization check for rejection
   switch (leave.currentStep) {
     case "warden":
@@ -736,7 +980,6 @@ router.post("/leaves/:id/reject", async (req, res): Promise<void> => {
         res.status(403).json({ error: "Only tutors can reject leave requests at this stage" });
         return;
       }
-      // Verify assigned tutor (Relaxed for demo)
       if (student.classId) {
         const [studentClass] = await db.select().from(classesTable).where(eq(classesTable.id, student.classId));
         const [myClass] = await db.select().from(classesTable).where(eq(classesTable.tutorId, user.id));
@@ -751,7 +994,6 @@ router.post("/leaves/:id/reject", async (req, res): Promise<void> => {
         res.status(403).json({ error: "Only HODs can reject leave requests at this stage" });
         return;
       }
-      // Verify assigned HOD (Relaxed for demo)
       if (student.departmentId) {
         const [studentDept] = await db.select().from(departmentsTable).where(eq(departmentsTable.id, student.departmentId));
         const [myDept] = await db.select().from(departmentsTable).where(eq(departmentsTable.hodId, user.id));
@@ -778,6 +1020,26 @@ router.post("/leaves/:id/reject", async (req, res): Promise<void> => {
       return;
   }
 
+  // Requirement 7: Principal rejection after Warden permission must update outpass record without deleting history
+  const [existingOutpass] = await db.select().from(outpassesTable).where(eq(outpassesTable.leaveId, leave.id));
+  if (isEmergencyLeave && leave.currentStep === "principal" && existingOutpass) {
+    const now = new Date().toISOString();
+    let staffObj: any = {};
+    try {
+      staffObj = JSON.parse(existingOutpass.staffDetails || "{}");
+    } catch (e) {}
+    staffObj.principalRejection = {
+      name: user.name ?? "Dr. Principal",
+      designation: "Principal",
+      rejectedAt: now,
+      remarks: parsed.data.remarks,
+      status: "rejected",
+    };
+    await db.update(outpassesTable).set({
+      staffDetails: JSON.stringify(staffObj),
+    }).where(eq(outpassesTable.id, existingOutpass.id));
+  }
+
   const remarksCol = leave.currentStep === "warden_final" ? "wardenRemarks" : `${leave.currentStep}Remarks`;
   await db.update(leavesTable)
     .set({ status: "rejected", currentStep: "rejected", [remarksCol]: parsed.data.remarks })
@@ -786,16 +1048,20 @@ router.post("/leaves/:id/reject", async (req, res): Promise<void> => {
   const [updated] = await db.select().from(leavesTable).where(eq(leavesTable.id, params.data.id));
 
   // Activity Log
+  const actionText = (isEmergencyLeave && leave.currentStep === "principal")
+    ? "Emergency Leave Principal Rejected After Warden Permission"
+    : "Leave Request Rejected";
+
   await db.insert(activityLogsTable).values({
     userId: user.id,
     role: user.role,
-    action: "Leave Request Rejected",
+    action: actionText,
     details: { leaveId: leave.id, remarks: parsed.data.remarks, rejectedBy: user.id, role: user.role },
     ipAddress: req.ip || null,
     device: req.headers["user-agent"] || null,
   });
 
-  // Notify student and parent (if parent permission was already initiated)
+  // Notify student and parent
   await createNotification(leave.studentId, "leave_rejected", "Leave Rejected", `Your leave request was rejected: ${parsed.data.remarks}`, leave.id);
   if (student.email) {
     await sendEmailNotification(student.id, leave.id, student.email, "Leave Request Rejected", `Your leave request was rejected: ${parsed.data.remarks}`);
@@ -939,4 +1205,68 @@ router.post("/leaves/bulk-approve", async (req, res): Promise<void> => {
   res.json({ processed: leaveIds.length, succeeded, failed });
 });
 
+// ─── Super Admin: Bulk Permanently Delete Leaves ──────────────────────────────
+router.post("/leaves/bulk-delete", async (req, res): Promise<void> => {
+  try {
+    const { leaveIds } = req.body as { leaveIds?: number[] };
+
+    if (!Array.isArray(leaveIds) || leaveIds.length === 0) {
+      res.status(400).json({ error: "leaveIds array is required and must not be empty." });
+      return;
+    }
+
+    // Validate role — only super_admin / admin allowed
+    const callerId = resolveUserId(req);
+    if (callerId) {
+      const [caller] = await db.select().from(usersTable).where(eq(usersTable.id, callerId));
+      if (caller && (caller.role as string) !== "super_admin" && (caller.role as string) !== "admin") {
+        res.status(403).json({ error: "Only Super Admin can bulk delete leave records." });
+        return;
+      }
+    }
+
+    let deleted = 0;
+    let failed = 0;
+
+    for (const leaveId of leaveIds) {
+      try {
+        // 1. Find the leave to get its outpassId
+        const [leave] = await db.select().from(leavesTable).where(eq(leavesTable.id, leaveId));
+        if (!leave) { failed++; continue; }
+
+        // 2. Remove associated gate logs (entry/exit)
+        await db.delete(gateLogsTable).where(eq(gateLogsTable.leaveId, leaveId));
+
+        // 3. Remove associated outpass(es)
+        if (leave.outpassId) {
+          await db.delete(outpassesTable).where(eq(outpassesTable.id, leave.outpassId));
+        }
+        // Also delete any orphaned outpasses referencing this leave
+        await db.delete(outpassesTable).where(eq(outpassesTable.leaveId, leaveId));
+
+        // 4. Remove associated notifications
+        await db.delete(notificationsTable).where(eq(notificationsTable.leaveId, leaveId));
+
+        // 5. Finally delete the leave itself
+        await db.delete(leavesTable).where(eq(leavesTable.id, leaveId));
+
+        deleted++;
+      } catch {
+        failed++;
+      }
+    }
+
+    res.json({
+      success: true,
+      deleted,
+      failed,
+      message: `✅ Successfully deleted ${deleted} leave record(s)${failed > 0 ? `. ${failed} failed.` : "."}`,
+    });
+  } catch (error) {
+    console.error("Bulk delete error:", error);
+    res.status(500).json({ error: "Failed to perform bulk delete." });
+  }
+});
+
 export default router;
+

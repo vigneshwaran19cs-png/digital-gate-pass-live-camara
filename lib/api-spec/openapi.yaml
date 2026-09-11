@@ -825,7 +825,7 @@ components:
           type: string
         role:
           type: string
-          enum: [student, tutor, hod, principal, warden, security, super_admin]
+          enum: [student, tutor, hod, principal, warden, security, super_admin, parent]
         registerNumber:
           type: ["string", "null"]
         departmentId:
@@ -849,6 +849,10 @@ components:
         parentEmail:
           type: ["string", "null"]
         address:
+          type: ["string", "null"]
+        district:
+          type: ["string", "null"]
+        outingDestination:
           type: ["string", "null"]
         designation:
           type: ["string", "null"]
@@ -871,7 +875,7 @@ components:
           minLength: 6
         role:
           type: string
-          enum: [student, tutor, hod, principal, warden, security, super_admin]
+          enum: [student, tutor, hod, principal, warden, security, super_admin, parent]
         registerNumber:
           type: string
         departmentId:
@@ -895,6 +899,10 @@ components:
         parentEmail:
           type: string
         address:
+          type: string
+        district:
+          type: string
+        outingDestination:
           type: string
         designation:
           type: string
@@ -926,6 +934,10 @@ components:
           type: string
         address:
           type: string
+        district:
+          type: string
+        outingDestination:
+          type: string
         designation:
           type: string
 
@@ -954,8 +966,14 @@ components:
         toDate:
           type: string
           format: date
+        fromTime:
+          type: ["string", "null"]
+        toTime:
+          type: ["string", "null"]
         destination:
           type: string
+        district:
+          type: ["string", "null"]
         status:
           type: string
           enum: [pending, warden_approved, tutor_approved, hod_approved, principal_approved, fully_approved, rejected, cancelled]
@@ -1034,9 +1052,15 @@ components:
         toDate:
           type: string
           format: date
+        fromTime:
+          type: string
+        toTime:
+          type: string
         destination:
           type: string
           minLength: 1
+        district:
+          type: string
 
     LeaveUpdate:
       type: object
@@ -1049,7 +1073,13 @@ components:
         toDate:
           type: string
           format: date
+        fromTime:
+          type: string
+        toTime:
+          type: string
         destination:
+          type: string
+        district:
           type: string
 
     ApprovalAction:

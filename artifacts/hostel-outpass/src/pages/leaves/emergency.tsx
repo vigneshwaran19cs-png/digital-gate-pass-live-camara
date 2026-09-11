@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,17 +8,35 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, ArrowLeft, ShieldAlert, Upload, Send, CheckCircle2 } from "lucide-react";
 import { useCreateLeave } from "@workspace/api-client-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { DateTimePickerSection } from "@/components/DateTimePickerSection";
+import { DistrictLocationSelector } from "@/components/DistrictLocationSelector";
 
 export default function EmergencyLeavePage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createLeave = useCreateLeave();
+  const { user } = useAuth();
 
   const [reason, setReason] = useState("");
   const [fromDate, setFromDate] = useState("");
+  const [fromTime, setFromTime] = useState("12:00");
   const [toDate, setToDate] = useState("");
-  const [destination, setDestination] = useState("");
+  const [toTime, setToTime] = useState("18:00");
+  const [destination, setDestination] = useState((user as any)?.address || "");
+  const [district, setDistrict] = useState((user as any)?.district || "");
   const [docFile, setDocFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    const userAddress = (user as any)?.address;
+    if (userAddress && !destination) {
+      setDestination(userAddress);
+    }
+    const userDistrict = (user as any)?.district;
+    if (userDistrict && !district) {
+      setDistrict(userDistrict);
+    }
+  }, [user]);
 
   const handleSubmitEmergency = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,8 +52,11 @@ export default function EmergencyLeavePage() {
           leaveType: "family_emergency" as any,
           reason: `[EMERGENCY LEAVE] ${reason}`,
           fromDate,
+          fromTime,
           toDate,
+          toTime,
           destination,
+          district,
           isEmergency: true,
           medicalDocUrl: docFile ? docFile.name : null,
         } as any,
@@ -44,7 +65,7 @@ export default function EmergencyLeavePage() {
         onSuccess: () => {
           toast({
             title: "🚨 Emergency Leave Submitted",
-            description: "Your request has been routed directly to Warden & Principal for priority approval.",
+            description: "Emergency Leave can be permitted by the Warden immediately. Principal approval may be completed later.",
           });
           setLocation("/leaves");
         },
@@ -80,6 +101,14 @@ export default function EmergencyLeavePage() {
 
         <CardContent className="pt-6">
           <form onSubmit={handleSubmitEmergency} className="space-y-4">
+            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-200 text-xs text-red-900 flex items-start gap-2.5 shadow-sm">
+              <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-semibold block text-red-950 mb-0.5">⚡ Fast-Track Emergency Leave Notice</strong>
+                Emergency Leave can be permitted by the Warden immediately. Principal approval may be completed later.
+              </div>
+            </div>
+
             <div>
               <label className="text-sm font-semibold">Emergency Reason / Details *</label>
               <Textarea
@@ -91,43 +120,31 @@ export default function EmergencyLeavePage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-semibold">From Date *</label>
-                <Input
-                  type="date"
-                  className="mt-1"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm font-semibold">To Date *</label>
-                <Input
-                  type="date"
-                  className="mt-1"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+            <DateTimePickerSection
+              passType="leave"
+              fromDate={fromDate}
+              onFromDateChange={setFromDate}
+              fromTime={fromTime}
+              onFromTimeChange={setFromTime}
+              toDate={toDate}
+              onToDateChange={setToDate}
+              toTime={toTime}
+              onToTimeChange={setToTime}
+            />
 
-            <div>
-              <label className="text-sm font-semibold">Destination Address / Hospital *</label>
-              <Input
-                placeholder="e.g. City Government Hospital, Salem"
-                className="mt-1"
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                required
-              />
-            </div>
+            <DistrictLocationSelector
+              passType="leave"
+              destination={destination}
+              onDestinationChange={setDestination}
+              district={district}
+              onDistrictChange={setDistrict}
+              savedNativePlace={(user as any)?.address}
+              savedDistrict={(user as any)?.district}
+            />
 
             <div>
               <label className="text-sm font-semibold">Supporting Emergency Document (Optional)</label>
-              <div className="border-2 border-dashed rounded-lg p-4 text-center mt-1 bg-white hover:bg-slate-50 transition-colors">
+              <div className="border-2 border-dashed border-red-200 rounded-lg p-4 text-center mt-1 bg-white hover:bg-rose-50/50 transition-colors">
                 <Upload className="w-6 h-6 text-rose-500 mx-auto mb-1" />
                 <div className="text-xs font-semibold text-slate-700">Attach Medical Record / Emergency Proof</div>
                 <Input

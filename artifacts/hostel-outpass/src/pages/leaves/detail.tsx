@@ -317,19 +317,23 @@ export default function LeaveDetailPage() {
 
               <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border">
                 <div>
-                  <span className="text-xs text-muted-foreground font-medium block">From Date & Time</span>
-                  <p className="font-bold text-slate-800 dark:text-slate-200">{formatDateTime(leave.fromDate)}</p>
+                  <span className="text-xs text-muted-foreground font-medium block">Departure Date & Out Time</span>
+                  <p className="font-bold text-slate-800 dark:text-slate-200">
+                    {leave.fromDate} {leave.fromTime ? `at ${leave.fromTime}` : ""}
+                  </p>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground font-medium block">To Date & Time</span>
-                  <p className="font-bold text-slate-800 dark:text-slate-200">{formatDateTime(leave.toDate)}</p>
+                  <span className="text-xs text-muted-foreground font-medium block">Expected Return Date & In Time</span>
+                  <p className="font-bold text-slate-800 dark:text-slate-200">
+                    {leave.toDate} {leave.toTime ? `at ${leave.toTime}` : ""}
+                  </p>
                 </div>
               </div>
 
               <div>
-                <span className="text-xs text-muted-foreground font-medium block mb-1">Destination</span>
+                <span className="text-xs text-muted-foreground font-medium block mb-1">Destination & District</span>
                 <p className="font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 p-2.5 rounded-lg border">
-                  {leave.destination}
+                  {leave.destination} {leave.district ? `(${leave.district} District)` : ""}
                 </p>
               </div>
 
@@ -437,10 +441,58 @@ export default function LeaveDetailPage() {
                   <div className="p-3 border rounded-xl bg-slate-50 dark:bg-slate-900 text-center">
                     <div className="text-[10px] uppercase font-bold text-slate-500">Principal</div>
                     <div className="font-bold text-xs text-blue-900 dark:text-blue-300 mt-1">Dr. M. Principal</div>
-                    <div className="text-[10px] text-emerald-600 font-semibold mt-1">Approved ✓</div>
+                    <div className={`text-[10px] font-semibold mt-1 ${
+                      leave.status === "fully_approved" ? "text-emerald-600" : leave.status === "rejected" ? "text-red-600" : "text-amber-600"
+                    }`}>
+                      {leave.status === "fully_approved" ? "Approved ✓" : leave.status === "rejected" ? "Rejected" : "Pending Review"}
+                    </div>
                     <div className="text-[9px] text-muted-foreground mt-0.5">{formatDateTime((leave as any).updatedAt || leave.createdAt)}</div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Requirement 8: Approval Timeline for Emergency Leave */}
+          {isEmergency && (
+            <Card className="glass-card shadow-md border-red-200 bg-red-50/20">
+              <CardHeader className="border-b pb-3">
+                <CardTitle className="text-base font-bold text-red-950 dark:text-red-100 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-red-600" /> Emergency Fast-Track Timeline
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Complete audit timeline with exact timestamps for every emergency leave step
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-2">
+                {[
+                  { step: "Student Applied", done: true, time: formatDateTime(leave.createdAt) },
+                  { step: "Warden Approved", done: leave.status !== "pending", time: leave.status !== "pending" ? formatDateTime((leave as any).updatedAt || leave.createdAt) : "Pending" },
+                  { step: "Emergency Permission Granted", done: !!leave.outpassId || leave.status !== "pending", time: leave.outpassId ? formatDateTime((leave as any).updatedAt || leave.createdAt) : "Pending" },
+                  { step: "Gate Pass Generated", done: !!leave.outpassId || leave.status !== "pending", time: leave.outpassId ? formatDateTime((leave as any).updatedAt || leave.createdAt) : "Pending" },
+                  { step: "Student Exit Recorded", done: false, time: "Awaiting Gate Exit Scan" },
+                  { step: "Student Entry Recorded", done: false, time: "Awaiting Gate Entry Scan" },
+                  { step: "Principal Review Pending", done: leave.currentStep === "principal" && leave.status !== "fully_approved" && leave.status !== "rejected", time: leave.currentStep === "principal" ? formatDateTime((leave as any).updatedAt || leave.createdAt) : "Pending" },
+                  { 
+                    step: leave.status === "rejected" ? "Principal Rejected After Warden Permission" : "Principal Approved", 
+                    done: leave.status === "fully_approved" || leave.status === "rejected", 
+                    time: (leave.status === "fully_approved" || leave.status === "rejected") ? formatDateTime((leave as any).updatedAt || leave.createdAt) : "Pending Review" 
+                  },
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border bg-white dark:bg-slate-900 text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                        item.done ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
+                      }`}>
+                        {item.done ? "✓" : idx + 1}
+                      </div>
+                      <span className={`font-semibold ${item.done ? "text-slate-900 dark:text-slate-100" : "text-slate-400"}`}>
+                        {item.step}
+                      </span>
+                    </div>
+                    <span className="font-mono text-[11px] text-muted-foreground">{item.time}</span>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}

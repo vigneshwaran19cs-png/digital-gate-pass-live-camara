@@ -229,3 +229,85 @@ export async function processLeaveNotifications(
     }
   }
 }
+
+/**
+ * Notifies ALL stakeholders when a student exits campus / goes home ("oorukku poittana").
+ * Roles notified: Student, Parent, Tutor, HOD, Principal, Warden, Super Admin.
+ * EXCLUDES: Security / Watchman ("watchman anna na thavira").
+ */
+export async function notifyStudentExit(
+  studentId: number,
+  leaveId?: number | null,
+  gateLocation: string = "Main Gate 1"
+) {
+  try {
+    const [student] = await db.select().from(usersTable).where(eq(usersTable.id, studentId));
+    if (!student) return;
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const title = `🏡 Student Departed / Left for Home (Oorukku Poiyacha)`;
+    const message = `Student ${student.name} (${student.registerNumber || "Reg No N/A"}) has checked out and departed campus via ${gateLocation} at ${timeStr}.`;
+
+    // Fetch all users
+    const allUsers = await db.select().from(usersTable);
+
+    // Filter: EXCLUDE Watchman / Security role ("watchman anna na thavira")
+    const eligibleUsers = allUsers.filter((u) => u.role !== "security");
+
+    for (const user of eligibleUsers) {
+      let shouldNotify = false;
+
+      if (user.id === student.id) {
+        shouldNotify = true; // Student
+      } else if (user.role === "parent" && (user.email === student.parentEmail || user.phone === student.parentPhone || user.phone === student.parentWhatsapp)) {
+        shouldNotify = true; // Parent account
+      } else if (user.role === "tutor") {
+        if (student.classId) {
+          const [cls] = await db.select().from(classesTable).where(eq(classesTable.id, student.classId));
+          if (cls && cls.tutorId === user.id) shouldNotify = true;
+        } else {
+          shouldNotify = true;
+        }
+      } else if (user.role === "hod") {
+        if (student.departmentId) {
+          const [dept] = await db.select().from(departmentsTable).where(eq(departmentsTable.id, student.departmentId));
+          if (dept && dept.hodId === user.id) shouldNotify = true;
+        } else {
+          shouldNotify = true;
+        }
+      } else if (user.role === "warden" || user.role === "principal" || user.role === "super_admin") {
+        shouldNotify = true; // All wardens, principals, super admins informed
+      }
+
+      if (shouldNotify) {
+        await db.insert(notificationsTable).values({
+          userId: user.id,
+          type: "exit_recorded",
+          title,
+          message,
+          isRead: false,
+          leaveId: leaveId || undefined,
+        });
+
+        if (user.email) {
+          await sendEmailNotification(user.id, leaveId || undefined, user.email, title, message);
+        }
+      }
+    }
+
+    // Direct Parent Alerts (Email / SMS / WhatsApp)
+    if (student.parentEmail) {
+      await sendEmailNotification(student.id, leaveId || undefined, student.parentEmail, title, message);
+    }
+    if (student.parentPhone) {
+      await sendSmsNotification(student.id, leaveId || undefined, student.parentPhone, message);
+    }
+    if (student.parentWhatsapp) {
+      await sendWhatsAppNotification(student.id, leaveId || undefined, student.parentWhatsapp, message);
+    }
+  } catch (error) {
+    console.error("Failed to notify student exit:", error);
+  }
+}
+

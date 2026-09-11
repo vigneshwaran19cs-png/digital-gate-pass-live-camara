@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, or, ilike, and, SQL } from "drizzle-orm";
-import { db, outpassesTable, usersTable, leavesTable, notificationsTable } from "@workspace/db";
+import { db, outpassesTable, usersTable, leavesTable, notificationsTable, gateLogsTable } from "@workspace/db";
 import {
   ListOutpassesQueryParams,
   GetOutpassParams,
@@ -9,6 +9,7 @@ import {
   VerifyOutpassBody,
   RecordReturnParams,
 } from "@workspace/api-zod";
+import { notifyStudentExit } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -140,19 +141,8 @@ router.post("/outpasses/:id/verify", async (req, res): Promise<void> => {
     return;
   }
 
-  // Notify wardens
-  const wardens = await db.select().from(usersTable).where(eq(usersTable.role, "warden"));
-  const [student] = await db.select().from(usersTable).where(eq(usersTable.id, updated.studentId));
-  for (const w of wardens) {
-    await db.insert(notificationsTable).values({
-      userId: w.id,
-      type: "exit_recorded",
-      title: "Student Exit Recorded",
-      message: `${student?.name ?? "Student"} (${student?.registerNumber ?? ""}) exited at ${parsed.data.gateLocation}`,
-      isRead: false,
-      outpassId: updated.id,
-    });
-  }
+  // Notify all stakeholders (Student, Parent, Tutor, HOD, Warden, Principal, Super Admin) EXCEPT security (watchman)
+  await notifyStudentExit(updated.studentId, updated.leaveId, parsed.data.gateLocation || "Main Gate 1");
 
   res.json(await getFullOutpass(updated.id));
 });
@@ -202,7 +192,16 @@ router.delete("/outpasses/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  await db.delete(outpassesTable).where(eq(outpassesTable.id, id));
+  if (existing.leaveId) {
+    await db.delete(notificationsTable).where(eq(notificationsTable.leaveId, existing.leaveId));
+    await db.delete(gateLogsTable).where(eq(gateLogsTable.leaveId, existing.leaveId));
+    await db.delete(outpassesTable).where(eq(outpassesTable.leaveId, existing.leaveId));
+    await db.delete(leavesTable).where(eq(leavesTable.id, existing.leaveId));
+  } else {
+    await db.delete(notificationsTable).where(eq(notificationsTable.outpassId, id));
+    await db.delete(outpassesTable).where(eq(outpassesTable.id, id));
+  }
+
   res.sendStatus(204);
 });
 

@@ -9,3 +9,8 @@ export * from "./notification_logs";
 export * from "./hostel_blocks";
 export * from "./gate_logs";
 export * from "./location_logs";
+export * from "./journeys";
+export * from "./geofences";
+export * from "./location_events";
+export * from "./whatsapp_logs";
+export * from "./journey_settings";

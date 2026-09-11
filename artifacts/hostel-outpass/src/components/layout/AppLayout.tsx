@@ -11,13 +11,17 @@ import {
 import {
   Home, FileText, QrCode, Shield, Users, BarChart3, Bell,
   LogOut, Sun, Moon, GraduationCap, BookOpen, Building2, Crown,
-  ScanLine, Settings, Menu, X, ChevronRight, Camera, CheckCircle2, CreditCard
+  ScanLine, Settings, Menu, X, ChevronRight, Camera, CheckCircle2, CreditCard, Radio
 } from "lucide-react";
+
 import { useTheme } from "next-themes";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useListNotifications } from "@workspace/api-client-react";
+import { lookupRealStudentName } from "@/lib/student_candidates";
+import { StudentProfilePhoto } from "@/components/StudentProfilePhoto";
+import { DevToolsPanel } from "@/components/DevToolsPanel";
 
 const ROLE_CONFIG: Record<string, {
   label: string; color: string; bg: string; border: string;
@@ -47,9 +51,6 @@ function getNavItems(user: any) {
 
   const items = [{ icon: Home, label: "Dashboard", href: "/dashboard" }];
   if (role === "student") {
-    if (!isDayScholar) {
-      items.push({ icon: Camera, label: "Face Enrollment", href: "/enrollment" });
-    }
     items.push({ icon: GraduationCap, label: "My Profile", href: "/profile" });
   }
   if (["student", "warden", "tutor", "hod", "principal"].includes(role))
@@ -73,8 +74,11 @@ function getNavItems(user: any) {
     items.push({ icon: BookOpen, label: "Classes", href: "/admin/classes" });
     items.push({ icon: Bell, label: "Notification Logs", href: "/admin/notification-logs" });
   }
+  if (["warden", "tutor", "hod", "principal", "super_admin"].includes(role))
+    items.push({ icon: Radio, label: "WhatsApp Tracking", href: "/admin/journey-settings" });
   if (["warden", "hod", "principal", "super_admin"].includes(role))
     items.push({ icon: BarChart3, label: "Reports", href: "/reports" });
+
   items.push({ icon: Bell, label: "Notifications", href: "/notifications" });
   return items;
 }
@@ -86,6 +90,11 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   const roleConf = user ? (ROLE_CONFIG[user.role] ?? ROLE_CONFIG.student) : null;
   const RoleIcon = roleConf?.icon ?? GraduationCap;
   const navItems = user ? getNavItems(user) : [];
+  const displayName = user
+    ? ((user.role === "student" || user.registerNumber)
+        ? lookupRealStudentName(user.registerNumber || (user as any).barcode || user.email || user.name, user.name)
+        : user.name)
+    : "";
 
   return (
     <div className="flex flex-col h-full bg-[#f8fafc] text-slate-800 overflow-hidden">
@@ -124,11 +133,22 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
       {user && roleConf && (
         <div className="px-4 py-4 border-b border-slate-200/50">
           <div className={`flex items-center gap-3 p-3 rounded-xl ${roleConf.bg} border ${roleConf.border}`}>
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${roleConf.color} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-              <span className="text-white font-bold text-sm">{user.name.charAt(0)}</span>
-            </div>
+            {user.role === "student" || user.registerNumber ? (
+              <StudentProfilePhoto
+                photoUrl={user.photoUrl}
+                name={displayName}
+                registerNumber={user.registerNumber}
+                barcode={(user as any).barcode}
+                size="sm"
+                className="shrink-0 shadow-sm"
+              />
+            ) : (
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${roleConf.color} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                <span className="text-white font-bold text-sm">{displayName.charAt(0)}</span>
+              </div>
+            )}
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-800 truncate">{user.name}</p>
+              <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
               <span className={`text-[10px] font-semibold ${roleConf.text} uppercase tracking-wider`}>{roleConf.label}</span>
             </div>
           </div>
@@ -159,33 +179,11 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         })}
       </nav>
 
-      {/* Role switcher */}
+      {/* Sidebar Footer */}
       <div className="px-3 py-3 border-t border-slate-200/50">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="w-full justify-start text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-xs gap-2">
-              <Settings className="w-3.5 h-3.5" />
-              Switch Role (Demo)
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-48 bg-white border-slate-200 text-slate-800" side="right" align="end">
-            <DropdownMenuLabel className="text-slate-400 text-xs">Demo Roles</DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-slate-100" />
-            {Object.entries(ROLE_CONFIG).map(([role, conf]) => (
-              <DropdownMenuItem
-                key={role}
-                onClick={() => loginAs(role as any)}
-                className={cn("cursor-pointer text-slate-700 hover:text-slate-900 focus:text-slate-900 focus:bg-slate-50", user?.role === role && "font-semibold bg-slate-50")}
-              >
-                <conf.icon className={`w-3.5 h-3.5 mr-2 ${conf.text}`} />
-                {conf.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
         <Button
           variant="ghost"
-          className="w-full justify-start text-rose-500 hover:text-rose-600 hover:bg-rose-50 text-xs gap-2 mt-1"
+          className="w-full justify-start text-rose-500 hover:text-rose-600 hover:bg-rose-50 text-xs gap-2"
           onClick={logout}
         >
           <LogOut className="w-3.5 h-3.5" />
@@ -279,12 +277,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 rounded-full p-0">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                      {user.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
+                <Button variant="ghost" className="h-8 w-8 rounded-full p-0 overflow-hidden">
+                  {user.role === "student" || user.registerNumber ? (
+                    <StudentProfilePhoto
+                      photoUrl={user.photoUrl}
+                      name={user.name}
+                      registerNumber={user.registerNumber}
+                      barcode={(user as any).barcode}
+                      size="xs"
+                      className="w-8 h-8 rounded-full border-0 shadow-none"
+                    />
+                  ) : (
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                        {user.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -312,6 +321,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      <DevToolsPanel />
     </div>
   );
 }

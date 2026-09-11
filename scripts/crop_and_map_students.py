@@ -121,6 +121,7 @@ def main():
             photo_y2 = max(0, min(photo_y2, H))
 
             photo_crop = sheet_img.crop((photo_x1, photo_y1, photo_x2, photo_y2))
+            photo_crop = photo_crop.transpose(Image.ROTATE_90)
             
             # Target filenames:
             # 1. full reg number: e.g. 731225ME029.jpg

@@ -43,9 +43,9 @@ export function QRScanner({ isOpen, onClose, onScanSuccess }: QRScannerProps) {
         {
           fps: 15,
           qrbox: (width, height) => {
-            const minDim = Math.min(width, height);
-            const size = Math.floor(minDim * 0.7);
-            return { width: size, height: size };
+            const w = Math.floor(width * 0.85);
+            const h = Math.floor(height * 0.65);
+            return { width: Math.max(w, 240), height: Math.max(h, 180) };
           },
         },
         (decodedText) => {
